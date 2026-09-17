@@ -86,7 +86,7 @@ describe('mission creation from an analysis', () => {
   });
 
   it('persists the Decision Packet into the mission lifecycle record', () => {
-    const decisionPacket = createDecisionPacketFromAnalysis(analysis, new Date('2026-09-17T21:30:00.000Z'));
+    const decisionPacket = createDecisionPacketFromAnalysis(analysis, new Date('2026-09-17T21:30:00.000Z'), [analysis.valueSignals[0].selectionId]);
     const action = analysis.recommendedActions.find((a) => a.missionEligible)!;
     const mission = buildMissionFromAnalysis(analysis, action, { decisionPacket, idSuffix: 'PACKET' });
     expect(mission.decisionPacket?.id).toBe(decisionPacket.id);
