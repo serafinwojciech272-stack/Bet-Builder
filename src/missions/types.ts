@@ -1,4 +1,5 @@
 import type { DeterministicNumber, MarketKey } from '../domain/types';
+import type { DecisionPacket } from '../core/decisionPacket';
 
 export type MissionStatus =
   | 'DRAFT'
@@ -152,6 +153,8 @@ export interface Mission {
   createdAt: string;
   updatedAt: string;
   sourceAnalysisId: string;
+  /** Immutable Decision Center/Core Engine evidence carried through the mission lifecycle. */
+  decisionPacket?: DecisionPacket;
   target: MissionTarget;
   objective: string;
   rationale: string[];
