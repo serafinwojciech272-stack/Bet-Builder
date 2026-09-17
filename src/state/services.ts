@@ -22,6 +22,7 @@ export interface Workspace {
 
 export function createWorkspace(): Workspace {
   const dataRepository = new LiveSportsDataRepository();
+  const coreEngine = new MockCoreEngineClient({ stepDelayMs: 320 });
   let correlationCache: CorrelationContextEntry[] = [];
   let failNext = false;
   const correlationContext = () => correlationCache;
@@ -48,11 +49,10 @@ export function createWorkspace(): Workspace {
       return false;
     },
   });
-  const analysisService = new QuantAwareAnalysisService(baseAnalysisService, dataRepository);
+  const analysisService = new QuantAwareAnalysisService(baseAnalysisService, dataRepository, coreEngine);
 
   const analysisRepository = new InMemoryAnalysisRepository();
   const missionRepository = new InMemoryMissionRepository();
-  const coreEngine = new MockCoreEngineClient({ stepDelayMs: 320 });
   const missionService = new MissionService(missionRepository, analysisRepository, coreEngine);
 
   return {
@@ -65,6 +65,7 @@ export function createWorkspace(): Workspace {
     seedAnalysisService: (now: Date) => new QuantAwareAnalysisService(
       new MockAIAnalysisService(dataRepository, { latencyMs: 0, correlationContext, now: () => now }),
       dataRepository,
+      coreEngine,
     ),
     setFailNextAnalysis: (v: boolean) => { failNext = v; },
   };
