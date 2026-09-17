@@ -227,6 +227,7 @@ export function buildMissionFromAnalysis(
     createdAt: iso,
     updatedAt: iso,
     sourceAnalysisId: analysis.analysisId,
+    decisionPacket: options.decisionPacket,
     target,
     objective: action.title,
     rationale: [
