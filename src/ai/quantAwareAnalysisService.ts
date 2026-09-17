@@ -55,7 +55,10 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
 
     const quantDecision: QuantDecisionPacket = {
       generatedAt: decision.generatedAt,
-      marketSignals: decision.marketSignals.map((signal) => ({ ...signal })),
+      marketSignals: decision.marketSignals.map((signal) => ({
+        ...signal,
+        fairProbabilitySource: signal.fairProbabilitySource ?? 'MARKET_IMPLIED',
+      })),
       candidates: decision.candidates,
       portfolio: {
         selected: decision.portfolio.selected.map((candidate) => candidate.id),
