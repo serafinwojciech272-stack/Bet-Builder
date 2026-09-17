@@ -21,7 +21,13 @@ interface ApiEvent { id: string; sport_key: string; sport_title: string; commenc
 interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'the-odds-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; }
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
-function json(res: JsonResponse, status: number, body: unknown) { res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8'); res.end(JSON.stringify(body)); }
+function json(res: JsonResponse, status: number, body: unknown) {
+  res.status(status)
+    .setHeader('Content-Type', 'application/json; charset=utf-8')
+    .setHeader('Cache-Control', 's-maxage=45, stale-while-revalidate=30')
+    .setHeader('X-BadBuilder-Provider', 'the-odds-api');
+  res.end(JSON.stringify(body));
+}
 function queryValue(req: QueryRequest, key: string, fallback: string): string { const value = req.query?.[key]; return typeof value === 'string' ? value : fallback; }
 function polishDate(iso: string): string { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)); }
 function dateBoundsUtc(date: string) { const start = new Date(`${date}T00:00:00Z`); const end = new Date(`${date}T23:59:59Z`); return { from: new Date(start.getTime() - 3 * 60 * 60 * 1000).toISOString(), to: new Date(end.getTime() + 3 * 60 * 60 * 1000).toISOString() }; }
@@ -55,6 +61,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   } else sports = [requestedSport];
 
   const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; let droppedRecords = 0; let lastQuota: DatasetResponse['quota']; const bookmakerNames = new Map<string, string>();
+  const now = Date.now();
   for (const sportKey of sports) {
     const url = new URL(`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sportKey)}/odds/`);
     url.searchParams.set('apiKey', apiKey); url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
@@ -66,14 +73,16 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     for (const raw of rawEvents) {
       if (polishDate(raw.commence_time) !== requestedDate) continue;
       const sport = canonicalSport(raw.sport_key);
-      events.set(raw.id, { id: raw.id, sportKey: sport, league: { id: slug(raw.sport_key), name: raw.sport_title, sportKey: sport, country: 'International' }, homeTeam: team(raw.home_team), awayTeam: team(raw.away_team), startTime: raw.commence_time, status: 'scheduled', venue: '', monitored: true, liquidity: 0.8 });
+      const eventStart = new Date(raw.commence_time).getTime();
+      events.set(raw.id, { id: raw.id, sportKey: sport, league: { id: slug(raw.sport_key), name: raw.sport_title, sportKey: sport, country: 'International' }, homeTeam: team(raw.home_team), awayTeam: team(raw.away_team), startTime: raw.commence_time, status: eventStart <= now ? 'live' : 'scheduled', venue: '', monitored: true, liquidity: 0.8 });
       for (const bookmaker of raw.bookmakers ?? []) {
         bookmakerNames.set(bookmaker.key, bookmaker.title);
         for (const market of bookmaker.markets ?? []) {
           const canonicalMarket = MARKET_MAP[market.key]; if (!canonicalMarket) continue;
           const quotes: OddsQuote[] = market.outcomes.filter((o) => Number.isFinite(o.price) && o.price >= 1.01 && o.price <= 1000).map((o) => ({ selectionId: `${raw.id}:${market.key}:${slug(o.name)}${o.point === undefined ? '' : `:${o.point}`}`, label: o.point === undefined ? o.name : `${o.name} ${o.point > 0 ? '+' : ''}${o.point}`, decimalOdds: Number(o.price.toFixed(3)) }));
           if (!quotes.length) { droppedRecords += 1; continue; }
-          snapshots.push({ id: `${raw.id}:${bookmaker.key}:${market.key}:${market.last_update}`, eventId: raw.id, market: canonicalMarket, bookmaker: bookmaker.key as BookmakerId, capturedAt: market.last_update, quotes, feedLatencyMs: 0, provider: 'the-odds-api' });
+          const capturedAt = market.last_update || bookmaker.last_update;
+          snapshots.push({ id: `${raw.id}:${bookmaker.key}:${market.key}:${capturedAt}`, eventId: raw.id, market: canonicalMarket, bookmaker: bookmaker.key as BookmakerId, capturedAt, quotes, feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()), provider: 'the-odds-api' });
         }
       }
     }
