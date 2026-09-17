@@ -1,3 +1,3 @@
 # Vercel deployment trigger
 
-This file exists only to trigger a fresh production deployment from `main` after the Decision Center TypeScript fix.
+Fresh production deployment trigger after the MissionsPage JSX and TypeScript build repair.
