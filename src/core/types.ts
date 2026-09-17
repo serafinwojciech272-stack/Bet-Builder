@@ -33,6 +33,8 @@ export interface OptimizationRequest {
   maxSameEvent?: number;
   minQualityScore?: number;
   maxCombinedOdds?: number;
+  targetCombinedOdds?: number;
+  targetOddsTolerance?: number;
 }
 
 export interface OptimizationResult {
