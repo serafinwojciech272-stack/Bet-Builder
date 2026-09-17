@@ -2,4 +2,6 @@
 
 Bet Builder preview application with Core Engine decision analysis.
 
-<!-- Vercel rebuild trigger: 2026-09-17 -->
+## Build validation
+
+Decision Center target-odds optimization is type-safe and ready for Vercel production build validation.
