@@ -99,8 +99,9 @@ import { evaluateDecisionCenter } from './decisionCenter';
 export function createDecisionPacketFromAnalysis(
   analysis: AnalysisResponse,
   now = new Date(),
+  selectionIds?: string[],
 ): DecisionPacket {
-  const candidates = analysis.quantDecision?.candidates ?? analysis.valueSignals.map((signal) => ({
+  const candidateSource = analysis.quantDecision?.candidates ?? analysis.valueSignals.map((signal) => ({
     id: signal.selectionId,
     eventId: analysis.eventId,
     marketId: analysis.context.market,
@@ -109,6 +110,9 @@ export function createDecisionPacketFromAnalysis(
     qualityScore: analysis.dataQuality.score.value,
     correlationGroup: 'event:' + analysis.eventId,
   }));
+  const candidates = selectionIds?.length
+    ? candidateSource.filter((candidate) => selectionIds.includes(candidate.id))
+    : candidateSource;
   const marketSignals = analysis.quantDecision?.marketSignals ?? [];
   const selections = candidates.map((candidate): DecisionPacketSelection => {
     const signal = marketSignals.find((s) => s.selectionId === candidate.id);
