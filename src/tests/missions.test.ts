@@ -13,6 +13,7 @@ import { InMemoryAnalysisRepository } from '../ai/AnalysisRepository';
 import { MissionService } from '../missions/missionService';
 import { CoreEngineError, MockCoreEngineClient } from '../engine/CoreEngineClient';
 import type { AnalysisResponse } from '../ai/contracts';
+import { createDecisionPacketFromAnalysis } from '../core/decisionPacket';
 import type { Mission } from '../missions/types';
 
 let analysis: AnalysisResponse;
@@ -82,6 +83,16 @@ describe('mission creation from an analysis', () => {
     const trigger = mission.actions.find((a) => a.kind === 'EVALUATE_TRIGGER')!.trigger!;
     expect(trigger.threshold.value).toBe(4.5);
     expect(trigger.threshold.provenance).toBe('deterministic');
+  });
+
+  it('persists the Decision Packet into the mission lifecycle record', () => {
+    const decisionPacket = createDecisionPacketFromAnalysis(analysis, new Date('2026-09-17T21:30:00.000Z'));
+    const action = analysis.recommendedActions.find((a) => a.missionEligible)!;
+    const mission = buildMissionFromAnalysis(analysis, action, { decisionPacket, idSuffix: 'PACKET' });
+    expect(mission.decisionPacket?.id).toBe(decisionPacket.id);
+    expect(mission.decisionPacket?.status).toBe(decisionPacket.status);
+    expect(mission.decisionPacket?.source.selectionIds).toEqual(decisionPacket.source.selectionIds);
+    expect(mission.decisionPacket?.trace).toContain(`Decision Packet status: ${decisionPacket.status}.`);
   });
 
   it('records learning metadata from the analysis snapshot', () => {
