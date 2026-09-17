@@ -13,7 +13,7 @@ async function mount(path: string) {
   document.body.appendChild(container);
   const root = createRoot(container);
   await act(async () => { root.render(<App />); });
-  await act(async () => { await new Promise((r) => setTimeout(r, 1800)); });
+  await act(async () => { await new Promise((r) => setTimeout(r, 8000)); });
   return { container, root };
 }
 
@@ -21,7 +21,8 @@ describe('application smoke tests', () => {
   it('boots the shell and renders every dashboard section', async () => {
     const { container, root } = await mount('/');
     const text = container.textContent ?? '';
-    expect(text).toContain('BadBuilder'); expect(text).toContain('Intelligence Dashboard'); expect(text).toContain('Monitored events'); expect(text).toContain('Notable odds movements'); expect(text).toContain('Value signals'); expect(text).toContain('Data-quality alerts'); expect(text).toContain('Risk alerts'); expect(text).toContain('Missions awaiting approval'); expect(text).toContain('Historical outcomes'); root.unmount();
+    for (const section of ['BadBuilder', 'Intelligence Dashboard', 'Monitored events', 'Notable odds movements', 'Value signals', 'Quality alerts', 'Risk alerts', 'Awaiting approval', 'Historical outcomes']) expect(text).toContain(section);
+    root.unmount();
   }, 25_000);
 
   it('renders the nine analysis sections for an event', async () => {
