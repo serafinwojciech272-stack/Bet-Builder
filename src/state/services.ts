@@ -8,6 +8,7 @@ import { InMemoryAnalysisRepository, type AnalysisRepository } from '../ai/Analy
 import { InMemoryMissionRepository, type MissionRepository } from '../missions/MissionRepository';
 import { MissionService } from '../missions/missionService';
 import { MockCoreEngineClient, type CoreEngineClient } from '../engine/CoreEngineClient';
+import { InMemoryDecisionMemory, type DecisionMemoryRepository } from '../analytics/decisionMemory';
 
 export interface Workspace {
   dataRepository: SportsDataRepository;
@@ -15,6 +16,7 @@ export interface Workspace {
   analysisRepository: AnalysisRepository;
   missionRepository: MissionRepository;
   coreEngine: CoreEngineClient;
+  decisionMemory: DecisionMemoryRepository;
   missionService: MissionService;
   seedAnalysisService: (now: Date) => AIAnalysisService;
   setFailNextAnalysis: (v: boolean) => void;
@@ -23,6 +25,7 @@ export interface Workspace {
 export function createWorkspace(): Workspace {
   const dataRepository = new LiveSportsDataRepository();
   const coreEngine = new MockCoreEngineClient({ stepDelayMs: 320 });
+  const decisionMemory = new InMemoryDecisionMemory();
   let correlationCache: CorrelationContextEntry[] = [];
   let failNext = false;
   const correlationContext = () => correlationCache;
@@ -49,7 +52,7 @@ export function createWorkspace(): Workspace {
       return false;
     },
   });
-  const analysisService = new QuantAwareAnalysisService(baseAnalysisService, dataRepository, coreEngine);
+  const analysisService = new QuantAwareAnalysisService(baseAnalysisService, dataRepository, coreEngine, decisionMemory);
 
   const analysisRepository = new InMemoryAnalysisRepository();
   const missionRepository = new InMemoryMissionRepository();
@@ -61,11 +64,13 @@ export function createWorkspace(): Workspace {
     analysisRepository,
     missionRepository,
     coreEngine,
+    decisionMemory,
     missionService,
     seedAnalysisService: (now: Date) => new QuantAwareAnalysisService(
       new MockAIAnalysisService(dataRepository, { latencyMs: 0, correlationContext, now: () => now }),
       dataRepository,
       coreEngine,
+      decisionMemory,
     ),
     setFailNextAnalysis: (v: boolean) => { failNext = v; },
   };
