@@ -1,20 +1,24 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
   CheckCircle2,
+  Command,
+  Database,
   History,
   Info,
   LayoutDashboard,
   ListFilter,
   Radar,
   RefreshCw,
+  Search,
+  ShieldCheck,
   X,
   XCircle,
   Zap,
 } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
-import { Button, EngineBadge } from './ui';
+import { Button, Chip, EngineBadge } from './ui';
 import { cx, relativeTime } from '../lib/format';
 
 const NAV = [
@@ -28,190 +32,134 @@ function Toasts() {
   const { toasts, dismissToast } = useIntelligence();
   if (!toasts.length) return null;
   return (
-    <div
-      aria-live="polite"
-      aria-atomic="false"
-      className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[min(360px,calc(100vw-2rem))] flex-col gap-2"
-    >
+    <div aria-live="polite" aria-atomic="false" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2">
       {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={cx(
-            'rise pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 shadow-xl backdrop-blur',
-            t.tone === 'success'
-              ? 'border-positive/40 bg-positive/[0.1]'
-              : t.tone === 'error'
-                ? 'border-negative/40 bg-negative/[0.1]'
-                : 'border-ai/40 bg-ai/[0.08]',
-          )}
-        >
-          {t.tone === 'success' ? (
-            <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-positive" aria-hidden />
-          ) : t.tone === 'error' ? (
-            <XCircle size={15} className="mt-0.5 shrink-0 text-negative" aria-hidden />
-          ) : (
-            <Info size={15} className="mt-0.5 shrink-0 text-ai" aria-hidden />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-foreground">{t.title}</p>
-            {t.detail ? <p className="mt-0.5 break-words text-[11px] text-muted">{t.detail}</p> : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => dismissToast(t.id)}
-            aria-label={`Dismiss ${t.title}`}
-            className="text-faint hover:text-foreground"
-          >
-            <X size={13} aria-hidden />
-          </button>
+        <div key={t.id} className={cx('rise pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-2xl backdrop-blur-xl', t.tone === 'success' ? 'border-positive/40 bg-positive/[0.1]' : t.tone === 'error' ? 'border-negative/40 bg-negative/[0.1]' : 'border-ai/40 bg-ai/[0.08]')}>
+          {t.tone === 'success' ? <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-positive" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="mt-0.5 shrink-0 text-negative" aria-hidden /> : <Info size={15} className="mt-0.5 shrink-0 text-ai" aria-hidden />}
+          <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-foreground">{t.title}</p>{t.detail ? <p className="mt-0.5 break-words text-[11px] leading-relaxed text-muted">{t.detail}</p> : null}</div>
+          <button type="button" onClick={() => dismissToast(t.id)} aria-label={`Dismiss ${t.title}`} className="text-faint transition-colors hover:text-foreground"><X size={13} aria-hidden /></button>
         </div>
       ))}
     </div>
   );
 }
 
+function Brand() {
+  return (
+    <NavLink to="/" className="group flex min-w-0 items-center gap-3" aria-label="BadBuilder home">
+      <span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-ai/40 bg-ai/[0.12] shadow-[0_0_28px_rgba(139,124,255,.16)]">
+        <span className="absolute inset-0 bg-gradient-to-br from-ai/20 via-transparent to-transparent" />
+        <Zap size={17} className="relative text-ai transition-transform duration-300 group-hover:scale-110" aria-hidden />
+      </span>
+      <span className="hidden leading-none sm:block">
+        <span className="block font-display text-[15px] font-bold tracking-[-0.02em] text-foreground">BadBuilder</span>
+        <span className="mt-1 block font-mono text-[8px] font-medium uppercase tracking-[0.22em] text-faint">Decision Intelligence</span>
+      </span>
+    </NavLink>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const { engine, refresh, phase, lastRefreshedAt, nowTick, dataset, simulateEngineFailure } =
-    useIntelligence();
+  const { engine, refresh, phase, lastRefreshedAt, nowTick, dataset, simulateEngineFailure } = useIntelligence();
   const navigate = useNavigate();
+  const location = useLocation();
   const pendingG = useRef(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-      if (e.key === 'g') {
+      if (e.key.toLowerCase() === 'g') {
         pendingG.current = true;
-        window.setTimeout(() => {
-          pendingG.current = false;
-        }, 1200);
+        window.setTimeout(() => { pendingG.current = false; }, 1200);
         return;
       }
       if (pendingG.current) {
-        const match = NAV.find((n) => n.key === e.key);
-        if (match) {
-          e.preventDefault();
-          navigate(match.to);
-        }
+        const match = NAV.find((n) => n.key === e.key.toLowerCase());
+        if (match) { e.preventDefault(); navigate(match.to); }
         pendingG.current = false;
         return;
       }
-      if (e.key === 'r' && (e.metaKey || e.ctrlKey) === false) {
-        void refresh();
-      }
+      if (e.key.toLowerCase() === 'r' && !e.metaKey && !e.ctrlKey) void refresh();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [navigate, refresh]);
 
   const dataAge = dataset ? (nowTick - new Date(dataset.normalizedAt).getTime()) / 60_000 : 0;
+  const activeNav = NAV.find((n) => n.end ? location.pathname === n.to : location.pathname.startsWith(n.to));
 
   return (
     <div className="min-h-screen grid-noise">
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-ai focus:px-3 focus:py-2 focus:text-xs focus:font-semibold focus:text-ink"
-      >
-        Skip to main content
-      </a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-ai focus:px-3 focus:py-2 focus:text-xs focus:font-semibold focus:text-ink">Skip to main content</a>
 
-      <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <NavLink to="/" className="flex items-center gap-2.5" aria-label="BadBuilder home">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-ai/15 ring-1 ring-ai/40">
-              <Zap size={16} className="text-ai" aria-hidden />
-            </span>
-            <span className="leading-tight">
-              <span className="block font-display text-sm font-bold tracking-tight text-foreground">
-                BadBuilder
-              </span>
-              <span className="block font-mono text-[9px] uppercase tracking-[0.2em] text-faint">
-                Sports Intelligence · Phase 3
-              </span>
-            </span>
-          </NavLink>
+      <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-ink/80 backdrop-blur-2xl">
+        <div className="mx-auto max-w-[1600px] px-4 sm:px-6">
+          <div className="flex h-[68px] items-center gap-4">
+            <Brand />
 
-          <nav aria-label="Primary" className="order-3 w-full sm:order-none sm:ml-4 sm:w-auto">
-            <ul className="flex flex-wrap items-center gap-1">
-              {NAV.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      cx(
-                        'flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                        isActive
-                          ? 'bg-ai/12 text-ai ring-1 ring-ai/35'
-                          : 'text-muted hover:bg-surface-2 hover:text-foreground',
-                      )
-                    }
-                    title={`Go to ${item.label} (g then ${item.key})`}
-                  >
-                    <item.icon size={14} aria-hidden />
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
+            <div className="hidden h-7 w-px bg-white/[0.07] lg:block" />
 
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {engine ? (
-              <>
-                <EngineBadge
-                  label={engine.aiOnline ? 'AI engine · mock' : 'AI engine · offline'}
-                  detail={engine.aiDetail}
-                />
-                <EngineBadge
-                  label={`core ${engine.coreVersion}`}
-                  detail={`Core Engine client: ${engine.coreEngineId}. Monetary execution: ${engine.monetaryExecution ? 'enabled' : 'disabled'}.`}
-                />
-              </>
-            ) : null}
-            <Button
-              variant="ghost"
-              icon={<Activity size={13} />}
-              onClick={simulateEngineFailure}
-              title="Inject a transport failure into the next analysis request"
-            >
-              Inject fault
-            </Button>
-            <Button
-              variant="subtle"
-              icon={<RefreshCw size={13} />}
-              loading={phase === 'loading'}
-              onClick={() => void refresh()}
-              title="Re-pull the canonical dataset (shortcut: r)"
-            >
-              Refresh
-            </Button>
+            <nav aria-label="Primary" className="hidden lg:block">
+              <ul className="flex items-center gap-1">
+                {NAV.map((item) => (
+                  <li key={item.to}>
+                    <NavLink to={item.to} end={item.end} title={`${item.label} · g then ${item.key}`} className={({ isActive }) => cx('group relative flex items-center gap-2 rounded-xl px-3.5 py-2 text-[12px] font-medium transition-all duration-200', isActive ? 'bg-white/[0.065] text-foreground' : 'text-muted hover:bg-white/[0.035] hover:text-foreground')}>
+                      <item.icon size={14} className={cx('transition-colors', isActive ? 'text-ai' : 'text-faint group-hover:text-muted')} aria-hidden />
+                      {item.label}
+                      <kbd className={cx('ml-1 rounded border px-1 py-0.5 font-mono text-[8px]', isActive ? 'border-ai/25 bg-ai/[0.08] text-ai/80' : 'border-line bg-surface-2 text-faint')}>{item.key}</kbd>
+                      {location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to)) ? <span className="absolute inset-x-3 -bottom-[17px] h-px bg-gradient-to-r from-transparent via-ai to-transparent" /> : null}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <div className="ml-auto flex items-center gap-2">
+              <button type="button" onClick={() => navigate('/events')} className="hidden h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-[11px] text-muted transition-all hover:border-ai/30 hover:bg-ai/[0.06] hover:text-foreground md:flex" title="Open event search">
+                <Search size={13} aria-hidden /><span>Search events</span><kbd className="ml-2 rounded border border-line px-1.5 py-0.5 font-mono text-[8px] text-faint">/</kbd>
+              </button>
+              <div className="hidden xl:flex items-center gap-2">
+                {engine ? <EngineBadge label={engine.aiOnline ? 'AI online · mock' : 'AI offline'} detail={engine.aiDetail} /> : null}
+                {engine ? <EngineBadge label={`core ${engine.coreVersion}`} detail={`Core Engine client: ${engine.coreEngineId}. Monetary execution: ${engine.monetaryExecution ? 'enabled' : 'disabled'}.`} /> : null}
+              </div>
+              <Button variant="subtle" icon={<RefreshCw size={13} />} loading={phase === 'loading'} onClick={() => void refresh()} title="Refresh canonical dataset (shortcut: r)" ariaLabel="Refresh canonical dataset" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto border-t border-white/[0.045] py-2 lg:hidden">
+            {NAV.map((item) => <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cx('flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium', isActive ? 'bg-ai/[0.12] text-ai ring-1 ring-ai/25' : 'text-muted') }><item.icon size={12} aria-hidden />{item.label}</NavLink>)}
+            <span className="ml-auto shrink-0 font-mono text-[9px] text-faint">{activeNav?.label ?? 'Workspace'}</span>
           </div>
         </div>
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 pb-2 sm:px-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
-            sports data → normalization → canonical domain → snapshots → movement/quality →
-            intelligence → core engine → mission → approval → execution → measurement → learning
-          </p>
-          <p className="hidden shrink-0 font-mono text-[10px] text-faint sm:block">
-            {lastRefreshedAt ? `synced ${relativeTime(lastRefreshedAt, nowTick)}` : 'syncing…'}
-            {dataAge > 5 ? ` · dataset ${Math.round(dataAge)}m old` : ''}
-          </p>
+
+        <div className="border-t border-white/[0.045] bg-black/10">
+          <div className="mx-auto flex h-7 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-2.5 font-mono text-[9px] uppercase tracking-[0.14em] text-faint">
+              <span className="flex shrink-0 items-center gap-1.5 text-positive"><span className="live-dot h-1.5 w-1.5 rounded-full bg-positive" />system nominal</span>
+              <span className="hidden text-line sm:inline">/</span>
+              <span className="hidden truncate sm:inline">provider → normalize → intelligence → decision → mission</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 font-mono text-[9px] text-faint">
+              <span className="hidden sm:inline"><Database size={9} className="mr-1 inline" />{dataset?.snapshots.length ?? 0} snapshots</span>
+              <span>{lastRefreshedAt ? `synced ${relativeTime(lastRefreshedAt, nowTick)}` : 'syncing…'}</span>
+              {dataAge > 5 ? <span className="text-warn">dataset {Math.round(dataAge)}m</span> : null}
+            </div>
+          </div>
         </div>
       </header>
 
-      <main id="main" className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6">
-        {children}
-      </main>
+      <main id="main" className="mx-auto max-w-[1600px] px-4 py-7 sm:px-6 lg:py-9">{children}</main>
 
-      <footer className="mx-auto max-w-[1500px] px-4 pb-10 pt-4 sm:px-6">
-        <p className="text-[11px] text-faint">
-          BadBuilder Phase 3 — application/intelligence layer. All figures originate from
-          deterministic domain services; the AI layer supplies interpretation only. No external AI
-          API is connected and no real-money execution exists in this build.
-        </p>
+      <footer className="mx-auto max-w-[1600px] px-4 pb-10 pt-2 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-5">
+          <p className="flex items-center gap-2 text-[10px] text-faint"><ShieldCheck size={12} className="text-positive/70" aria-hidden />Deterministic domain data · AI interpretation layer · no real-money execution</p>
+          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-faint">BadBuilder / Phase 3</p>
+        </div>
+        <button type="button" onClick={simulateEngineFailure} className="sr-only">Inject test fault</button>
       </footer>
 
+      <div className="pointer-events-none fixed bottom-3 left-3 hidden items-center gap-1.5 rounded-lg border border-white/[0.06] bg-black/30 px-2 py-1 font-mono text-[8px] uppercase tracking-wider text-faint backdrop-blur-xl 2xl:flex"><Command size={9} />g·navigation <span className="text-line">·</span> r·refresh</div>
       <Toasts />
     </div>
   );
