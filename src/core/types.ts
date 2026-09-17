@@ -16,8 +16,11 @@ export interface OptimizationSelection {
   odds: number;
   probability: number;
   correlationGroup: string;
+  eventId?: string;
+  marketId?: string;
   confidence?: number;
   risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  qualityScore?: number;
 }
 
 export interface OptimizationRequest {
@@ -27,6 +30,9 @@ export interface OptimizationRequest {
   maxSelections?: number;
   maxPerCorrelationGroup?: number;
   minConfidence?: number;
+  maxSameEvent?: number;
+  minQualityScore?: number;
+  maxCombinedOdds?: number;
 }
 
 export interface OptimizationResult {
