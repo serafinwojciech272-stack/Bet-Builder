@@ -18,20 +18,21 @@ function evaluateSelectionSet(selected: PortfolioCandidate[], constraints: Portf
   const deps = analyzeDependencies(selected); const baseProbability = jointModelProbability(selected.map((s) => s.probability)); const adjustedProbability = baseProbability * deps.adjustedJointProbabilityMultiplier;
   return { selected, rejected: [], combinedOdds: odds, baseProbability, adjustedProbability, estimatedEv: adjustedProbability * odds - 1, dependencyMultiplier: deps.adjustedJointProbabilityMultiplier };
 }
+type TargetBest = { decision: PortfolioDecision; inRange: boolean; distance: number };
 function optimizeForTarget(ranked: PortfolioCandidate[], constraints: PortfolioConstraints): PortfolioDecision {
   const target = constraints.targetCombinedOdds!; const tolerance = Math.max(0, constraints.targetOddsTolerance ?? target * 0.10); const pool = ranked.slice(0, 24);
-  let best: { decision: PortfolioDecision; inRange: boolean; distance: number } | null = null;
+  let best: TargetBest | null = null;
   const visit = (start: number, selected: PortfolioCandidate[]): void => {
     if (selected.length > 0) { const decision = evaluateSelectionSet(selected, constraints); if (decision) { const distance = Math.abs(decision.combinedOdds - target); const inRange = distance <= tolerance; if (!best || (inRange && !best.inRange) || (inRange === best.inRange && (distance < best.distance || (distance === best.distance && decision.estimatedEv > best.decision.estimatedEv)))) best = { decision, inRange, distance }; } }
     if (selected.length >= (constraints.maxSelections ?? 8)) return;
     for (let i = start; i < pool.length; i += 1) visit(i + 1, [...selected, pool[i]]);
   };
   visit(0, []);
-  const finalBest = best;
-  if (!finalBest) return { selected: [], rejected: ranked.map((candidate) => ({ id: candidate.id, reason: 'No portfolio satisfying target-odds constraints.' })), combinedOdds: 0, baseProbability: 0, adjustedProbability: 0, estimatedEv: 0, dependencyMultiplier: 1 };
-  const selectedIds = new Set(finalBest.decision.selected.map((candidate) => candidate.id));
+  if (best === null) return { selected: [], rejected: ranked.map((candidate) => ({ id: candidate.id, reason: 'No portfolio satisfying target-odds constraints.' })), combinedOdds: 0, baseProbability: 0, adjustedProbability: 0, estimatedEv: 0, dependencyMultiplier: 1 };
+  const winning = best as TargetBest;
+  const selectedIds = new Set(winning.decision.selected.map((candidate: PortfolioCandidate) => candidate.id));
   const rejected = ranked.filter((candidate) => !selectedIds.has(candidate.id)).map((candidate) => ({ id: candidate.id, reason: `Not selected by target-odds optimizer; target ${target.toFixed(2)} ± ${tolerance.toFixed(2)}.` }));
-  return { ...finalBest.decision, rejected };
+  return { ...winning.decision, rejected };
 }
 export function optimizePortfolio(candidates: PortfolioCandidate[], constraints: PortfolioConstraints = {}): PortfolioDecision {
   const maxSelections = constraints.maxSelections ?? 8; const maxSameEvent = constraints.maxSameEvent ?? 2; const maxGroup = constraints.maxCorrelationGroup ?? 2;
