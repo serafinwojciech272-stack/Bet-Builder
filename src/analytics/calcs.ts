@@ -1,7 +1,7 @@
 import type { RiskLevel, Selection } from '../domain/types';
 
 export function impliedProbability(odds: number): number {
-  if (odds <= 1) return 1;
+  if (!Number.isFinite(odds) || odds <= 1) return 1;
   return 1 / odds;
 }
 
@@ -27,17 +27,20 @@ export function potentialProfit(stake: number, multiOdds: number): number {
 
 export function estimatedProbability(oddsList: number[]): number {
   if (oddsList.length === 0) return 0;
-  // product of implied probabilities, clamped
   const p = oddsList.reduce((acc, o) => acc * impliedProbability(o), 1);
   return Math.min(1, p);
+}
+
+export function jointModelProbability(probabilities: number[]): number {
+  if (probabilities.length === 0) return 0;
+  const p = probabilities.reduce((acc, probability) => acc * probability, 1);
+  return Math.min(1, Math.max(0, p));
 }
 
 export function estimatedEv(selections: Selection[]): number {
   if (selections.length === 0) return 0;
   const multi = combinedOdds(selections.map((s) => s.odds));
-  // independent joint probability estimate
-  const joint = selections.reduce((acc, s) => acc * s.probability, 1);
-  return joint * multi - 1;
+  return jointModelProbability(selections.map((s) => s.probability)) * multi - 1;
 }
 
 export function riskForOdds(odds: number): RiskLevel {
