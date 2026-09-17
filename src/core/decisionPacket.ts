@@ -91,3 +91,66 @@ export function assertMissionEligible(packet: DecisionPacket): void {
     throw new Error(`DECISION_PACKET_BLOCKED: ${packet.blockers.join('; ') || 'Decision Packet is blocked.'}`);
   }
 }
+
+
+import type { AnalysisResponse } from '../ai/contracts';
+import { evaluateDecisionCenter } from './decisionCenter';
+
+export function createDecisionPacketFromAnalysis(
+  analysis: AnalysisResponse,
+  now = new Date(),
+): DecisionPacket {
+  const candidates = analysis.quantDecision?.candidates ?? analysis.valueSignals.map((signal) => ({
+    id: signal.selectionId,
+    eventId: analysis.eventId,
+    marketId: analysis.context.market,
+    odds: signal.bestPrice.value,
+    probability: analysis.probabilityEstimates.find((p) => p.selectionId === signal.selectionId)?.modelProbability.value ?? 0,
+    qualityScore: analysis.dataQuality.score.value,
+    correlationGroup: 'event:' + analysis.eventId,
+  }));
+  const marketSignals = analysis.quantDecision?.marketSignals ?? [];
+  const selections = candidates.map((candidate): DecisionPacketSelection => {
+    const signal = marketSignals.find((s) => s.selectionId === candidate.id);
+    return {
+      id: candidate.id,
+      eventId: candidate.eventId,
+      marketId: candidate.marketId,
+      odds: candidate.odds,
+      probability: candidate.probability,
+      confidence: signal?.confidence ?? analysis.confidence.score.value,
+      risk: analysis.riskAssessment.level,
+      correlationGroup: candidate.correlationGroup ?? ('event:' + candidate.eventId),
+    };
+  });
+  const decision = evaluateDecisionCenter(selections.map((s) => ({
+    id: s.id,
+    marketId: s.marketId ?? analysis.context.market,
+    eventId: s.eventId,
+    name: s.id,
+    shortName: s.id,
+    odds: s.odds,
+    probability: s.probability,
+    impliedProbability: 1 / s.odds,
+    value: s.probability - 1 / s.odds,
+    ev: s.probability * s.odds - 1,
+    confidence: s.confidence,
+    risk: s.risk as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+    correlationGroup: s.correlationGroup,
+  })));
+  const quantOptimization = analysis.quantDecision?.coreOptimization;
+  const optimization = quantOptimization ? {
+    selections: [...quantOptimization.selected],
+    rejectedSelections: [...quantOptimization.rejected],
+    rejectedReasons: Object.fromEntries(quantOptimization.rejected.map((id) => [id, 'Rejected by quant decision engine.'])),
+    stake: 0,
+    combinedOdds: quantOptimization.combinedOdds,
+    estimatedProbability: quantOptimization.estimatedProbability,
+    estimatedEv: quantOptimization.estimatedEv,
+    potentialReturn: 0,
+    potentialProfit: 0,
+    diversificationScore: quantOptimization.diversificationScore,
+    rationale: quantOptimization.rationale,
+  } : null;
+  return createDecisionPacket(decision, selections, optimization, now);
+}
