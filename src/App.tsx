@@ -26,6 +26,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/sports" element={<SportsPage />} />
+            <Route path="/sports/:eventId" element={<EventAnalysisPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/live" element={<LivePage />} />
             <Route path="/builder" element={<BuilderRoute />} />
