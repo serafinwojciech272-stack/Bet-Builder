@@ -1,63 +1,24 @@
+import { CalendarDays, Database, Radio, Search, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { liveEvents } from '../services/liveAdapter';
+import { Chip, EmptyState, ErrorState, Panel, SectionHeading, Stat } from '../components/ui';
 
 export default function SportsPage() {
   const navigate = useNavigate();
   const { dataset, phase, error, selectedDate, refresh, lastRefreshedAt } = useIntelligence();
-  const [sport, setSport] = useState('');
-  const [league, setLeague] = useState('');
-  const [search, setSearch] = useState('');
+  const [sport, setSport] = useState(''); const [league, setLeague] = useState(''); const [search, setSearch] = useState('');
   const events = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]);
   const sports = useMemo(() => [...new Set(events.map((e) => e.sport))].sort(), [events]);
   const leagues = useMemo(() => [...new Set(events.map((e) => e.league))].sort(), [events]);
-  const filtered = useMemo(() => events.filter((e) => {
-    if (sport && e.sport !== sport) return false;
-    if (league && e.league !== league) return false;
-    if (search) { const q = search.toLowerCase(); if (!`${e.homeTeam} ${e.awayTeam} ${e.league}`.toLowerCase().includes(q)) return false; }
-    return true;
-  }), [events, sport, league, search]);
+  const filtered = useMemo(() => events.filter((e) => { if (sport && e.sport !== sport) return false; if (league && e.league !== league) return false; if (search && !`${e.homeTeam} ${e.awayTeam} ${e.league}`.toLowerCase().includes(search.toLowerCase())) return false; return true; }), [events, sport, league, search]);
   const bookmakerCount = dataset?.bookmakers?.length ?? new Set(dataset?.snapshots.map((s) => s.bookmaker)).size;
-  const marketCount = dataset?.snapshots.length ?? 0;
 
-  return (
-    <main className="mx-auto w-full max-w-[1400px] px-4 py-6 pb-24 md:pb-10">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><div className="text-[11px] font-bold uppercase tracking-[0.2em] text-violet-300">LIVE MARKET DATA</div><h1 className="mt-1 text-xl font-black tracking-tight text-white">Sports Offer</h1><p className="mt-1 text-xs text-slate-400">Real bookmaker odds for the selected day · Europe/Warsaw</p></div>
-        <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-[11px] font-bold text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> THE ODDS API · LIVE</div>
-      </div>
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-4">
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"><div className="text-[10px] uppercase tracking-wider text-slate-500">Events</div><div className="mt-1 text-lg font-black text-white">{events.length}</div></div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"><div className="text-[10px] uppercase tracking-wider text-slate-500">Bookmakers</div><div className="mt-1 text-lg font-black text-white">{bookmakerCount}</div></div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"><div className="text-[10px] uppercase tracking-wider text-slate-500">Markets</div><div className="mt-1 text-lg font-black text-white">{marketCount}</div></div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3"><div className="text-[10px] uppercase tracking-wider text-slate-500">Sports</div><div className="mt-1 text-lg font-black text-white">{sports.length}</div></div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-        <label className="text-[11px] uppercase tracking-wider text-slate-500">Day</label>
-        <input type="date" aria-label="Offer date" value={selectedDate} onChange={(e) => { if (e.target.value) void refresh(e.target.value, true); }} className="rounded-md border border-white/15 bg-[#12151c] px-3 py-2 text-sm text-white" />
-        <button type="button" onClick={() => void refresh(selectedDate, true)} disabled={phase === 'loading'} className="rounded-md border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-200 disabled:opacity-50">{phase === 'loading' ? 'Loading…' : 'Refresh odds'}</button>
-        <span className="ml-auto text-xs text-slate-500">{lastRefreshedAt ? `Updated ${new Date(lastRefreshedAt).toLocaleTimeString()}` : 'Not loaded'}</span>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <select aria-label="Filter by sport" value={sport} onChange={(e) => setSport(e.target.value)} className="rounded-md border border-white/15 bg-[#12151c] px-3 py-2 text-sm text-white"><option value="">All Sports</option>{sports.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-        <select aria-label="Filter by league" value={league} onChange={(e) => setLeague(e.target.value)} className="rounded-md border border-white/15 bg-[#12151c] px-3 py-2 text-sm text-white"><option value="">All Leagues</option>{leagues.map((l) => <option key={l} value={l}>{l}</option>)}</select>
-        <input type="search" aria-label="Search events" placeholder="Search teams or leagues…" value={search} onChange={(e) => setSearch(e.target.value)} className="min-w-0 flex-1 rounded-md border border-white/15 bg-[#12151c] px-3 py-2 text-sm text-white placeholder:text-slate-500" />
-      </div>
-
-      {phase === 'error' ? <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/5 p-6"><div className="font-bold text-red-200">Live offer unavailable</div><div className="mt-1 text-sm text-slate-400">{error}</div><button type="button" onClick={() => void refresh(selectedDate, true)} className="mt-4 rounded-md border border-white/15 px-3 py-2 text-sm text-white">Retry</button></div> : null}
-      {phase !== 'error' && phase !== 'loading' && filtered.length === 0 ? <div className="mt-5 rounded-xl border border-white/10 p-10 text-center"><div className="text-white font-semibold">No provider events for {selectedDate}</div><div className="mt-1 text-sm text-slate-500">There are no live bookmaker events returned for this day and sport set.</div></div> : null}
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((event) => {
-          const selectionCount = event.markets.reduce((n, m) => n + m.selections.length, 0);
-          const eventBookmakers = new Set(dataset?.snapshots.filter((s) => s.eventId === event.id).map((s) => s.bookmaker)).size;
-          return <button key={event.id} type="button" onClick={() => navigate(`/sports/${event.id}`)} className="group rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-4 text-left transition hover:border-violet-500/50 hover:shadow-[0_0_0_1px_rgba(139,92,246,0.2),0_10px_30px_-10px_rgba(139,92,246,0.3)]"><div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-violet-300/80"><span>{event.sport} · {event.league}</span><span>{new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><div className="mt-3 text-base font-bold text-white">{event.homeTeam} <span className="text-slate-500">vs</span> {event.awayTeam}</div><div className="mt-3 flex gap-2 text-[11px] text-slate-400"><span>{eventBookmakers} bookmakers</span><span>·</span><span>{selectionCount} prices</span></div><div className="mt-3 text-xs font-semibold text-violet-300">Open full market →</div></button>;
-        })}
-      </div>
-    </main>
-  );
+  return <div className="space-y-8 rise">
+    <section className="relative overflow-hidden rounded-2xl border border-market/20 bg-gradient-to-br from-market/[.10] via-surface to-surface-2 p-6 sm:p-8"><div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-market/10 blur-3xl"/><div className="relative flex flex-wrap items-end justify-between gap-5"><div><div className="flex flex-wrap items-center gap-2"><Chip tone="market"><Radio size={11}/> Provider feed</Chip><Chip tone="positive"><span className="live-dot h-1.5 w-1.5 rounded-full bg-positive"/> Live</Chip></div><h1 className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Sports market</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Explore provider events, market depth and captured prices for the selected operating date.</p></div><div className="font-mono text-[9px] uppercase tracking-[.14em] text-faint">Europe / Warsaw</div></div></section>
+    <section className="grid gap-3 sm:grid-cols-4"><Panel className="p-4"><Stat label="Events" value={events.length}/></Panel><Panel className="p-4"><Stat label="Bookmakers" value={bookmakerCount} tone="market"/></Panel><Panel className="p-4"><Stat label="Snapshots" value={dataset?.snapshots.length ?? 0}/></Panel><Panel className="p-4"><Stat label="Sports" value={sports.length} tone="ai"/></Panel></section>
+    <section><SectionHeading index="01" title="Market explorer" subtitle="Filter the canonical provider inventory before opening an event." icon={<SlidersHorizontal size={17} className="text-ai"/>}/><Panel className="p-4"><div className="grid gap-3 md:grid-cols-[auto_auto_1fr_auto]"><label className="text-[10px] uppercase tracking-[.12em] text-faint">Date<input type="date" aria-label="Offer date" value={selectedDate} onChange={(e)=>e.target.value&&void refresh(e.target.value,true)} className="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-foreground"/></label><label className="text-[10px] uppercase tracking-[.12em] text-faint">Sport<select value={sport} onChange={e=>setSport(e.target.value)} className="mt-1 block rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-foreground"><option value="">All sports</option>{sports.map(s=><option key={s} value={s}>{s}</option>)}</select></label><label className="text-[10px] uppercase tracking-[.12em] text-faint">Search<div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2"><Search size={13}/><input aria-label="Search events" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Teams or leagues…" className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-faint"/></div></label><label className="text-[10px] uppercase tracking-[.12em] text-faint">League<select value={league} onChange={e=>setLeague(e.target.value)} className="mt-1 block max-w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-foreground"><option value="">All leagues</option>{leagues.map(l=><option key={l} value={l}>{l}</option>)}</select></label></div><div className="mt-3 flex items-center justify-between border-t border-line-soft pt-3 text-[10px] text-faint"><span className="flex items-center gap-1.5"><Database size={11}/> {filtered.length} matching events</span><span>{lastRefreshedAt ? `Updated ${new Date(lastRefreshedAt).toLocaleTimeString()}` : 'Not loaded'}</span></div></Panel></section>
+    {phase === 'error' ? <ErrorState title="Provider feed unavailable" detail={error ?? undefined} onRetry={()=>void refresh(selectedDate,true)} /> : filtered.length === 0 ? <EmptyState title="No matching events" detail="Adjust the filters or select another operating date." icon={<CalendarDays size={22}/>} /> : <section><SectionHeading index="02" title="Events" subtitle="Open an event to inspect its full market surface."/><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.map(event=>{const selectionCount=event.markets.reduce((n,m)=>n+m.selections.length,0);const books=new Set(dataset?.snapshots.filter(s=>s.eventId===event.id).map(s=>s.bookmaker)).size;return <button key={event.id} type="button" onClick={()=>navigate(`/sports/${event.id}`)} className="group rounded-2xl border border-line bg-gradient-to-b from-white/[.045] to-white/[.012] p-5 text-left transition-all duration-200 hover:-translate-y-1 hover:border-ai/40 hover:shadow-[0_20px_60px_rgba(0,0,0,.28)]"><div className="flex items-center justify-between gap-2 text-[9px] font-mono uppercase tracking-[.14em] text-ai"><span>{event.sport} · {event.league}</span><span className="text-faint">{new Date(event.startTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div><div className="mt-4 font-display text-base font-semibold text-foreground">{event.homeTeam}<span className="mx-1.5 text-faint">vs</span>{event.awayTeam}</div><div className="mt-4 flex gap-2"><Chip tone="neutral">{books} bookmakers</Chip><Chip tone="market">{selectionCount} prices</Chip></div><div className="mt-4 flex items-center justify-between text-xs font-medium text-ai"><span>Open market</span><span className="transition-transform group-hover:translate-x-1">→</span></div></button>})}</div></section>}
+  </div>;
 }
