@@ -2,6 +2,7 @@ import { LiveSportsDataRepository, type SportsDataRepository } from '../domain/r
 import { primaryMarketFor } from '../domain/services/movementService';
 import type { CorrelationContextEntry } from '../domain/services/riskService';
 import { MockAIAnalysisService } from '../ai/MockAIAnalysisService';
+import { QuantAwareAnalysisService } from '../ai/quantAwareAnalysisService';
 import type { AIAnalysisService } from '../ai/AIAnalysisService';
 import { InMemoryAnalysisRepository, type AnalysisRepository } from '../ai/AnalysisRepository';
 import { InMemoryMissionRepository, type MissionRepository } from '../missions/MissionRepository';
@@ -23,7 +24,6 @@ export function createWorkspace(): Workspace {
   const dataRepository = new LiveSportsDataRepository();
   let correlationCache: CorrelationContextEntry[] = [];
   let failNext = false;
-
   const correlationContext = () => correlationCache;
 
   void dataRepository.loadCanonicalDataset().then((dataset) => {
@@ -37,7 +37,7 @@ export function createWorkspace(): Workspace {
     }));
   }).catch(() => undefined);
 
-  const analysisService = new MockAIAnalysisService(dataRepository, {
+  const baseAnalysisService = new MockAIAnalysisService(dataRepository, {
     latencyMs: 620,
     correlationContext,
     failNext: () => {
@@ -48,6 +48,7 @@ export function createWorkspace(): Workspace {
       return false;
     },
   });
+  const analysisService = new QuantAwareAnalysisService(baseAnalysisService, dataRepository);
 
   const analysisRepository = new InMemoryAnalysisRepository();
   const missionRepository = new InMemoryMissionRepository();
@@ -61,11 +62,10 @@ export function createWorkspace(): Workspace {
     missionRepository,
     coreEngine,
     missionService,
-    seedAnalysisService: (now: Date) => new MockAIAnalysisService(dataRepository, {
-      latencyMs: 0,
-      correlationContext,
-      now: () => now,
-    }),
+    seedAnalysisService: (now: Date) => new QuantAwareAnalysisService(
+      new MockAIAnalysisService(dataRepository, { latencyMs: 0, correlationContext, now: () => now }),
+      dataRepository,
+    ),
     setFailNextAnalysis: (v: boolean) => { failNext = v; },
   };
 }
