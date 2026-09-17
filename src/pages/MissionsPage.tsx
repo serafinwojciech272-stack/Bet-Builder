@@ -64,31 +64,30 @@ export function MissionsPage() {
           title="Mission queue"
           subtitle="Filter the governed workflow by lifecycle state."
           icon={<Radar size={17} className="text-mission" />}
-        >
-          <div role="tablist" aria-label="Mission status" className="flex flex-wrap gap-1">
-            {(['all', ...ALL_STATUSES] as Array<MissionStatus | 'all'>).map((item) => {
-              const active = status === item;
-              const count = item === 'all' ? missions.length : counts.get(item) ?? 0;
-              return (
-                <button
-                  key={item}
-                  role="tab"
-                  aria-selected={active}
-                  type="button"
-                  onClick={() => setStatus(item)}
-                  className={cx(
-                    'rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.1em] transition-colors',
-                    active
-                      ? 'bg-mission/15 text-mission ring-1 ring-mission/40'
-                      : 'bg-surface-2 text-faint ring-1 ring-line hover:text-foreground',
-                  )}
-                >
-                  {item === 'all' ? 'all' : item.replace(/_/g, ' ')} {count}
-                </button>
-              );
-            })}
-          </div>
-        </SectionHeading>
+        />
+        <div role="tablist" aria-label="Mission status" className="mb-4 flex flex-wrap gap-1">
+          {(['all', ...ALL_STATUSES] as Array<MissionStatus | 'all'>).map((item) => {
+            const active = status === item;
+            const count = item === 'all' ? missions.length : counts.get(item) ?? 0;
+            return (
+              <button
+                key={item}
+                role="tab"
+                aria-selected={active}
+                type="button"
+                onClick={() => setStatus(item)}
+                className={cx(
+                  'rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-[.1em] transition-colors',
+                  active
+                    ? 'bg-mission/15 text-mission ring-1 ring-mission/40'
+                    : 'bg-surface-2 text-faint ring-1 ring-line hover:text-foreground',
+                )}
+              >
+                {item === 'all' ? 'all' : item.replace(/_/g, ' ')} {count}
+              </button>
+            );
+          })}
+        </div>
 
         {filtered.length === 0 ? (
           <EmptyState
