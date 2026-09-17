@@ -17,29 +17,18 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
     private readonly decisionMemory: DecisionMemoryRepository = new InMemoryDecisionMemory(),
   ) {}
 
-  health() {
-    return this.base.health();
-  }
+  health() { return this.base.health(); }
 
-  getDecisionMemory(): DecisionMemoryRepository {
-    return this.decisionMemory;
-  }
+  getDecisionMemory(): DecisionMemoryRepository { return this.decisionMemory; }
 
   async analyzeEvent(request: AnalysisRequest): Promise<AnalysisResponse> {
     const analysis = await this.base.analyzeEvent(request);
     const event = await this.repo.getEvent(request.eventId);
     if (!event) return analysis;
-
     const dataset = await this.repo.loadCanonicalDataset();
     const snapshots = dataset.snapshots.filter((snapshot) => snapshot.eventId === event.id && (!request.market || snapshot.market === request.market));
-    const modelProbabilityBySelection = Object.fromEntries(
-      analysis.probabilityEstimates.map((estimate) => [estimate.selectionId, estimate.modelProbability.value]),
-    );
-    const decision = runQuantDecision({
-      event,
-      snapshots,
-      modelProbabilityBySelection,
-    });
+    const modelProbabilityBySelection = Object.fromEntries(analysis.probabilityEstimates.map((estimate) => [estimate.selectionId, estimate.modelProbability.value]));
+    const decision = runQuantDecision({ event, snapshots, modelProbabilityBySelection });
 
     const coreOptimization = await this.coreEngine.optimizeBuilder({
       selections: decision.candidates.map((candidate) => ({
@@ -48,7 +37,7 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
         marketId: candidate.marketId,
         odds: candidate.odds,
         probability: candidate.probability,
-        correlationGroup: candidate.correlationGroup,
+        correlationGroup: candidate.correlationGroup ?? `${candidate.eventId}:${candidate.marketId ?? 'unknown'}`,
         qualityScore: candidate.qualityScore,
       })),
       stake: 1,
@@ -61,10 +50,7 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
 
     const quantDecision: QuantDecisionPacket = {
       generatedAt: decision.generatedAt,
-      marketSignals: decision.marketSignals.map((signal) => ({
-        ...signal,
-        fairProbabilitySource: signal.fairProbabilitySource ?? 'MARKET_IMPLIED',
-      })),
+      marketSignals: decision.marketSignals.map((signal) => ({ ...signal, fairProbabilitySource: signal.fairProbabilitySource ?? 'MARKET_IMPLIED' })),
       candidates: decision.candidates,
       portfolio: {
         selected: decision.portfolio.selected.map((candidate) => candidate.id),
@@ -90,15 +76,11 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
         correlationPenalty: decision.dependencies.correlationPenalty,
         adjustedJointProbabilityMultiplier: decision.dependencies.adjustedJointProbabilityMultiplier,
       },
-      steam: decision.steam,
-      methodology: [
-        ...decision.methodology,
-        'Core Engine is the final deterministic portfolio gate after market intelligence.',
-        `Core Engine optimization returned ${coreOptimization.selections.length} selected and ${coreOptimization.rejectedSelections.length} rejected candidate(s).`,
-      ],
+      steam: decision.steam.map((signal) => ({ ...signal, strength: String(signal.strength), direction: signal.direction })),
+      methodology: [...decision.methodology, 'Core Engine is the final deterministic portfolio gate after market intelligence.', `Core Engine optimization returned ${coreOptimization.selections.length} selected and ${coreOptimization.rejectedSelections.length} rejected candidate(s).`],
     };
 
-    const selectedIds = new Set(coreOptimization.selections.map((selection) => selection.id));
+    const selectedIds = new Set(coreOptimization.selections);
     const signalBySelection = new Map(decision.marketSignals.map((signal) => [signal.selectionId, signal]));
     this.decisionMemory.record({
       decisionId: `${event.id}:${decision.generatedAt}`,
