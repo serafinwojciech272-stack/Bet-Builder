@@ -20,7 +20,7 @@ export default function BuilderPage({ selections, stake, addSelection, removeSel
       setMessage(`Decision Gate: BLOCKED — resolve ${decision.blockers.length} blocker(s) before Core Engine optimization.`);
       return;
     }
-    const result = await optimizeBuilder({stake,minEv:0,maxSelections:8,maxPerCorrelationGroup:1,minConfidence:0.5,selections:selections.map((s)=>({id:s.id,odds:s.odds,probability:s.probability,correlationGroup:s.correlationGroup,confidence:s.confidence,risk:s.risk}))});
+    const result = await optimizeBuilder({decisionGate:{status:decision.status,blockers:decision.blockers,warnings:decision.warnings,trace:decision.trace},stake,minEv:0,maxSelections:8,maxPerCorrelationGroup:1,minConfidence:0.5,selections:selections.map((s)=>({id:s.id,odds:s.odds,probability:s.probability,correlationGroup:s.correlationGroup,confidence:s.confidence,risk:s.risk}))});
     setOptimization(result);
     if(result) setMessage(`Core Optimizer: ${result.selections.length} retained, ${result.rejectedSelections.length} filtered · diversification ${(result.diversificationScore*100).toFixed(0)}%.`);
   };
