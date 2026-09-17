@@ -1,5 +1,5 @@
 import type { AnalysisResponse, OptimizationRequest, OptimizationResult } from './types';
-import { combinedOdds, impliedProbability, jointModelProbability, modelEv, potentialProfit, potentialReturn, valueOver, riskForOdds } from '../analytics/calcs';
+import { combinedOdds, impliedProbability, modelEv, potentialProfit, potentialReturn, valueOver, riskForOdds } from '../analytics/calcs';
 import { optimizePortfolio } from '../analytics/portfolio';
 
 // Deterministic Core Engine adapter. Mathematical outputs remain deterministic and auditable.
@@ -28,11 +28,11 @@ export function createMockCoreEngine(): MockCoreEngine {
       const candidates = valid.map((s) => ({ id: s.id, eventId: s.eventId ?? s.correlationGroup, marketId: s.marketId, correlationGroup: s.correlationGroup, odds: s.odds, probability: s.probability, ev: modelEv(s.probability, s.odds), qualityScore: s.qualityScore ?? 100, label: s.id }));
       const optimized = optimizePortfolio(candidates, { maxSelections: req.maxSelections, maxSameEvent: req.maxSameEvent, maxCorrelationGroup: req.maxPerCorrelationGroup, minEv: req.minEv, minQuality: req.minQualityScore, maxCombinedOdds: req.maxCombinedOdds });
       for (const item of optimized.rejected) rejectedReasons[item.id] = item.reason;
-      const selected = optimized.selected.length ? optimized.selected : valid.slice(0, req.maxSelections ?? valid.length);
+      const selected = optimized.selected;
       const selectedIds = new Set(selected.map((s) => s.id));
       for (const s of valid) if (!selectedIds.has(s.id) && !rejectedReasons[s.id]) rejectedReasons[s.id] = 'Not selected after quant portfolio constraints.';
       const combined = combinedOdds(selected.map((s) => s.odds));
-      const probability = selected.length ? (optimized.selected.length ? optimized.adjustedProbability : jointModelProbability(selected.map((s) => s.probability))) : 0;
+      const probability = selected.length ? optimized.adjustedProbability : 0;
       const ev = probability * combined - 1;
       const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0;
       const groups = new Set(selected.map((s) => s.correlationGroup)).size;
