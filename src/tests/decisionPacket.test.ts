@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDecisionPacket, assertMissionEligible, type DecisionPacket } from '../core/decisionPacket';
+import { createDecisionPacket, assertMissionEligible } from '../core/decisionPacket';
 
 const baseDecision = {
   status: 'READY' as const,
