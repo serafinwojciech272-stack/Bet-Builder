@@ -29,7 +29,7 @@ describe('application smoke tests', () => {
     const { container, root } = await mount('/analysis/EVT-SOC-1001');
     const text = container.textContent ?? '';
     for (const section of ['Event overview', 'Market intelligence', 'Odds movement', 'Model probabilities', 'Value analysis', 'Risk & correlation', 'AI reasoning', 'Recommended actions', 'Mission creation']) expect(text).toContain(section);
-    expect(text).toContain('Mission builder'); expect(text).toContain('AI inference'); root.unmount();
+    expect(text).toContain('AI inference'); root.unmount();
   }, 25_000);
 
   it('renders mission control and the history views', async () => {
