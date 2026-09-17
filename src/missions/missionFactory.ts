@@ -1,5 +1,7 @@
 import { det } from '../domain/numbers';
 import type { AnalysisResponse, RecommendedAction } from '../ai/contracts';
+import type { DecisionPacket } from '../core/decisionPacket';
+import { assertMissionEligible } from '../core/decisionPacket';
 import type {
   ApprovalCheck,
   Mission,
@@ -20,6 +22,8 @@ export interface MissionDraftOptions {
   createdBy?: string;
   now?: Date;
   idSuffix?: string;
+  /** Immutable Decision Center/Core Engine evidence. Blocked packets cannot create missions. */
+  decisionPacket?: DecisionPacket;
 }
 
 function actionKindToMissionType(kind: RecommendedAction['kind']): MissionType {
@@ -51,6 +55,7 @@ export function buildMissionFromAnalysis(
   action: RecommendedAction,
   options: MissionDraftOptions = {},
 ): Mission {
+  if (options.decisionPacket) assertMissionEligible(options.decisionPacket);
   const now = options.now ?? new Date();
   const iso = now.toISOString();
   const type = actionKindToMissionType(action.kind);
