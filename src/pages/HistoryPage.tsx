@@ -364,6 +364,7 @@ export function HistoryPage() {
                     <th scope="col" className="py-1.5 font-medium">Target</th>
                     <th scope="col" className="py-1.5 font-medium">Status</th>
                     <th scope="col" className="py-1.5 font-medium">Approval</th>
+                    <th scope="col" className="py-1.5 font-medium">Decision</th>
                     <th scope="col" className="py-1.5 font-medium">Transitions</th>
                     <th scope="col" className="py-1.5 text-right font-medium">CLV</th>
                     <th scope="col" className="py-1.5 text-right font-medium">Objective</th>
@@ -378,8 +379,15 @@ export function HistoryPage() {
                           {m.id}
                         </Link>
                         <span className="block text-[10px] text-faint">
-                          {relativeTime(m.createdAt, nowTick)}
-                        </span>
+                          {relativeTime(m
+                      <td className="py-2 pr-2">
+                        {m.decisionPacket ? (
+                          <Chip tone={m.decisionPacket.status === 'READY' ? 'positive' : m.decisionPacket.status === 'CAUTION' ? 'warn' : 'negative'}>
+                            {m.decisionPacket.status}
+                          </Chip>
+                        ) : (
+                          <span className="text-faint">legacy</span>
+                        )}
                       </td>
                       <td className="py-2 pr-2">
                         <span className="block text-foreground">{m.target.eventLabel}</span>
