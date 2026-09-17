@@ -26,7 +26,7 @@ export function createMockCoreEngine(): MockCoreEngine {
         return ok;
       });
       const candidates = valid.map((s) => ({ id: s.id, eventId: s.eventId ?? s.correlationGroup, marketId: s.marketId, correlationGroup: s.correlationGroup, odds: s.odds, probability: s.probability, ev: modelEv(s.probability, s.odds), qualityScore: s.qualityScore ?? 100, label: s.id }));
-      const optimized = optimizePortfolio(candidates, { maxSelections: req.maxSelections, maxSameEvent: req.maxSameEvent, maxCorrelationGroup: req.maxPerCorrelationGroup, minEv: req.minEv, minQuality: req.minQualityScore, maxCombinedOdds: req.maxCombinedOdds });
+      const optimized = optimizePortfolio(candidates, { maxSelections: req.maxSelections, maxSameEvent: req.maxSameEvent, maxCorrelationGroup: req.maxPerCorrelationGroup, minEv: req.minEv, minQuality: req.minQualityScore, maxCombinedOdds: req.maxCombinedOdds, targetCombinedOdds: req.targetCombinedOdds, targetOddsTolerance: req.targetOddsTolerance });
       for (const item of optimized.rejected) rejectedReasons[item.id] = item.reason;
       const selected = optimized.selected;
       const selectedIds = new Set(selected.map((s) => s.id));
@@ -37,7 +37,8 @@ export function createMockCoreEngine(): MockCoreEngine {
       const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0;
       const groups = new Set(selected.map((s) => s.correlationGroup)).size;
       const diversificationScore = selected.length <= 1 ? 0 : Math.min(1, groups / selected.length);
-      return { selections: selected.map((s) => s.id), rejectedSelections: Object.keys(rejectedReasons), rejectedReasons, stake, combinedOdds: combined, estimatedProbability: probability, estimatedEv: ev, potentialReturn: potentialReturn(stake, combined), potentialProfit: potentialProfit(stake, combined), diversificationScore, rationale: `Quant portfolio: ${groups} correlation group(s), dependency multiplier ${(optimized.dependencyMultiplier).toFixed(3)}, ${Object.keys(rejectedReasons).length} rejection(s).` };
+      const targetNote = req.targetCombinedOdds ? `, target ${req.targetCombinedOdds.toFixed(2)} ± ${(req.targetOddsTolerance ?? req.targetCombinedOdds * 0.1).toFixed(2)}` : '';
+      return { selections: selected.map((s) => s.id), rejectedSelections: Object.keys(rejectedReasons), rejectedReasons, stake, combinedOdds: combined, estimatedProbability: probability, estimatedEv: ev, potentialReturn: potentialReturn(stake, combined), potentialProfit: potentialProfit(stake, combined), diversificationScore, rationale: `Quant portfolio: ${groups} correlation group(s), dependency multiplier ${(optimized.dependencyMultiplier).toFixed(3)}, ${Object.keys(rejectedReasons).length} rejection(s)${targetNote}.` };
     },
   };
 }
