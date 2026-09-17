@@ -6,6 +6,18 @@ export interface DependencyMatrix { pairs: DependencyPair[]; conflicts: string[]
 
 function clamp(v: number, min = 0, max = 1): number { return Math.min(max, Math.max(min, v)); }
 
+function normal(s: string | undefined): string { return (s ?? '').trim().toLowerCase(); }
+function mutuallyExclusive(a: DependencySelection, b: DependencySelection): boolean {
+  if (a.eventId !== b.eventId || !a.marketId || a.marketId !== b.marketId) return false;
+  if (a.id === b.id) return true;
+  const la = normal(a.label); const lb = normal(b.label);
+  if (la && lb) {
+    const opposite = (x: string, y: string, p: string, q: string) => x.includes(p) && y.includes(q) || x.includes(q) && y.includes(p);
+    if (opposite(la, lb, 'over', 'under') || opposite(la, lb, 'yes', 'no') || opposite(la, lb, 'home', 'away')) return true;
+  }
+  return false;
+}
+
 export function analyzeDependencies(selections: DependencySelection[]): DependencyMatrix {
   const pairs: DependencyPair[] = [];
   const conflicts: string[] = [];
@@ -13,6 +25,11 @@ export function analyzeDependencies(selections: DependencySelection[]): Dependen
   for (let i = 0; i < selections.length; i += 1) {
     for (let j = i + 1; j < selections.length; j += 1) {
       const a = selections[i]; const b = selections[j];
+      if (mutuallyExclusive(a, b)) {
+        pairs.push({ a: a.id, b: b.id, type: 'MUTUALLY_EXCLUSIVE', score: 1, reason: 'Selections represent incompatible outcomes of the same market.' });
+        conflicts.push(`Mutually exclusive selections: ${a.id} and ${b.id}.`);
+        continue;
+      }
       if (a.eventId !== b.eventId) { pairs.push({ a: a.id, b: b.id, type: 'INDEPENDENT', score: 0, reason: 'Different events.' }); continue; }
       if (a.marketId && b.marketId && a.marketId === b.marketId) {
         pairs.push({ a: a.id, b: b.id, type: 'SAME_MARKET', score: 0.8, reason: 'Selections belong to the same market.' });
