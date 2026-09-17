@@ -53,7 +53,8 @@ export function createMockCoreEngine(): MockCoreEngine {
     },
     optimize(req) {
       const minEv = req.minEv ?? 0;
-      const maxSelections = Math.max(1, req.maxSelections ?? req.selections.length || 1);
+      const requestedMaxSelections = req.maxSelections ?? req.selections.length;
+      const maxSelections = Math.max(1, requestedMaxSelections || 1);
       const maxPerGroup = Math.max(1, req.maxPerCorrelationGroup ?? 1);
       const minConfidence = Math.max(0, Math.min(1, req.minConfidence ?? 0));
       const rejectedReasons: Record<string, string> = {};
