@@ -75,4 +75,4 @@ export class LiveSportsDataRepository implements SportsDataRepository {
   async getSnapshots(eventId: string): Promise<OddsSnapshot[]> { const data = await this.loadCanonicalDataset(); return data.snapshots.filter((s) => s.eventId === eventId); }
 }
 
-export const sportsDataRepository: SportsDataRepository = new MockSportsDataRepository({ latencyMs: 460 });
+export const sportsDataRepository: SportsDataRepository = new LiveSportsDataRepository();
