@@ -1,7 +1,18 @@
 import type { AnalysisResponse, OptimizationRequest, OptimizationResult } from './types';
-import { impliedProbability, modelEv, valueOver, riskForOdds } from '../analytics/calcs';
+import {
+  combinedOdds,
+  estimatedEv,
+  estimatedProbability,
+  impliedProbability,
+  modelEv,
+  potentialProfit,
+  potentialReturn,
+  valueOver,
+  riskForOdds,
+} from '../analytics/calcs';
 
-// Deterministic mock Core AI Engine. Replace with HTTP client to Core AI Engine.
+// Deterministic Core Engine adapter. Replace only the adapter boundary with the real Core AI Engine.
+// Mathematical outputs remain deterministic and testable; an LLM must not calculate them.
 
 export interface MockCoreEngine {
   analyzeSelection(selectionId: string, odds: number, probability: number, confidence: number): AnalysisResponse;
@@ -44,15 +55,47 @@ export function createMockCoreEngine(): MockCoreEngine {
       );
     },
     optimize(req) {
-      // deterministic mock: keep selections with positive EV proxy (prob*odds-1 > 0)
-      // We only have ids here; mock engine receives enriched data in real impl.
-      // For the mock, return the request unchanged with a stable rationale.
+      const minEv = req.minEv ?? 0;
+      const valid = req.selections.filter(
+        (s) => Number.isFinite(s.odds) && s.odds > 1 && Number.isFinite(s.probability) && s.probability >= 0 && s.probability <= 1,
+      );
+      const rejected = valid.filter((s) => modelEv(s.probability, s.odds) < minEv);
+      const kept = valid.filter((s) => modelEv(s.probability, s.odds) >= minEv);
+      const selected = kept.length > 0 ? kept : valid;
+      const odds = selected.map((s) => s.odds);
+      const combined = combinedOdds(odds);
+      const probability = estimatedProbability(odds);
+      const ev = selected.length > 0 ? estimatedEv(selected.map((s) => ({
+        id: s.id,
+        marketId: '',
+        eventId: '',
+        name: s.id,
+        shortName: s.id,
+        odds: s.odds,
+        probability: s.probability,
+        impliedProbability: impliedProbability(s.odds),
+        value: valueOver(s.probability, s.odds),
+        ev: modelEv(s.probability, s.odds),
+        confidence: 0,
+        risk: riskForOdds(s.odds),
+        correlationGroup: s.correlationGroup,
+      }))) : 0;
+      const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0;
+      const rationale =
+        rejected.length > 0
+          ? `${rejected.length} selection(s) below the minimum EV threshold were excluded. Remaining selections are retained for deterministic builder evaluation.`
+          : 'All valid selections meet the minimum EV threshold.';
+
       return {
-        selections: req.selections,
-        stake: req.stake,
-        combinedOdds: 1,
-        estimatedEv: 0,
-        rationale: 'Mock optimization: selections retained unchanged (deterministic).',
+        selections: selected.map((s) => s.id),
+        rejectedSelections: rejected.map((s) => s.id),
+        stake,
+        combinedOdds: combined,
+        estimatedProbability: probability,
+        estimatedEv: ev,
+        potentialReturn: potentialReturn(stake, combined),
+        potentialProfit: potentialProfit(stake, combined),
+        rationale,
       };
     },
   };
