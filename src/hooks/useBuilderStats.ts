@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { combinedOdds, estimatedEv, estimatedProbability, potentialReturn } from '../analytics/calcs';
-import { findCorrelatedGroups } from '../services/services';
-import { correlateWarningsFor, riskForOdds } from '../services/services';
+import { findCorrelatedGroups, correlateWarningsFor } from '../services/services';
 import type { Selection } from '../domain/types';
 
 export function useBuilderStats(selections: Selection[], stake: number) {
@@ -15,18 +14,9 @@ export function useBuilderStats(selections: Selection[], stake: number) {
     const warnings = correlateWarningsFor(selections);
     const worstRisk = selections.reduce<string>((acc, s) => {
       const order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-      return order.indexOf(s.risk) > order.indexOf(acc as never) ? s.risk : acc;
+      return order.indexOf(s.risk) > order.indexOf(acc) ? s.risk : acc;
     }, 'LOW');
     const risk = selections.length === 0 ? 'LOW' : worstRisk;
-    return {
-      multi,
-      ret,
-      profit: ret - stake,
-      ev,
-      estProb,
-      groups,
-      warnings,
-      risk,
-    };
+    return { multi, ret, profit: ret - stake, ev, estProb, groups, warnings, risk };
   }, [selections, stake]);
 }
