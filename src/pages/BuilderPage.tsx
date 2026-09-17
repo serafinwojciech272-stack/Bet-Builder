@@ -13,7 +13,17 @@ export default function BuilderPage({ selections, stake, addSelection, removeSel
   const [drawerOpen, setDrawerOpen] = useState(false); const [message, setMessage] = useState(''); const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
   const events = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]); const decision = useMemo(() => evaluateDecisionCenter(selections), [selections]); const isAdded = (id: string) => selections.some((s) => s.id === id);
   const onAnalyze = async () => { if (!selections.length) return; const eventIds=[...new Set(selections.map((s)=>s.eventId))]; const results=await Promise.all(eventIds.map((eventId)=>runAnalysis(eventId,{depth:'deep'}))); setMessage(`Core Intelligence: ${results.filter(Boolean).length}/${eventIds.length} event analyses completed at deep depth.`); };
-  const onOptimize = async () => { if (!selections.length) return; const result=await optimizeBuilder({stake,minEv:0,maxSelections:8,maxPerCorrelationGroup:1,minConfidence:0.5,selections:selections.map((s)=>({id:s.id,odds:s.odds,probability:s.probability,correlationGroup:s.correlationGroup,confidence:s.confidence,risk:s.risk}))}); setOptimization(result); if(result) setMessage(`Core Optimizer: ${result.selections.length} retained, ${result.rejectedSelections.length} filtered · diversification ${(result.diversificationScore*100).toFixed(0)}%.`); };
+  const onOptimize = async () => {
+    setOptimization(null);
+    if (!selections.length) { setMessage('Decision Gate: blocked — add at least one selection.'); return; }
+    if (decision.status === 'BLOCKED') {
+      setMessage(`Decision Gate: BLOCKED — resolve ${decision.blockers.length} blocker(s) before Core Engine optimization.`);
+      return;
+    }
+    const result = await optimizeBuilder({stake,minEv:0,maxSelections:8,maxPerCorrelationGroup:1,minConfidence:0.5,selections:selections.map((s)=>({id:s.id,odds:s.odds,probability:s.probability,correlationGroup:s.correlationGroup,confidence:s.confidence,risk:s.risk}))});
+    setOptimization(result);
+    if(result) setMessage(`Core Optimizer: ${result.selections.length} retained, ${result.rejectedSelections.length} filtered · diversification ${(result.diversificationScore*100).toFixed(0)}%.`);
+  };
   if (phase==='loading'&&!dataset) return <main className="mx-auto max-w-[1400px] px-4 py-10 text-slate-300">Loading live builder data…</main>;
   if (phase==='error'&&!dataset) return <main className="mx-auto max-w-[1400px] px-4 py-10"><div className="rounded-2xl border border-red-400/20 bg-red-400/5 p-6 text-slate-300">{error??'Live odds unavailable.'}</div></main>;
   return <main className="mx-auto w-full max-w-[1480px] px-4 py-6 pb-28 md:px-6 md:py-8 md:pb-10">
