@@ -3,6 +3,7 @@ import type { AnalysisRequest, AnalysisResponse, QuantDecisionPacket } from './c
 import { runQuantDecision } from '../engine/quantDecisionEngine';
 import type { SportsDataRepository } from '../domain/repositories';
 import type { CoreEngineClient } from '../engine/CoreEngineClient';
+import { InMemoryDecisionMemory, type DecisionMemoryRepository } from '../analytics/decisionMemory';
 
 /** Adds deterministic Quant Decision data and a single Core Engine optimization gate to the analysis contract. */
 export class QuantAwareAnalysisService implements AIAnalysisService {
@@ -13,10 +14,15 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
     private readonly base: AIAnalysisService,
     private readonly repo: SportsDataRepository,
     private readonly coreEngine: CoreEngineClient,
+    private readonly decisionMemory: DecisionMemoryRepository = new InMemoryDecisionMemory(),
   ) {}
 
   health() {
     return this.base.health();
+  }
+
+  getDecisionMemory(): DecisionMemoryRepository {
+    return this.decisionMemory;
   }
 
   async analyzeEvent(request: AnalysisRequest): Promise<AnalysisResponse> {
@@ -91,6 +97,32 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
         `Core Engine optimization returned ${coreOptimization.selections.length} selected and ${coreOptimization.rejectedSelections.length} rejected candidate(s).`,
       ],
     };
+
+    const selectedIds = new Set(coreOptimization.selections.map((selection) => selection.id));
+    const signalBySelection = new Map(decision.marketSignals.map((signal) => [signal.selectionId, signal]));
+    this.decisionMemory.record({
+      decisionId: `${event.id}:${decision.generatedAt}`,
+      eventId: event.id,
+      generatedAt: decision.generatedAt,
+      selections: decision.candidates.map((candidate) => {
+        const signal = signalBySelection.get(candidate.id);
+        return {
+          selectionId: candidate.id,
+          eventId: candidate.eventId,
+          marketId: candidate.marketId,
+          oddsAtDecision: candidate.odds,
+          modelProbability: candidate.probability,
+          fairProbabilitySource: signal?.fairProbabilitySource ?? (modelProbabilityBySelection[candidate.id] !== undefined ? 'MODEL' : 'MARKET_IMPLIED'),
+          qualityScore: candidate.qualityScore,
+          selected: selectedIds.has(candidate.id),
+        };
+      }),
+      combinedOdds: coreOptimization.combinedOdds,
+      estimatedProbability: coreOptimization.estimatedProbability,
+      estimatedEv: coreOptimization.estimatedEv,
+      dependencyMultiplier: decision.portfolio.dependencyMultiplier,
+      coreRationale: coreOptimization.rationale,
+    });
 
     return { ...analysis, quantDecision };
   }
