@@ -27,7 +27,10 @@ export function createMockCoreEngine(): MockCoreEngine {
     },
     analyzeBuilder(selections) { return selections.map((s) => this.analyzeSelection(s.id, s.odds, s.probability, 0.78)); },
     optimize(req) {
-      if (req.decisionGate.status === 'BLOCKED') throw new DecisionGateBlockedError(req.decisionGate.blockers);
+      // Keep the Core Engine contract strict for new callers, while preserving deterministic
+      // READY semantics for legacy/internal fixtures that predate the gate field.
+      const gate = req.decisionGate ?? { status: 'READY' as const, blockers: [], warnings: [], trace: ['legacy-request-defaulted-to-ready'] };
+      if (gate.status === 'BLOCKED') throw new DecisionGateBlockedError(gate.blockers);
       const rejectedReasons: Record<string, string> = {};
       const valid = req.selections.filter((s) => { const ok = Number.isFinite(s.odds) && s.odds > 1 && Number.isFinite(s.probability) && s.probability >= 0 && s.probability <= 1; if (!ok) rejectedReasons[s.id] = 'Invalid odds or probability.'; return ok; });
       const candidates = valid.map((s) => ({ id: s.id, eventId: s.eventId ?? s.correlationGroup, marketId: s.marketId, correlationGroup: s.correlationGroup, odds: s.odds, probability: s.probability, ev: modelEv(s.probability, s.odds), qualityScore: s.qualityScore ?? 100, confidence: s.confidence, label: s.id }));
@@ -38,7 +41,7 @@ export function createMockCoreEngine(): MockCoreEngine {
       const combined = combinedOdds(selected.map((s) => s.odds)); const probability = selected.length ? optimized.adjustedProbability : 0; const ev = probability * combined - 1;
       const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0; const groups = new Set(selected.map((s) => s.correlationGroup)).size;
       const diversificationScore = selected.length <= 1 ? 0 : Math.min(1, groups / selected.length); const targetNote = req.targetCombinedOdds ? `, target ${req.targetCombinedOdds.toFixed(2)} ± ${(req.targetOddsTolerance ?? req.targetCombinedOdds * 0.1).toFixed(2)}` : '';
-      const gateNote = req.decisionGate.status === 'CAUTION' ? ` Decision Gate CAUTION preserved with ${req.decisionGate.warnings.length} warning(s).` : ' Decision Gate READY.';
+      const gateNote = gate.status === 'CAUTION' ? ` Decision Gate CAUTION preserved with ${gate.warnings.length} warning(s).` : ' Decision Gate READY.';
       return { selections: selected.map((s) => s.id), rejectedSelections: Object.keys(rejectedReasons), rejectedReasons, stake, combinedOdds: combined, estimatedProbability: probability, estimatedEv: ev, potentialReturn: potentialReturn(stake, combined), potentialProfit: potentialProfit(stake, combined), diversificationScore, rationale: `Quant portfolio: ${groups} correlation group(s), dependency multiplier ${(optimized.dependencyMultiplier).toFixed(3)}, ${Object.keys(rejectedReasons).length} rejection(s)${targetNote}.${gateNote}` };
     },
   };
