@@ -7,7 +7,12 @@ const PRIORITY_SPORTS = [
   'basketball_nba', 'basketball_euroleague', 'basketball_wnba', 'icehockey_nhl', 'baseball_mlb', 'americanfootball_nfl',
   'tennis_atp', 'tennis_wta',
 ] as const;
-const MARKET_MAP: Record<string, MarketKey> = { h2h: 'match-winner', spreads: 'spread', totals: 'totals' };
+const MARKET_MAP: Record<string, MarketKey> = {
+  h2h: 'match-winner',
+  spreads: 'spread',
+  totals: 'totals',
+  btts: 'both-teams-to-score',
+};
 interface ApiSport { key: string; group: string; title: string; active: boolean; has_outrights: boolean; }
 interface ApiOutcome { name: string; price: number; point?: number; }
 interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; }
@@ -32,7 +37,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const requestedDate = queryValue(req, 'date', polishDate(new Date().toISOString()));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
   const requestedSport = queryValue(req, 'sport', 'all');
-  const markets = queryValue(req, 'markets', 'h2h,spreads,totals');
+  const markets = queryValue(req, 'markets', 'h2h,spreads,totals,btts');
   const regions = queryValue(req, 'regions', 'eu');
   const { from, to } = dateBoundsUtc(requestedDate);
   const issues: DatasetResponse['issues'] = [];
