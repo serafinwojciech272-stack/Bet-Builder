@@ -1,9 +1,8 @@
 import type { AnalysisResponse, OptimizationRequest, OptimizationResult } from './types';
 import {
   combinedOdds,
-  estimatedEv,
-  estimatedProbability,
   impliedProbability,
+  jointModelProbability,
   modelEv,
   potentialProfit,
   potentialReturn,
@@ -34,7 +33,7 @@ export function createMockCoreEngine(): MockCoreEngine {
         value > 0.01
           ? 'Model probability is above the current market-implied probability.'
           : value < -0.01
-            ? 'Model probability is below the current market-implied probability.'
+            ? 'Model probability is below the market-implied probability.'
             : 'Model probability is in line with the market-implied probability.';
       return {
         probability,
@@ -50,9 +49,7 @@ export function createMockCoreEngine(): MockCoreEngine {
       };
     },
     analyzeBuilder(selections) {
-      return selections.map((s) =>
-        this.analyzeSelection(s.id, s.odds, s.probability, 0.78),
-      );
+      return selections.map((s) => this.analyzeSelection(s.id, s.odds, s.probability, 0.78));
     },
     optimize(req) {
       const minEv = req.minEv ?? 0;
@@ -64,22 +61,8 @@ export function createMockCoreEngine(): MockCoreEngine {
       const selected = kept.length > 0 ? kept : valid;
       const odds = selected.map((s) => s.odds);
       const combined = combinedOdds(odds);
-      const probability = estimatedProbability(odds);
-      const ev = selected.length > 0 ? estimatedEv(selected.map((s) => ({
-        id: s.id,
-        marketId: '',
-        eventId: '',
-        name: s.id,
-        shortName: s.id,
-        odds: s.odds,
-        probability: s.probability,
-        impliedProbability: impliedProbability(s.odds),
-        value: valueOver(s.probability, s.odds),
-        ev: modelEv(s.probability, s.odds),
-        confidence: 0,
-        risk: riskForOdds(s.odds),
-        correlationGroup: s.correlationGroup,
-      }))) : 0;
+      const probability = jointModelProbability(selected.map((s) => s.probability));
+      const ev = probability * combined - 1;
       const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0;
       const rationale =
         rejected.length > 0
