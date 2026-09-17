@@ -4,31 +4,22 @@ import { SelectionRow } from '../components/SelectionRow';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { liveEvent } from '../services/liveAdapter';
 
-interface Props {
-  addSelection: (s: import('../domain/types').Selection) => void;
-  removeSelection: (id: string) => void;
-  isAdded: (id: string) => boolean;
-}
+interface Props { addSelection: (s: import('../domain/types').Selection) => void; removeSelection: (id: string) => void; isAdded: (id: string) => boolean; }
 
 export default function EventMarketsPage({ addSelection, removeSelection, isAdded }: Props) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { dataset, phase, error } = useIntelligence();
   const event = useMemo(() => (dataset && id ? liveEvent(dataset, id) : undefined), [dataset, id]);
-
-  if (phase === 'loading') return <main className="mx-auto max-w-[1400px] px-4 py-10 text-slate-300">Loading live markets…</main>;
-  if (!event) {
-    return <main className="mx-auto max-w-[1400px] px-4 py-10"><div className="rounded-lg border border-white/10 p-10 text-center text-slate-300">{error ?? 'Event not found in the live provider feed.'}</div><button onClick={() => navigate('/sports')} className="mt-4 text-violet-400">← Back to Sports</button></main>;
-  }
-
   const sections = useMemo(() => {
+    if (!event) return [] as Array<[string, typeof event.markets]>;
     const byCat = new Map<string, typeof event.markets>();
-    for (const market of event.markets) {
-      const arr = byCat.get(market.category) ?? [];
-      arr.push(market); byCat.set(market.category, arr);
-    }
+    for (const market of event.markets) { const arr = byCat.get(market.category) ?? []; arr.push(market); byCat.set(market.category, arr); }
     return [...byCat.entries()];
   }, [event]);
+
+  if (phase === 'loading') return <main className="mx-auto max-w-[1400px] px-4 py-10 text-slate-300">Loading live markets…</main>;
+  if (!event) return <main className="mx-auto max-w-[1400px] px-4 py-10"><div className="rounded-lg border border-white/10 p-10 text-center text-slate-300">{error ?? 'Event not found in the live provider feed.'}</div><button onClick={() => navigate('/sports')} className="mt-4 text-violet-400">← Back to Sports</button></main>;
   const time = new Date(event.startTime).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
