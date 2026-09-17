@@ -1,83 +1,73 @@
-# BADBUILDER — AI Sports Intelligence (Frontend Foundation)
+# React + TypeScript + Vite
 
-BADBUILDER is the frontend foundation of a future AI Sports Intelligence platform.
-This repository contains the UI, domain model, deterministic calculations, mock
-services, and clean integration contracts — **not** a fake autonomous AI backend.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Stack
+Currently, two official plugins are available:
 
-- React 19 + TypeScript + Vite
-- Tailwind CSS v4
-- React Router
-- Vitest (unit tests for analytics + services)
-- Lucide-ready, framer-motion-ready
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Architecture
+## React Compiler
 
-Provider Layer
-→ Raw Data
-→ Normalization
-→ Canonical Sports Domain
-→ Odds Snapshots
-→ Odds Movement
-→ Data Quality
-→ Sports Intelligence
-→ Core Engine
-→ Mission
-→ Approval
-→ Execution
-→ Measurement
-→ Learning
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-```
-src/
-  domain/        Canonical domain types (Event, Market, Selection, OddsSnapshot, ...)
-  analytics/     Pure deterministic calculations (EV, implied probability, value, ...)
-  core/          Core Engine contracts + deterministic mock (CoreEngineClient, types, mockCoreEngine)
-  services/      Service boundaries (sports data, odds, analysis, optimization, correlation)
-  data/          Deterministic seed data + demo data factories
-  hooks/         React state (builder state, builder stats)
-  components/    Reusable UI (TopNav, BottomNav, EventCard, SelectionRow, BuilderPanel, ui badges)
-  pages/         Route pages (Dashboard, Sports, Live, Builder, EventMarkets, Analysis, History, Missions)
-```
+## Expanding the ESLint configuration
 
-## Key design rules
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-- **No AI logic in React components.** All math lives in `src/analytics/calcs.ts`
-  (pure functions). Analysis requests go through the `CoreEngineClient` contract.
-- **No second Core Engine.** `src/core/` defines the contract; the deterministic
-  mock (`mockCoreEngine.ts`) is a drop-in replacement for a future real engine.
-- **Mock data is demo data.** Every screen shows a `DEMO DATA` / `MOCK ANALYSIS`
-  indicator. Nothing is presented as real bookmaker or provider data.
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-## Calculations (pure, deterministic)
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
 
-```
-impliedProbability = 1 / odds
-EV                = modelProbability * odds - 1
-value             = modelProbability - impliedProbability
-combinedOdds      = product(odds)
-potentialReturn   = stake * combinedOdds
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-## Core Engine integration
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-To connect the real engine later, implement the `CoreEngineClient` interface in
-`src/core/CoreEngineClient.ts` over HTTP and swap it in where the mock client is
-created. The frontend will not change.
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-## Commands
-
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-npm install
-npm run dev       # local dev server
-npm run build     # type-check + production build
-npm run test      # vitest unit tests
-```
-
-## Responsive
-
-- 360px / 390px / 430px: single column, bottom nav, sticky builder summary, bottom-sheet builder
-- 768px: two-column event grids
-- 1024px+: desktop nav + right-hand builder panel
-- No horizontal overflow (`overflow-x: clip` on root)

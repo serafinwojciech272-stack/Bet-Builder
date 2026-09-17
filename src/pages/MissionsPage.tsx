@@ -1,99 +1,125 @@
-import { useState } from 'react';
-import { DemoBadge } from '../components/ui';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowUpRight, Radar, ShieldCheck } from 'lucide-react';
+import { useIntelligence } from '../state/IntelligenceProvider';
+import type { MissionStatus } from '../missions/types';
+import { MISSION_STATUS_ORDER } from '../missions/types';
+import { MissionCard } from '../components/MissionUI';
+import {
+  Chip,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Panel,
+  SectionHeading,
+  Stat,
+} from '../components/ui';
+import { cx } from '../lib/format';
 
-interface Mission {
-  id: string;
-  title: string;
-  description: string;
-  status: 'DRAFT' | 'AWAITING_APPROVAL' | 'APPROVED' | 'EXECUTING' | 'MEASURING' | 'COMPLETED';
-  createdAt: string;
-  updatedAt: string;
-}
+const ALL_STATUSES: MissionStatus[] = [...MISSION_STATUS_ORDER, 'FAILED', 'CANCELLED'];
 
-const initialMissions: Mission[] = [
-  {
-    id: 'm1',
-    title: 'Analyze today\'s football markets',
-    description: 'Demo mission: analyze value across today\'s football markets.',
-    status: 'DRAFT',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+export function MissionsPage() {
+  const { missions, phase, error, refresh, nowTick } = useIntelligence();
+  const [status, setStatus] = useState<MissionStatus | 'all'>('all');
 
-const STATUSES: Mission['status'][] = [
-  'DRAFT',
-  'AWAITING_APPROVAL',
-  'APPROVED',
-  'EXECUTING',
-  'MEASURING',
-  'COMPLETED',
-];
+  const counts = useMemo(() => {
+    const map = new Map<MissionStatus, number>();
+    for (const m of missions) map.set(m.status, (map.get(m.status) ?? 0) + 1);
+    return map;
+  }, [missions]);
 
-export default function MissionsPage() {
-  const [missions, setMissions] = useState<Mission[]>(initialMissions);
+  const filtered = useMemo(
+    () => (status === 'all' ? missions : missions.filter((m) => m.status === status)),
+    [missions, status],
+  );
 
-  const addMission = () => {
-    const m: Mission = {
-      id: `m${Date.now()}`,
-      title: `New demo mission ${missions.length + 1}`,
-      description: 'Demo mission for future Core Engine integration.',
-      status: 'DRAFT',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setMissions((prev) => [...prev, m]);
-  };
-
-  const advance = (id: string) => {
-    setMissions((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m;
-        const next = STATUSES[Math.min(STATUSES.indexOf(m.status) + 1, STATUSES.length - 1)];
-        return { ...m, status: next, updatedAt: new Date().toISOString() };
-      }),
-    );
-  };
+  if (phase === 'loading' || phase === 'idle') return <LoadingState rows={4} />;
+  if (phase === 'error') return <ErrorState detail={error ?? undefined} onRetry={() => void refresh()} />;
 
   return (
-    <main className="mx-auto w-full max-w-[1400px] px-4 py-6 pb-24 md:pb-10">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-black tracking-tight text-white">Missions</h1>
-        <div className="flex items-center gap-3">
-          <DemoBadge label="FUTURE SYSTEM" />
-          <button
-            type="button"
-            onClick={addMission}
-            className="rounded-md border border-violet-500/40 bg-violet-500/15 px-3 py-1.5 text-sm font-semibold text-violet-200 hover:bg-violet-500/25"
-          >
-            New Mission
-          </button>
-        </div>
-      </div>
-      <p className="mt-2 text-sm text-slate-400">
-        Future mission system for the Core AI Engine. Human approval gate required before execution.
-      </p>
+    <div className="space-y-6">
+      <SectionHeading
+        title="Mission control"
+        subtitle="Every mission is observation-only and must clear a human approval gate before the Core Engine client will accept it."
+        icon={<Radar size={18} className="text-mission" aria-hidden />}
+        action={
+          <Chip tone="positive">
+            <ShieldCheck size={11} aria-hidden />
+            no monetary execution in this build
+          </Chip>
+        }
+      />
 
-      <div className="mt-5 space-y-3">
-        {missions.map((m) => (
-          <section key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4">
-            <div className="min-w-0">
-              <div className="text-sm font-bold text-white">{m.title}</div>
-              <div className="text-xs text-slate-400">{m.description}</div>
-              <div className="mt-1 text-[11px] text-slate-500">
-                Status: {m.status} · Created {new Date(m.createdAt).toLocaleString()}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => advance(m.id)}
-              className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
-            >
-              Advance Status
-            </button>
-          </section>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Panel className="p-4">
+          <Stat label="Total missions" value={missions.length} />
+        </Panel>
+        <Panel className="p-4">
+          <Stat label="Awaiting approval" tone="ai" value={counts.get('AWAITING_APPROVAL') ?? 0} />
+        </Panel>
+        <Panel className="p-4">
+          <Stat label="Completed" tone="positive" value={counts.get('COMPLETED') ?? 0} />
+        </Panel>
+        <Panel className="p-4">
+          <Stat
+            label="Failed / cancelled"
+            tone="negative"
+            value={(counts.get('FAILED') ?? 0) + (counts.get('CANCELLED') ?? 0)}
+          />
+        </Panel>
+      </div>
+
+      <div role="tablist" aria-label="Filter missions by status" className="flex flex-wrap gap-1">
+        {(['all', ...ALL_STATUSES] as Array<MissionStatus | 'all'>).map((s) => (
+          <button
+            key={s}
+            role="tab"
+            type="button"
+            aria-selected={status === s}
+            onClick={() => setStatus(s)}
+            className={cx(
+              'rounded-lg px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors',
+              status === s
+                ? 'bg-mission/15 text-mission ring-1 ring-mission/40'
+                : 'bg-surface-2 text-faint ring-1 ring-line hover:text-foreground',
+            )}
+          >
+            {s === 'all' ? 'all' : s.replace('_', ' ')}
+            {s !== 'all' ? ` ${counts.get(s) ?? 0}` : ` ${missions.length}`}
+          </button>
         ))}
       </div>
-    </main>
+
+      {filtered.length === 0 ? (
+        <EmptyState
+          title="No missions in this state"
+          detail="Draft one from any event analysis — the mission builder is in section 09."
+          action={
+            <Link to="/" className="text-xs text-ai hover:underline">
+              Open the intelligence dashboard →
+            </Link>
+          }
+        />
+      ) : (
+        <ul className="grid gap-3 lg:grid-cols-2">
+          {filtered.map((m) => (
+            <li key={m.id}>
+              <MissionCard
+                mission={m}
+                nowTick={nowTick}
+                footer={
+                  <Link
+                    to={`/missions/${m.id}`}
+                    className="inline-flex items-center gap-1 text-xs text-mission hover:underline"
+                  >
+                    Open mission <ArrowUpRight size={12} aria-hidden />
+                  </Link>
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
