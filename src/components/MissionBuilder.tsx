@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Rocket, Target } from 'lucide-react';
 import type { AnalysisResponse, RecommendedAction } from '../ai/contracts';
+import { createDecisionPacketFromAnalysis } from '../core/decisionPacket';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { Button, Chip, OriginTag, Panel } from './ui';
 import { cx } from '../lib/format';
@@ -27,6 +28,7 @@ export function MissionBuilder({ analysis }: { analysis: AnalysisResponse }) {
   const [creating, setCreating] = useState(false);
 
   const action: RecommendedAction | undefined = eligible.find((a) => a.id === actionId);
+  const decisionPacket = useMemo(() => createDecisionPacketFromAnalysis(analysis), [analysis]);
   const existing = missions.filter((m) => m.sourceAnalysisId === analysis.analysisId);
 
   if (!eligible.length) {
@@ -47,6 +49,7 @@ export function MissionBuilder({ analysis }: { analysis: AnalysisResponse }) {
       intervalMinutes: intervalMin,
       horizonMinutes: horizon,
       selectionId: selectionId || null,
+      decisionPacket,
     });
     setCreating(false);
     if (mission) navigate(`/missions/${mission.id}`);
@@ -177,6 +180,15 @@ export function MissionBuilder({ analysis }: { analysis: AnalysisResponse }) {
           No stake, order or monetary instruction is created — the mission raises an alert and
           requests a fresh analysis instead.
         </p>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-line bg-surface-2 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.12em]">
+          <span className="text-faint">Decision Packet</span>
+          <span className={decisionPacket.status === 'BLOCKED' ? 'text-negative' : decisionPacket.status === 'CAUTION' ? 'text-warn' : 'text-positive'}>{decisionPacket.status}</span>
+        </div>
+        <p className="mt-1 text-[11px] text-muted">Immutable evidence: {decisionPacket.selections.length} candidate(s) · {decisionPacket.warnings.length} warning(s) · {decisionPacket.blockers.length} blocker(s).</p>
+        {decisionPacket.blockers.length ? <p className="mt-1 text-[11px] text-negative">Mission creation is blocked until the Decision Center blockers are resolved.</p> : null}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
