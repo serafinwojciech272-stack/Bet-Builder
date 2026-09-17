@@ -28,7 +28,10 @@ export function MissionBuilder({ analysis }: { analysis: AnalysisResponse }) {
   const [creating, setCreating] = useState(false);
 
   const action: RecommendedAction | undefined = eligible.find((a) => a.id === actionId);
-  const decisionPacket = useMemo(() => createDecisionPacketFromAnalysis(analysis), [analysis]);
+  const decisionPacket = useMemo(
+    () => createDecisionPacketFromAnalysis(analysis, new Date(), selectionId ? [selectionId] : undefined),
+    [analysis, selectionId],
+  );
   const existing = missions.filter((m) => m.sourceAnalysisId === analysis.analysisId);
 
   if (!eligible.length) {
