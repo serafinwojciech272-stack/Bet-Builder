@@ -11,7 +11,7 @@ describe('deterministic portfolio optimizer', () => {
       maxPerCorrelationGroup: 1,
       selections: [
         { id: 'a', odds: 2.2, probability: 0.52, correlationGroup: 'match-1', confidence: 0.9 },
-        { id: 'b', odds: 2.0, probability: 0.48, correlationGroup: 'match-1', confidence: 0.9 },
+        { id: 'b', odds: 2.1, probability: 0.5, correlationGroup: 'match-1', confidence: 0.9 },
         { id: 'c', odds: 1.8, probability: 0.6, correlationGroup: 'match-2', confidence: 0.8 },
       ],
     });
