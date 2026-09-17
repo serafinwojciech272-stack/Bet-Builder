@@ -16,22 +16,29 @@ export interface OptimizationSelection {
   odds: number;
   probability: number;
   correlationGroup: string;
+  confidence?: number;
+  risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 }
 
 export interface OptimizationRequest {
   selections: OptimizationSelection[];
   stake: number;
   minEv?: number;
+  maxSelections?: number;
+  maxPerCorrelationGroup?: number;
+  minConfidence?: number;
 }
 
 export interface OptimizationResult {
   selections: string[];
   rejectedSelections: string[];
+  rejectedReasons: Record<string, string>;
   stake: number;
   combinedOdds: number;
   estimatedProbability: number;
   estimatedEv: number;
   potentialReturn: number;
   potentialProfit: number;
+  diversificationScore: number;
   rationale: string;
 }
