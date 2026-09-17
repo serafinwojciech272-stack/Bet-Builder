@@ -1,4 +1,4 @@
-import { MockSportsDataRepository, type SportsDataRepository } from '../domain/repositories';
+import { LiveSportsDataRepository, type SportsDataRepository } from '../domain/repositories';
 import { primaryMarketFor } from '../domain/services/movementService';
 import type { CorrelationContextEntry } from '../domain/services/riskService';
 import { MockAIAnalysisService } from '../ai/MockAIAnalysisService';
@@ -15,30 +15,27 @@ export interface Workspace {
   missionRepository: MissionRepository;
   coreEngine: CoreEngineClient;
   missionService: MissionService;
-  /** Seeding engine: identical contract, zero latency. */
   seedAnalysisService: (now: Date) => AIAnalysisService;
   setFailNextAnalysis: (v: boolean) => void;
 }
 
 export function createWorkspace(): Workspace {
-  const dataRepository = new MockSportsDataRepository({ latencyMs: 420 });
+  const dataRepository = new LiveSportsDataRepository();
   let correlationCache: CorrelationContextEntry[] = [];
   let failNext = false;
 
   const correlationContext = () => correlationCache;
 
   void dataRepository.loadCanonicalDataset().then((dataset) => {
-    correlationCache = dataset.events
-      .filter((e) => e.monitored)
-      .map((e) => ({
-        eventId: e.id,
-        label: `${e.homeTeam.name} vs ${e.awayTeam.name}`,
-        leagueId: e.league.id,
-        teamIds: [e.homeTeam.id, e.awayTeam.id],
-        startTime: e.startTime,
-        market: primaryMarketFor(e.id, dataset.snapshots) ?? 'match-winner',
-      }));
-  });
+    correlationCache = dataset.events.map((e) => ({
+      eventId: e.id,
+      label: `${e.homeTeam.name} vs ${e.awayTeam.name}`,
+      leagueId: e.league.id,
+      teamIds: [e.homeTeam.id, e.awayTeam.id],
+      startTime: e.startTime,
+      market: primaryMarketFor(e.id, dataset.snapshots) ?? 'match-winner',
+    }));
+  }).catch(() => undefined);
 
   const analysisService = new MockAIAnalysisService(dataRepository, {
     latencyMs: 620,
@@ -64,14 +61,11 @@ export function createWorkspace(): Workspace {
     missionRepository,
     coreEngine,
     missionService,
-    seedAnalysisService: (now: Date) =>
-      new MockAIAnalysisService(dataRepository, {
-        latencyMs: 0,
-        correlationContext,
-        now: () => now,
-      }),
-    setFailNextAnalysis: (v: boolean) => {
-      failNext = v;
-    },
+    seedAnalysisService: (now: Date) => new MockAIAnalysisService(dataRepository, {
+      latencyMs: 0,
+      correlationContext,
+      now: () => now,
+    }),
+    setFailNextAnalysis: (v: boolean) => { failNext = v; },
   };
 }
