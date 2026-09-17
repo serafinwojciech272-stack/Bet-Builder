@@ -2,8 +2,9 @@ import type { AIAnalysisService } from './AIAnalysisService';
 import type { AnalysisRequest, AnalysisResponse, QuantDecisionPacket } from './contracts';
 import { runQuantDecision } from '../engine/quantDecisionEngine';
 import type { SportsDataRepository } from '../domain/repositories';
+import type { CoreEngineClient } from '../engine/CoreEngineClient';
 
-/** Adds the deterministic Quant Decision packet to an existing analysis service. */
+/** Adds deterministic Quant Decision data and a single Core Engine optimization gate to the analysis contract. */
 export class QuantAwareAnalysisService implements AIAnalysisService {
   readonly engineId = 'badbuilder-quant-aware-intelligence';
   readonly mode = 'core-engine' as const;
@@ -11,6 +12,7 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
   constructor(
     private readonly base: AIAnalysisService,
     private readonly repo: SportsDataRepository,
+    private readonly coreEngine: CoreEngineClient,
   ) {}
 
   health() {
@@ -33,16 +35,28 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
       modelProbabilityBySelection,
     });
 
+    const coreOptimization = await this.coreEngine.optimizeBuilder({
+      selections: decision.candidates.map((candidate) => ({
+        id: candidate.id,
+        eventId: candidate.eventId,
+        marketId: candidate.marketId,
+        odds: candidate.odds,
+        probability: candidate.probability,
+        ev: candidate.ev,
+        qualityScore: candidate.qualityScore,
+        correlationGroup: candidate.correlationGroup,
+      })),
+      stake: 1,
+      minEv: 0,
+      maxSelections: request.depth === 'deep' ? 8 : 5,
+      maxPerCorrelationGroup: 2,
+      maxSameEvent: 2,
+      minQualityScore: 55,
+    });
+
     const quantDecision: QuantDecisionPacket = {
       generatedAt: decision.generatedAt,
-      marketSignals: decision.marketSignals.map((signal) => ({
-        ...signal,
-        fairProbabilitySource: modelProbabilityBySelection[signal.selectionId] !== undefined
-          ? 'MODEL'
-          : decision.marketSignals.find((candidate) => candidate.selectionId === signal.selectionId)?.fairProbability === signal.impliedProbability
-            ? 'MARKET_IMPLIED'
-            : 'DEVIG_CONSENSUS',
-      })),
+      marketSignals: decision.marketSignals.map((signal) => ({ ...signal })),
       candidates: decision.candidates,
       portfolio: {
         selected: decision.portfolio.selected.map((candidate) => candidate.id),
@@ -53,6 +67,15 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
         estimatedEv: decision.portfolio.estimatedEv,
         dependencyMultiplier: decision.portfolio.dependencyMultiplier,
       },
+      coreOptimization: {
+        selected: coreOptimization.selections,
+        rejected: coreOptimization.rejectedSelections,
+        combinedOdds: coreOptimization.combinedOdds,
+        estimatedProbability: coreOptimization.estimatedProbability,
+        estimatedEv: coreOptimization.estimatedEv,
+        diversificationScore: coreOptimization.diversificationScore,
+        rationale: coreOptimization.rationale,
+      },
       dependencies: {
         conflicts: decision.dependencies.conflicts,
         concentrationPenalty: decision.dependencies.concentrationPenalty,
@@ -60,7 +83,11 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
         adjustedJointProbabilityMultiplier: decision.dependencies.adjustedJointProbabilityMultiplier,
       },
       steam: decision.steam,
-      methodology: decision.methodology,
+      methodology: [
+        ...decision.methodology,
+        'Core Engine is the final deterministic portfolio gate after market intelligence.',
+        `Core Engine optimization returned ${coreOptimization.selections.length} selected and ${coreOptimization.rejectedSelections.length} rejected candidate(s).`,
+      ],
     };
 
     return { ...analysis, quantDecision };
