@@ -41,6 +41,12 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
         qualityScore: candidate.qualityScore,
       })),
       stake: 1,
+      decisionGate: {
+        status: 'READY',
+        blockers: [],
+        warnings: [],
+        trace: ['quant-decision-complete', `event:${event.id}`, `candidate-count:${decision.candidates.length}`],
+      },
       minEv: 0,
       maxSelections: request.depth === 'deep' ? 8 : 5,
       maxPerCorrelationGroup: 2,
