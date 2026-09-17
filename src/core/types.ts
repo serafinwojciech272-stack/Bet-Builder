@@ -11,15 +11,27 @@ export interface AnalysisResponse {
   dataQuality: 'High' | 'Medium' | 'Low';
 }
 
+export interface OptimizationSelection {
+  id: string;
+  odds: number;
+  probability: number;
+  correlationGroup: string;
+}
+
 export interface OptimizationRequest {
-  selections: string[];
+  selections: OptimizationSelection[];
   stake: number;
+  minEv?: number;
 }
 
 export interface OptimizationResult {
   selections: string[];
+  rejectedSelections: string[];
   stake: number;
   combinedOdds: number;
+  estimatedProbability: number;
   estimatedEv: number;
+  potentialReturn: number;
+  potentialProfit: number;
   rationale: string;
 }
