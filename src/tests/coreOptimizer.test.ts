@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createMockCoreEngine } from '../core/mockCoreEngine';
 
+const readyGate = {
+  status: 'READY' as const,
+  blockers: [],
+  warnings: [],
+  trace: ['unit-test-ready-gate'],
+};
+
 describe('deterministic portfolio optimizer', () => {
   it('keeps the highest-EV selection when a correlation group is capped', () => {
     const engine = createMockCoreEngine();
@@ -9,6 +16,7 @@ describe('deterministic portfolio optimizer', () => {
       minEv: 0,
       maxSelections: 3,
       maxPerCorrelationGroup: 1,
+      decisionGate: readyGate,
       selections: [
         { id: 'a', odds: 2.2, probability: 0.52, correlationGroup: 'match-1', confidence: 0.9 },
         { id: 'b', odds: 2.1, probability: 0.5, correlationGroup: 'match-1', confidence: 0.9 },
@@ -27,6 +35,7 @@ describe('deterministic portfolio optimizer', () => {
       stake: 50,
       minEv: 0.05,
       minConfidence: 0.8,
+      decisionGate: readyGate,
       selections: [
         { id: 'low-ev', odds: 1.5, probability: 0.66, correlationGroup: 'g1', confidence: 0.95 },
         { id: 'low-confidence', odds: 2.4, probability: 0.52, correlationGroup: 'g2', confidence: 0.55 },
