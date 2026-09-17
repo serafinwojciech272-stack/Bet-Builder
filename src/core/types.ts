@@ -11,6 +11,15 @@ export interface AnalysisResponse {
   dataQuality: 'High' | 'Medium' | 'Low';
 }
 
+export type DecisionGateStatus = 'READY' | 'CAUTION' | 'BLOCKED';
+
+export interface DecisionGateInput {
+  status: DecisionGateStatus;
+  blockers: string[];
+  warnings: string[];
+  trace?: string[];
+}
+
 export interface OptimizationSelection {
   id: string;
   odds: number;
@@ -26,6 +35,7 @@ export interface OptimizationSelection {
 export interface OptimizationRequest {
   selections: OptimizationSelection[];
   stake: number;
+  decisionGate: DecisionGateInput;
   minEv?: number;
   maxSelections?: number;
   maxPerCorrelationGroup?: number;
