@@ -43,8 +43,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const requestedDate = queryValue(req, 'date', polishDate(new Date().toISOString()));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
   const requestedSport = queryValue(req, 'sport', 'all');
-  // The live odds endpoint does not support BTTS as a requested market for the current provider.
-  // Keep BTTS in the normalizer for future/alternate feeds, but do not request it by default.
+  // Provider-safe default: BTTS stays supported by the normalizer but is not requested from the current live endpoint.
   const markets = queryValue(req, 'markets', 'h2h,spreads,totals');
   const regions = queryValue(req, 'regions', 'eu');
   const { from, to } = dateBoundsUtc(requestedDate);
