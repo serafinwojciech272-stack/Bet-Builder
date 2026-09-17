@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { SelectionRow } from '../components/SelectionRow';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { liveEvent } from '../services/liveAdapter';
-import type { Selection } from '../domain/types';
+import type { EventWithMarkets, Selection } from '../domain/types';
 
 interface Props { addSelection: (s: Selection) => void; removeSelection: (id: string) => void; isAdded: (id: string) => boolean; }
 
@@ -11,11 +11,15 @@ export default function EventMarketsPage({ addSelection, removeSelection, isAdde
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { dataset, phase, error } = useIntelligence();
-  const event = useMemo(() => (dataset && id ? liveEvent(dataset, id) : undefined), [dataset, id]);
-  const sections = useMemo(() => {
-    if (!event) return [] as Array<[string, typeof event.markets]>;
-    const byCat = new Map<string, typeof event.markets>();
-    for (const market of event.markets) { const arr = byCat.get(market.category) ?? []; arr.push(market); byCat.set(market.category, arr); }
+  const event = useMemo<EventWithMarkets | undefined>(() => (dataset && id ? liveEvent(dataset, id) : undefined), [dataset, id]);
+  const sections = useMemo<Array<[string, EventWithMarkets['markets']]>>(() => {
+    if (!event) return [];
+    const byCat = new Map<string, EventWithMarkets['markets']>();
+    for (const market of event.markets) {
+      const arr = byCat.get(market.category) ?? [];
+      arr.push(market);
+      byCat.set(market.category, arr);
+    }
     return [...byCat.entries()];
   }, [event]);
 
