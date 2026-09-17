@@ -20,24 +20,15 @@ export function createMockCoreEngine(): MockCoreEngine {
     analyzeBuilder(selections) { return selections.map((s) => this.analyzeSelection(s.id, s.odds, s.probability, 0.78)); },
     optimize(req) {
       const rejectedReasons: Record<string, string> = {};
-      const valid = req.selections.filter((s) => {
-        const ok = Number.isFinite(s.odds) && s.odds > 1 && Number.isFinite(s.probability) && s.probability >= 0 && s.probability <= 1;
-        if (!ok) rejectedReasons[s.id] = 'Invalid odds or probability.';
-        return ok;
-      });
-      const candidates = valid.map((s) => ({ id: s.id, eventId: s.eventId ?? s.correlationGroup, marketId: s.marketId, correlationGroup: s.correlationGroup, odds: s.odds, probability: s.probability, ev: modelEv(s.probability, s.odds), qualityScore: s.qualityScore ?? 100, label: s.id }));
-      const optimized = optimizePortfolio(candidates, { maxSelections: req.maxSelections, maxSameEvent: req.maxSameEvent, maxCorrelationGroup: req.maxPerCorrelationGroup, minEv: req.minEv, minQuality: req.minQualityScore, maxCombinedOdds: req.maxCombinedOdds, targetCombinedOdds: req.targetCombinedOdds, targetOddsTolerance: req.targetOddsTolerance });
+      const valid = req.selections.filter((s) => { const ok = Number.isFinite(s.odds) && s.odds > 1 && Number.isFinite(s.probability) && s.probability >= 0 && s.probability <= 1; if (!ok) rejectedReasons[s.id] = 'Invalid odds or probability.'; return ok; });
+      const candidates = valid.map((s) => ({ id: s.id, eventId: s.eventId ?? s.correlationGroup, marketId: s.marketId, correlationGroup: s.correlationGroup, odds: s.odds, probability: s.probability, ev: modelEv(s.probability, s.odds), qualityScore: s.qualityScore ?? 100, confidence: s.confidence, label: s.id }));
+      const optimized = optimizePortfolio(candidates, { maxSelections: req.maxSelections, maxSameEvent: req.maxSameEvent, maxCorrelationGroup: req.maxPerCorrelationGroup, minEv: req.minEv, minQuality: req.minQualityScore, minConfidence: req.minConfidence, maxCombinedOdds: req.maxCombinedOdds, targetCombinedOdds: req.targetCombinedOdds, targetOddsTolerance: req.targetOddsTolerance });
       for (const item of optimized.rejected) rejectedReasons[item.id] = item.reason;
-      const selected = optimized.selected;
-      const selectedIds = new Set(selected.map((s) => s.id));
+      const selected = optimized.selected; const selectedIds = new Set(selected.map((s) => s.id));
       for (const s of valid) if (!selectedIds.has(s.id) && !rejectedReasons[s.id]) rejectedReasons[s.id] = 'Not selected after quant portfolio constraints.';
-      const combined = combinedOdds(selected.map((s) => s.odds));
-      const probability = selected.length ? optimized.adjustedProbability : 0;
-      const ev = probability * combined - 1;
-      const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0;
-      const groups = new Set(selected.map((s) => s.correlationGroup)).size;
-      const diversificationScore = selected.length <= 1 ? 0 : Math.min(1, groups / selected.length);
-      const targetNote = req.targetCombinedOdds ? `, target ${req.targetCombinedOdds.toFixed(2)} ± ${(req.targetOddsTolerance ?? req.targetCombinedOdds * 0.1).toFixed(2)}` : '';
+      const combined = combinedOdds(selected.map((s) => s.odds)); const probability = selected.length ? optimized.adjustedProbability : 0; const ev = probability * combined - 1;
+      const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0; const groups = new Set(selected.map((s) => s.correlationGroup)).size;
+      const diversificationScore = selected.length <= 1 ? 0 : Math.min(1, groups / selected.length); const targetNote = req.targetCombinedOdds ? `, target ${req.targetCombinedOdds.toFixed(2)} ± ${(req.targetOddsTolerance ?? req.targetCombinedOdds * 0.1).toFixed(2)}` : '';
       return { selections: selected.map((s) => s.id), rejectedSelections: Object.keys(rejectedReasons), rejectedReasons, stake, combinedOdds: combined, estimatedProbability: probability, estimatedEv: ev, potentialReturn: potentialReturn(stake, combined), potentialProfit: potentialProfit(stake, combined), diversificationScore, rationale: `Quant portfolio: ${groups} correlation group(s), dependency multiplier ${(optimized.dependencyMultiplier).toFixed(3)}, ${Object.keys(rejectedReasons).length} rejection(s)${targetNote}.` };
     },
   };
