@@ -5,13 +5,31 @@ export interface DependencyPair { a: string; b: string; type: DependencyType; sc
 export interface DependencyMatrix { pairs: DependencyPair[]; conflicts: string[]; concentrationPenalty: number; correlationPenalty: number; adjustedJointProbabilityMultiplier: number; }
 
 function clamp(v: number, min = 0, max = 1): number { return Math.min(max, Math.max(min, v)); }
+function normal(s: string | undefined): string { return (s ?? '').trim().toLowerCase().replace(/[._-]+/g, ' '); }
 
-function normal(s: string | undefined): string { return (s ?? '').trim().toLowerCase(); }
+function outcomeToken(label: string): 'HOME' | 'DRAW' | 'AWAY' | 'YES' | 'NO' | 'OVER' | 'UNDER' | null {
+  const value = normal(label);
+  if (/^(1|home|home team)$/.test(value)) return 'HOME';
+  if (/^(x|draw|tie)$/.test(value)) return 'DRAW';
+  if (/^(2|away|away team)$/.test(value)) return 'AWAY';
+  if (/^(yes|y)$/.test(value)) return 'YES';
+  if (/^(no|n)$/.test(value)) return 'NO';
+  if (/\bover\b/.test(value)) return 'OVER';
+  if (/\bunder\b/.test(value)) return 'UNDER';
+  return null;
+}
+
 function mutuallyExclusive(a: DependencySelection, b: DependencySelection): boolean {
   if (a.eventId !== b.eventId || !a.marketId || a.marketId !== b.marketId) return false;
   if (a.id === b.id) return true;
   const la = normal(a.label); const lb = normal(b.label);
   if (la && lb) {
+    const ta = outcomeToken(la); const tb = outcomeToken(lb);
+    if (ta && tb) {
+      if ((ta === 'HOME' || ta === 'DRAW' || ta === 'AWAY') && ta !== tb && (tb === 'HOME' || tb === 'DRAW' || tb === 'AWAY')) return true;
+      if ((ta === 'YES' && tb === 'NO') || (ta === 'NO' && tb === 'YES')) return true;
+      if ((ta === 'OVER' && tb === 'UNDER') || (ta === 'UNDER' && tb === 'OVER')) return true;
+    }
     const opposite = (x: string, y: string, p: string, q: string) => x.includes(p) && y.includes(q) || x.includes(q) && y.includes(p);
     if (opposite(la, lb, 'over', 'under') || opposite(la, lb, 'yes', 'no') || opposite(la, lb, 'home', 'away')) return true;
   }
