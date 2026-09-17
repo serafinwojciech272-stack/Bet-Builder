@@ -7,6 +7,22 @@ import { EventAnalysisPage } from './pages/EventAnalysisPage';
 import { MissionsPage } from './pages/MissionsPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { HistoryPage } from './pages/HistoryPage';
+import BuilderPage from './pages/BuilderPage';
+import { useBuilder } from './hooks/useBuilder';
+
+function BuilderRoute() {
+  const builder = useBuilder();
+  return (
+    <BuilderPage
+      selections={builder.selections}
+      stake={builder.stake}
+      addSelection={builder.add}
+      removeSelection={builder.remove}
+      clear={builder.clear}
+      updateStake={builder.updateStake}
+    />
+  );
+}
 
 export default function App() {
   return (
@@ -16,6 +32,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/builder" element={<BuilderRoute />} />
             <Route path="/analysis/:eventId" element={<EventAnalysisPage />} />
             <Route path="/missions" element={<MissionsPage />} />
             <Route path="/missions/:missionId" element={<MissionDetailPage />} />
