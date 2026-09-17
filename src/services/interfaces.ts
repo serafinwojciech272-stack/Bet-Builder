@@ -1,11 +1,4 @@
-import type {
-  Event,
-  EventWithMarkets,
-  Market,
-  OddsSnapshot,
-  Selection,
-} from '../domain/types';
-import { impliedProbability, modelEv, valueOver, riskForOdds } from '../analytics/calcs';
+import type { Event, Market, OddsSnapshot, Selection } from '../domain/types';
 
 export interface SportsDataService {
   listEvents(): Event[];
