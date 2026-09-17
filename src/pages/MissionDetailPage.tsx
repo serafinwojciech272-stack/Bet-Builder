@@ -92,6 +92,56 @@ export function MissionDetailPage() {
         </div>
       </Panel>
 
+      <Panel tone="ai" className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Brain size={15} className="text-ai" aria-hidden />
+              Decision Packet
+              <OriginTag origin="deterministic" label="immutable evidence" className="ml-1" />
+            </h2>
+            <p className="mt-1 text-[11px] text-muted">
+              Decision Center evidence carried into Core Engine and this mission.
+            </p>
+          </div>
+          {mission.decisionPacket ? (
+            <Chip tone={mission.decisionPacket.status === 'READY' ? 'positive' : mission.decisionPacket.status === 'CAUTION' ? 'warn' : 'negative'}>
+              {mission.decisionPacket.status}
+            </Chip>
+          ) : (
+            <Chip tone="neutral">legacy mission</Chip>
+          )}
+        </div>
+        {mission.decisionPacket ? (
+          <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Stat label="Packet" value={mission.decisionPacket.id} mono />
+              <Stat label="Version" value={mission.decisionPacket.version} />
+              <Stat label="Selections" value={mission.decisionPacket.selections.length} />
+              <Stat label="Mission eligible" value={mission.decisionPacket.mission.eligible ? 'yes' : 'no'} mono={false} />
+            </div>
+            {mission.decisionPacket.blockers.length ? (
+              <div className="rounded-lg border border-negative/30 bg-negative/[0.06] px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-negative">Blockers</p>
+                <ul className="mt-1 space-y-1">{mission.decisionPacket.blockers.map((b) => <li key={b} className="text-[11px] text-muted">· {b}</li>)}</ul>
+              </div>
+            ) : null}
+            {mission.decisionPacket.warnings.length ? (
+              <div className="rounded-lg border border-warn/30 bg-warn/[0.06] px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-warn">Warnings preserved</p>
+                <ul className="mt-1 space-y-1">{mission.decisionPacket.warnings.map((w) => <li key={w} className="text-[11px] text-muted">· {w}</li>)}</ul>
+              </div>
+            ) : null}
+            <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-faint">Audit trace</p>
+              <ol className="mt-1 space-y-1">{mission.decisionPacket.trace.slice(-6).map((t, i) => <li key={`${i}-${t}`} className="font-mono text-[10px] text-muted">{i + 1}. {t}</li>)}</ol>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-[11px] text-faint">This mission predates the Decision Packet contract.</p>
+        )}
+      </Panel>
+
       <ApprovalGate mission={mission} />
 
       <div className="grid gap-4 lg:grid-cols-2">
