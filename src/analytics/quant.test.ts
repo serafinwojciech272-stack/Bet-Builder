@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { OddsSnapshot } from '../domain/types';
+import type { OddsSnapshot, SportEvent } from '../domain/types';
 import { eventQuantSnapshot, marketEfficiency, movementSignal, summarizeQuotes } from './quant';
 import { analyzeDependencies } from './dependency';
 import { optimizePortfolio } from './portfolio';
 import { detectSteam, summarizeMovement } from './movement';
 
 const quote = (id: string, selectionId: string, bookmaker: string, odds: number): OddsSnapshot => ({ id, eventId: 'event-1', market: 'match-winner', bookmaker, capturedAt: new Date().toISOString(), quotes: [{ selectionId, label: selectionId, decimalOdds: odds }], feedLatencyMs: 100, provider: 'test' });
+const event: SportEvent = { id: 'event-1', sportKey: 'soccer', league: { id: 'league-1', name: 'Test League', sportKey: 'soccer', country: 'PL' }, homeTeam: { id: 'home', name: 'Home', shortName: 'H', rating: 80, form: ['W', 'D', 'W'], injuriesOut: 0 }, awayTeam: { id: 'away', name: 'Away', shortName: 'A', rating: 75, form: ['L', 'D', 'W'], injuriesOut: 0 }, startTime: new Date().toISOString(), status: 'scheduled', venue: 'Test', monitored: true, liquidity: 100 };
 
 describe('quant toolkit', () => {
   it('summarizes best, median and bookmaker dispersion', () => { const [summary] = summarizeQuotes([quote('1', 'home', 'a', 2), quote('2', 'home', 'b', 2.2), quote('3', 'home', 'c', 2.1)]); expect(summary.bestOdds).toBe(2.2); expect(summary.medianOdds).toBe(2.1); expect(summary.bookmakerCount).toBe(3); });
@@ -20,7 +21,6 @@ describe('quant toolkit', () => {
     expect((efficiency?.normalizedProbabilities.home ?? 0) + (efficiency?.normalizedProbabilities.away ?? 0)).toBeCloseTo(1, 8);
   });
   it('uses model probability as the explicit fair-probability source', () => {
-    const event = { id: 'event-1', sport: 'soccer', homeTeam: 'Home', awayTeam: 'Away', commenceTime: new Date().toISOString(), status: 'scheduled' } as const;
     const signals = eventQuantSnapshot(event, [
       { ...quote('1', 'home', 'a', 2), quotes: [{ selectionId: 'home', label: 'home', decimalOdds: 2 }, { selectionId: 'away', label: 'away', decimalOdds: 1.8 }] },
     ], { home: 0.6 }).flatMap((market) => market.signals);
