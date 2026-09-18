@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" fill="none">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900"><stop stop-color="#07050d"/><stop offset=".48" stop-color="#140d25"/><stop offset="1" stop-color="#05060d"/></linearGradient>
+ <radialGradient id="violet" cx=".5" cy=".4" r=".6"><stop stop-color="#7c3aed" stop-opacity=".32"/><stop offset="1" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff1a8"/><stop offset=".45" stop-color="#f0cb7a"/><stop offset="1" stop-color="#8c5f22"/></linearGradient>
+ <linearGradient id="dress" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#11121c"/><stop offset=".55" stop-color="#33204d"/><stop offset="1" stop-color="#080811"/></linearGradient>
+ <filter id="blur"><feGaussianBlur stdDeviation="28"/></filter>
+ <filter id="glow"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1600" height="900" fill="url(#bg)"/>
+<ellipse cx="800" cy="300" rx="700" ry="330" fill="url(#violet)"/>
+<g opacity=".22" filter="url(#blur)"><ellipse cx="350" cy="340" rx="210" ry="110" fill="#d946ef"/><ellipse cx="1250" cy="330" rx="240" ry="120" fill="#3b82f6"/></g>
+<g opacity=".55" filter="url(#glow)"><path d="M0 640 C300 520 480 560 800 650 S1300 780 1600 600" stroke="#f0cb7a" stroke-width="2"/><path d="M0 690 C340 590 520 620 800 700 S1320 800 1600 650" stroke="#8b5cf6" stroke-width="3"/></g>
+<!-- left elegant club host -->
+<g transform="translate(240 155)">
+ <ellipse cx="150" cy="630" rx="180" ry="30" fill="#000" opacity=".65"/>
+ <circle cx="150" cy="95" r="58" fill="#b87862"/>
+ <path d="M93 101c8-65 113-89 135-5-35-23-78-28-135 5Z" fill="#160f1c"/>
+ <path d="M92 132c9 46 27 67 58 74 34-6 52-28 58-74-26 18-82 25-116 0Z" fill="#b87862"/>
+ <path d="M82 177c35 30 101 31 136 0l82 312c-61 37-239 37-300 0l82-312Z" fill="url(#dress)" stroke="#f0cb7a" stroke-opacity=".55"/>
+ <path d="M110 185c23 19 58 26 87 0" stroke="#f0cb7a" stroke-opacity=".45" stroke-width="3"/>
+ <path d="M112 478 92 675M204 478l30 197" stroke="#b87862" stroke-width="28" stroke-linecap="round"/>
+ <path d="M88 675h-54M238 675h54" stroke="#11121c" stroke-width="18" stroke-linecap="round"/>
+</g>
+<!-- right elegant club host -->
+<g transform="translate(1130 165)">
+ <ellipse cx="150" cy="620" rx="170" ry="28" fill="#000" opacity=".65"/>
+ <circle cx="150" cy="92" r="56" fill="#d39a78"/>
+ <path d="M94 102c0-70 109-94 136-6-39-24-92-22-136 6Z" fill="#d7a36c"/>
+ <path d="M92 130c12 45 30 66 59 72 31-6 51-28 57-72-27 17-83 23-116 0Z" fill="#d39a78"/>
+ <path d="M84 174c35 28 97 30 133 0l74 305c-57 39-226 39-284 0l77-305Z" fill="url(#dress)" stroke="#f0cb7a" stroke-opacity=".55"/>
+ <path d="M113 183c22 18 58 25 84 0" stroke="#f0cb7a" stroke-opacity=".45" stroke-width="3"/>
+ <path d="M113 475 94 665M201 475l32 190" stroke="#d39a78" stroke-width="27" stroke-linecap="round"/>
+ <path d="M90 665h-52M237 665h52" stroke="#11121c" stroke-width="18" stroke-linecap="round"/>
+</g>
+<!-- lounge table / champagne -->
+<g opacity=".9">
+ <ellipse cx="800" cy="780" rx="290" ry="36" fill="#020208"/>
+ <path d="M590 735h420l-55 100H645l-55-100Z" fill="#11111b" stroke="#f0cb7a" stroke-opacity=".3"/>
+ <path d="M690 690h16l18 88h-28l-6-88ZM882 690h16l-6 88h-28l18-88Z" fill="#d9d9e8" opacity=".6"/>
+ <path d="M698 690h12l-3-55h-6l-3 55ZM891 690h12l-3-55h-6l-3 55Z" fill="#f0cb7a" opacity=".65"/>
+ <circle cx="702" cy="630" r="5" fill="#f0cb7a"/><circle cx="895" cy="630" r="5" fill="#f0cb7a"/>
+</g>
+<g fill="url(#gold)" font-family="Georgia,serif" text-anchor="middle">
+ <text x="800" y="110" font-size="42" letter-spacing="12">PRIVATE CLUB</text>
+ <text x="800" y="158" font-size="18" letter-spacing="7" opacity=".8">SPORTS • ODDS • INTELLIGENCE</text>
+</g>
+<rect width="1600" height="900" fill="url(#bg)" opacity=".14"/>
+</svg>
