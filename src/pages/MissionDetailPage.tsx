@@ -9,6 +9,8 @@ import {
   History,
   Radar,
   Ruler,
+  Swords,
+  Trophy,
   Target,
 } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
@@ -71,14 +73,22 @@ export function MissionDetailPage() {
               </Chip>
               <span className="font-mono text-[10px] text-faint">{mission.id}</span>
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Chip tone="mission"><Trophy size={10} aria-hidden /> {mission.target.leagueName}</Chip>
+              <Chip tone="ai"><Swords size={10} aria-hidden /> {mission.target.marketLabel}</Chip>
+              <Chip tone="neutral">{mission.target.selectionLabel ?? 'Event monitor'}</Chip>
+            </div>
             <h1 className="mt-2 font-display text-xl font-bold tracking-tight text-foreground">
               {mission.objective}
             </h1>
-            <p className="mt-1 text-xs text-muted">
-              {mission.target.eventLabel} · {mission.target.marketLabel}
-              {mission.target.selectionLabel ? ` · ${mission.target.selectionLabel}` : ''} ·{' '}
-              {mission.target.leagueName}
-            </p>
+            <div className="mt-2 rounded-lg border border-line bg-surface-2 px-3 py-2">
+              <div className="text-[9px] uppercase tracking-[0.12em] text-faint">Monitored event</div>
+              <div className="mt-1 text-sm font-semibold text-foreground">{mission.target.eventLabel}</div>
+              <div className="mt-1 text-[11px] text-muted">
+                {mission.target.leagueName} · {mission.target.marketLabel}
+                {mission.target.selectionLabel ? ` · ${mission.target.selectionLabel}` : ''}
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
             <Stat label="Created" value={relativeTime(mission.createdAt, nowTick)} mono={false} />
