@@ -87,9 +87,9 @@ export function EventsPage() {
                 <p className="mt-1 text-xs font-medium text-foreground"><CalendarDays size={12} className="mr-1 inline text-ai" />{dateTime(i.event.startTime)} <span className="text-faint">· {relativeTime(i.event.startTime, nowTick)}</span></p>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Stat label="Najlepszy kurs" value={best?.quote.formatted ?? '—'} tone="market" />
+                <Stat label="Najlepszy kurs" value={best?.bestPrice.formatted ?? '—'} tone="market" />
                 <Stat label="Wartość" value={best?.edgePct.formatted ?? '—'} tone={(best?.edgePct.value ?? 0) > 0 ? 'positive' : 'default'} />
-                <Stat label="Ryzyko" value={i.risk.level === 'LOW' ? 'NISKIE' : i.risk.level === 'MEDIUM' ? 'ŚREDNIE' : i.risk.level === 'HIGH' ? 'WYSOKIE' : 'KRYTYCZNE'} mono={false} />
+                <Stat label="Ryzyko" value={i.risk.level === 'LOW' ? 'NISKIE' : i.risk.level === 'ELEVATED' ? 'PODWYŻSZONE' : i.risk.level === 'HIGH' ? 'WYSOKIE' : 'KRYTYCZNE'} mono={false} />
               </div>
             </div>
           </Panel></li>;
