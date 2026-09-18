@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'\nimport './deep-enhance.css'
+import './index.css'
+import './deep-enhance.css'
 import App from './App.tsx'
 
 interface ErrorBoundaryProps {
