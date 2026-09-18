@@ -16,7 +16,7 @@ interface Props { selections: import('../domain/types').Selection[]; stake: numb
 async function fetchDeepResearch(event:{id:string;homeTeam:string;awayTeam:string;sport:string;league:string}):Promise<EventResearch|null>{
   try{
     const q=new URLSearchParams({eventId:event.id,home:event.homeTeam,away:event.awayTeam,sport:event.sport,league:event.league});
-    const response=await fetch('/api/research?'+q.toString());
+    const base=((import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/,'')||'https://bet-builder-api.onrender.com'); const response=await fetch(`${base}/api/research?${q.toString()}`);
     if(!response.ok) return null;
     return await response.json() as EventResearch;
   }catch{return null;}
