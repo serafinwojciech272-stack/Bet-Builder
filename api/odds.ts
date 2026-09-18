@@ -99,6 +99,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
       response = await fetch(url);
     } catch (error) {
       issues.push({ code: 'provider-network-error', severity: 'warning', message: `ParlayAPI network failure for ${sportKey}: ${error instanceof Error ? error.message : 'request failed'}`, reference: sportKey });
+      failedSports.push(sportKey);
       continue;
     }
     const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
@@ -109,8 +110,10 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
       rawEvents = await response.json() as ApiEvent[];
     } catch (error) {
       issues.push({ code: 'provider-payload-error', severity: 'warning', message: `Invalid ParlayAPI payload for ${sportKey}: ${error instanceof Error ? error.message : 'invalid JSON'}`, reference: sportKey });
+      failedSports.push(sportKey);
       continue;
     }
+    successfulSports.push(sportKey);
     for (const raw of rawEvents) {
       if (polishDate(raw.commence_time) !== requestedDate) continue;
       const sport = canonicalSport(raw.sport_key);
