@@ -28,6 +28,15 @@ const SPORT_MAP: Record<string, SportKey> = {
   AMERICAN_FOOTBALL: 'americanfootball',
   ICE_HOCKEY: 'icehockey',
   BASEBALL: 'baseball',
+  TENNIS: 'tennis',
+  VOLLEYBALL: 'volleyball',
+  GOLF: 'golf',
+  HANDBALL: 'handball',
+  RUGBY: 'rugby',
+  TABLE_TENNIS: 'tabletennis',
+  DARTS: 'darts',
+  CRICKET: 'cricket',
+  AUSSIE_RULES: 'aussierules',
 };
 
 const MARKET_MAP: Record<string, MarketKey> = {
@@ -36,6 +45,8 @@ const MARKET_MAP: Record<string, MarketKey> = {
   OU: 'totals',
   SPR: 'spread',
   BTTS: 'both-teams-to-score',
+  OUTRIGHTS: 'outrights',
+  GAME_HANDICAP: 'spread',
 };
 
 const BOOK_MAP: Record<string, BookmakerId> = {
@@ -52,6 +63,7 @@ export const MARKET_LABELS: Record<MarketKey, string> = {
   totals: 'Totals O/U 2.5',
   spread: 'Spread / Handicap',
   'both-teams-to-score': 'Both Teams To Score',
+  outrights: 'Outrights / Tournament Winner',
 };
 
 export const SPORT_LABELS: Record<SportKey, string> = {
@@ -60,6 +72,15 @@ export const SPORT_LABELS: Record<SportKey, string> = {
   americanfootball: 'American Football',
   icehockey: 'Ice Hockey',
   baseball: 'Baseball',
+  tennis: 'Tennis',
+  volleyball: 'Volleyball',
+  golf: 'Golf',
+  handball: 'Handball',
+  rugby: 'Rugby',
+  tabletennis: 'Table Tennis',
+  darts: 'Darts',
+  cricket: 'Cricket',
+  aussierules: 'Aussie Rules',
 };
 
 const STALE_THRESHOLD_MINUTES = 30;
