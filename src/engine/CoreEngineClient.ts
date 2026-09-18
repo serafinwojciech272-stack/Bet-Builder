@@ -121,7 +121,7 @@ export class MockCoreEngineClient implements CoreEngineClient {
     const objectiveMet = mission.expectedOutcome.measurableMetric === 'data-quality-score'
       ? (analysis?.dataQuality.score.value ?? 0) >= 0.6
       : Math.abs(result.closingLineValuePct.value) >= mission.expectedOutcome.targetValue.value * 0.5;
-    return { measuredAt: new Date().toISOString(), verdict: result.verdict, closingLineValuePct: result.closingLineValuePct, closingOdds: det(1 / impliedAtClose, 'odds', 'measurement-service'), realizedMovementPct: result.realizedMovementPct, calibrationDeltaPct: result.calibrationDeltaPct, brierScore: result.brierScore, objectiveMet, notes: [`Reference implied probability at analysis: ${(impliedAtAnalysis * 100).toFixed(1)}%.`, `Measured implied probability at close: ${(impliedAtClose * 100).toFixed(1)}%.`, objectiveMet ? 'Mission objective met within the defined horizon.' : 'Mission objective not met — movement stayed inside the target band.'] };
+    return { measuredAt: new Date().toISOString(), verdict: result.verdict, closingLineValuePct: result.closingLineValuePct, closingOdds: det(1 / impliedAtClose, 'decimal-odds', 'measurement-service'), realizedMovementPct: result.realizedMovementPct, calibrationDeltaPct: result.calibrationDeltaPct, brierScore: result.brierScore, objectiveMet, notes: [`Reference implied probability at analysis: ${(impliedAtAnalysis * 100).toFixed(1)}%.`, `Measured implied probability at close: ${(impliedAtClose * 100).toFixed(1)}%.`, objectiveMet ? 'Mission objective met within the defined horizon.' : 'Mission objective not met — movement stayed inside the target band.'] };
   }
 
   async publishLearning(mission: Mission): Promise<{ accepted: boolean; lessons: string[] }> {

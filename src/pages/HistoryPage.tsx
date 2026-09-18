@@ -225,9 +225,6 @@ export function HistoryPage() {
                       <td className="py-2 text-right font-mono text-market">
                         {r.analysis.dataQuality.grade}
                       </td>
-                      <td className="py-2 text-right font-mono text-muted">
-                        {m.decisionLedger?.calibration.brierScore?.toFixed(3) ?? '—'}
-                      </td>
                       <td
                         className={cx(
                           'py-2 text-right font-mono',
