@@ -94,11 +94,23 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   for (const sportKey of sports) {
     const url = new URL(`https://parlay-api.com/v1/sports/${encodeURIComponent(sportKey)}/odds/`);
     url.searchParams.set('apiKey', apiKey); url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
-    const response = await fetch(url);
+    let response: Response;
+    try {
+      response = await fetch(url);
+    } catch (error) {
+      issues.push({ code: 'provider-network-error', severity: 'warning', message: `ParlayAPI network failure for ${sportKey}: ${error instanceof Error ? error.message : 'request failed'}`, reference: sportKey });
+      continue;
+    }
     const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
     lastQuota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
     if (!response.ok) { const text = await response.text(); issues.push({ code: 'provider-error', severity: 'warning', message: `ParlayAPI ${response.status} for ${sportKey}: ${text.slice(0, 180)}`, reference: sportKey }); continue; }
-    const rawEvents = await response.json() as ApiEvent[];
+    let rawEvents: ApiEvent[];
+    try {
+      rawEvents = await response.json() as ApiEvent[];
+    } catch (error) {
+      issues.push({ code: 'provider-payload-error', severity: 'warning', message: `Invalid ParlayAPI payload for ${sportKey}: ${error instanceof Error ? error.message : 'invalid JSON'}`, reference: sportKey });
+      continue;
+    }
     for (const raw of rawEvents) {
       if (polishDate(raw.commence_time) !== requestedDate) continue;
       const sport = canonicalSport(raw.sport_key);
