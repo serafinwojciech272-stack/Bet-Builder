@@ -21,7 +21,7 @@ describe('application smoke tests', () => {
   it('boots the shell and renders every dashboard section', async () => {
     const { container, root } = await mount('/');
     const text = container.textContent ?? '';
-    for (const section of ['BadBuilder', 'Intelligence Dashboard', 'Monitored events', 'Notable odds movements', 'Value signals', 'Quality alerts', 'Risk alerts', 'Awaiting approval', 'Historical outcomes']) expect(text).toContain(section);
+    for (const section of ['Bet Builder', 'Intelligence Dashboard', 'Monitored events', 'Notable odds movements', 'Value signals', 'Quality alerts', 'Risk alerts', 'Awaiting approval', 'Historical outcomes']) expect(text).toContain(section);
     root.unmount();
   }, 25_000);
 
