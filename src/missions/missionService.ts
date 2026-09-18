@@ -3,6 +3,7 @@ import type { CoreEngineClient } from '../engine/CoreEngineClient';
 import type { MissionRepository } from './MissionRepository';
 import { transition } from './stateMachine';
 import type { Mission } from './types';
+import { settleLedgerEntry, type SettlementStatus } from '../core/decisionLedger';
 
 /**
  * Orchestrates the post-intelligence half of the pipeline:
@@ -74,7 +75,9 @@ export class MissionService {
       reason: note || 'Approved at the gate',
       at,
     });
-    return this.missions.save(moved);
+    return this.missions.save(moved.decisionLedger
+      ? { ...moved, decisionLedger: { ...moved.decisionLedger, approvalState: 'APPROVED' } }
+      : moved);
   }
 
   async reject(missionId: string, actor: string, note: string): Promise<Mission> {
@@ -95,14 +98,17 @@ export class MissionService {
       reason: note || 'Rejected at the approval gate',
       at,
     });
-    return this.missions.save(moved);
+    return this.missions.save(moved.decisionLedger
+      ? { ...moved, decisionLedger: { ...moved.decisionLedger, approvalState: 'REJECTED' } }
+      : moved);
   }
 
   async cancel(missionId: string, actor: string, reason: string): Promise<Mission> {
     const mission = await this.requireMission(missionId);
-    return this.missions.save(
-      transition(mission, 'CANCELLED', { actor, reason: reason || 'Cancelled by operator' }),
-    );
+    const moved = transition(mission, 'CANCELLED', { actor, reason: reason || 'Cancelled by operator' });
+    return this.missions.save(moved.decisionLedger
+      ? { ...moved, decisionLedger: { ...moved.decisionLedger, approvalState: 'CANCELLED' } }
+      : moved);
   }
 
   /** Execution is only reachable through an APPROVED mission. */
@@ -144,7 +150,21 @@ export class MissionService {
     );
 
     const measurement = await this.engine.measureMission(working, analysis);
-    working = await this.missions.save({ ...working, measurement });
+    const settlementStatus: SettlementStatus = measurement.verdict === 'beat-close'
+      ? 'WON'
+      : measurement.verdict === 'lost-to-close'
+        ? 'LOST'
+        : measurement.verdict === 'matched-close'
+          ? 'VOID'
+          : 'CANCELLED';
+    const settledLedger = working.decisionLedger
+      ? settleLedgerEntry(working.decisionLedger, {
+          status: settlementStatus,
+          closingOdds: measurement.closingOdds.value,
+          settledAt: new Date(measurement.measuredAt),
+        })
+      : undefined;
+    working = await this.missions.save({ ...working, measurement, decisionLedger: settledLedger });
 
     const learning = await this.engine.publishLearning(working);
     const completed = transition(working, 'COMPLETED', {
