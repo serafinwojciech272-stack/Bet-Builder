@@ -10,9 +10,10 @@ interface Props {
   onRemove: (id: string) => void;
   onAnalyze: () => void;
   onOptimize: () => void;
+  feedMode?: 'LIVE' | 'DEMO' | 'UNKNOWN';
 }
 
-export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize }: Props) {
+export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize, feedMode = 'UNKNOWN' }: Props) {
   const stats = useBuilderStats(selections, stake);
   const empty = selections.length === 0;
   return (
@@ -25,7 +26,7 @@ export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemo
         </div>
       </div>
       {empty ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center"><div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-400/10 text-xl text-violet-200">+</div><div><div className="text-sm font-semibold text-slate-200">Your portfolio is empty</div><div className="mt-1 text-xs leading-relaxed text-slate-500">Select markets from the live board to start building.</div></div><span className="rounded-full border border-emerald-400/20 bg-emerald-400/[.06] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.16em] text-emerald-300">Live provider connected</span></div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center"><div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-400/20 bg-violet-400/10 text-xl text-violet-200">+</div><div><div className="text-sm font-semibold text-slate-200">Your portfolio is empty</div><div className="mt-1 text-xs leading-relaxed text-slate-500">Select markets from the live board to start building.</div></div><span className="rounded-full border border-emerald-400/20 bg-emerald-400/[.06] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.16em] text-emerald-300">{feedMode === 'LIVE' ? 'Live provider connected' : feedMode === 'DEMO' ? 'Demo dataset' : 'Feed status unknown'}</span></div>
       ) : (
         <>
           <div className="flex-1 space-y-2 overflow-y-auto p-3">{selections.map((s, index) => <div key={s.id} className="group relative overflow-hidden rounded-xl border border-white/[.07] bg-white/[.035] p-3 transition hover:border-violet-400/20 hover:bg-white/[.055]"><div className="flex items-start justify-between gap-2"><div className="flex min-w-0 gap-2.5"><span className="mt-0.5 font-mono text-[9px] text-slate-600">{String(index + 1).padStart(2,'0')}</span><div className="min-w-0"><div className="truncate text-xs font-bold text-slate-100">{s.shortName}</div><div className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">{s.risk} risk · <span className="text-violet-300">@ {s.odds.toFixed(2)}</span></div></div></div><button type="button" aria-label={`Remove ${s.shortName}`} onClick={() => onRemove(s.id)} className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-[10px] text-slate-500 transition hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-300">✕</button></div></div>)}</div>
@@ -36,7 +37,7 @@ export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemo
             <div className="flex items-center justify-between rounded-xl border border-white/[.07] bg-white/[.02] px-3 py-2"><span className="text-[9px] font-bold uppercase tracking-[.15em] text-slate-500">Risk profile</span><RiskBadge risk={stats.risk as never} /></div>
             <div className="grid grid-cols-2 gap-2"><button type="button" onClick={onAnalyze} className="rounded-xl border border-violet-400/30 bg-violet-500/15 px-3 py-2.5 text-xs font-bold text-violet-100 shadow-[0_0_25px_rgba(124,92,255,.08)] transition hover:border-violet-300/50 hover:bg-violet-500/25">Analyze</button><button type="button" onClick={onOptimize} className="rounded-xl border border-white/12 bg-white/[.055] px-3 py-2.5 text-xs font-bold text-white transition hover:border-white/25 hover:bg-white/10">Optimize</button></div>
             <button type="button" onClick={onClear} className="w-full rounded-xl border border-red-400/15 bg-red-400/[.035] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-red-300/80 transition hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-200">Clear builder</button>
-            <div className="flex items-center justify-center gap-1.5 pt-1"><span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /><span className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-600">Live odds · Core Engine</span></div>
+            <div className="flex items-center justify-center gap-1.5 pt-1"><span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /><span className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-600">{feedMode === 'LIVE' ? 'Live odds · Core Engine' : feedMode === 'DEMO' ? 'Demo data · Core Engine' : 'Feed unavailable · Core Engine'</span></div>
           </div>
         </>
       )}
