@@ -18,14 +18,14 @@ interface ApiOutcome { name: string; price: number; point?: number; }
 interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; }
 interface ApiBookmaker { key: string; title: string; last_update: string; markets: ApiMarket[]; }
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
-interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'the-odds-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
+interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; }
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
 function json(res: JsonResponse, status: number, body: unknown) {
   res.status(status)
     .setHeader('Content-Type', 'application/json; charset=utf-8')
     .setHeader('Cache-Control', 's-maxage=45, stale-while-revalidate=30')
-    .setHeader('X-BadBuilder-Provider', 'the-odds-api');
+    .setHeader('X-BadBuilder-Provider', 'parlay-api');
   res.end(JSON.stringify(body));
 }
 function queryValue(req: QueryRequest, key: string, fallback: string): string { const value = req.query?.[key]; return typeof value === 'string' ? value : fallback; }
@@ -53,11 +53,11 @@ function dateBoundsUtc(date: string) {
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function team(name: string) { return { id: slug(name), name, shortName: name.length > 18 ? name.slice(0, 18) : name, rating: 0.5, form: [] as Array<'W' | 'D' | 'L'>, injuriesOut: 0 }; }
 function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; if (key.startsWith('tennis_')) return 'tennis'; if (key.startsWith('volleyball_')) return 'volleyball'; if (key.startsWith('golf_')) return 'golf'; if (key.startsWith('handball_')) return 'handball'; if (key.startsWith('rugby')) return 'rugby'; if (key.startsWith('tabletennis_')) return 'tabletennis'; if (key.startsWith('darts_')) return 'darts'; if (key.startsWith('cricket_')) return 'cricket'; if (key.startsWith('aussierules_')) return 'aussierules'; return 'soccer'; }
-async function getActiveSports(apiKey: string): Promise<ApiSport[]> { const response = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${encodeURIComponent(apiKey)}`); if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`); return await response.json() as ApiSport[]; }
+async function getActiveSports(apiKey: string): Promise<ApiSport[]> { const response = await fetch(`https://parlay-api.com/v1/sports/?apiKey=${encodeURIComponent(apiKey)}`); if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`); return await response.json() as ApiSport[]; }
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
-  const apiKey = process.env.THE_ODDS_API_KEY;
+  const apiKey = process.env.PARLAY_API_KEY;
   if (!apiKey) return json(res, 503, { error: 'ODDS_PROVIDER_NOT_CONFIGURED' });
   const requestedDate = queryValue(req, 'date', polishDate(new Date().toISOString()));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
@@ -83,12 +83,12 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; let droppedRecords = 0; let lastQuota: DatasetResponse['quota']; const bookmakerNames = new Map<string, string>();
   const now = Date.now();
   for (const sportKey of sports) {
-    const url = new URL(`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sportKey)}/odds/`);
+    const url = new URL(`https://parlay-api.com/v1/sports/${encodeURIComponent(sportKey)}/odds/`);
     url.searchParams.set('apiKey', apiKey); url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
     const response = await fetch(url);
     const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
     lastQuota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
-    if (!response.ok) { const text = await response.text(); issues.push({ code: 'provider-error', severity: 'warning', message: `The Odds API ${response.status} for ${sportKey}: ${text.slice(0, 180)}`, reference: sportKey }); continue; }
+    if (!response.ok) { const text = await response.text(); issues.push({ code: 'provider-error', severity: 'warning', message: `ParlayAPI ${response.status} for ${sportKey}: ${text.slice(0, 180)}`, reference: sportKey }); continue; }
     const rawEvents = await response.json() as ApiEvent[];
     for (const raw of rawEvents) {
       if (polishDate(raw.commence_time) !== requestedDate) continue;
@@ -102,12 +102,12 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
           const quotes: OddsQuote[] = market.outcomes.filter((o) => Number.isFinite(o.price) && o.price >= 1.01 && o.price <= 1000).map((o) => ({ selectionId: `${raw.id}:${market.key}:${slug(o.name)}${o.point === undefined ? '' : `:${o.point}`}`, label: o.point === undefined ? o.name : `${o.name} ${o.point > 0 ? '+' : ''}${o.point}`, decimalOdds: Number(o.price.toFixed(3)) }));
           if (!quotes.length) { droppedRecords += 1; continue; }
           const capturedAt = market.last_update || bookmaker.last_update;
-          snapshots.push({ id: `${raw.id}:${bookmaker.key}:${market.key}:${capturedAt}`, eventId: raw.id, market: canonicalMarket, bookmaker: bookmaker.key as BookmakerId, capturedAt, quotes, feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()), provider: 'the-odds-api' });
+          snapshots.push({ id: `${raw.id}:${bookmaker.key}:${market.key}:${capturedAt}`, eventId: raw.id, market: canonicalMarket, bookmaker: bookmaker.key as BookmakerId, capturedAt, quotes, feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()), provider: 'parlay-api' });
         }
       }
     }
   }
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
-  const body: DatasetResponse = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'the-odds-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota };
+  const body: DatasetResponse = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota };
   return json(res, 200, body);
 }
