@@ -27,6 +27,19 @@ export function MissionsPage() {
     return missions.filter((mission) => mission.status === status);
   }, [missions, status]);
 
+  const ledgerStats = useMemo(() => {
+    const entries = missions.map((mission) => mission.decisionLedger).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+    const settled = entries.filter((entry) => entry.settlement.status !== 'PENDING');
+    const measuredClv = entries.filter((entry) => entry.clv.measured);
+    const positiveClv = measuredClv.filter((entry) => (entry.clv.valuePct ?? 0) > 0);
+    return {
+      total: entries.length,
+      pending: entries.filter((entry) => entry.settlement.status === 'PENDING').length,
+      settled: settled.length,
+      positiveClvRate: measuredClv.length ? positiveClv.length / measuredClv.length : null,
+    };
+  }, [missions]);
+
   if (phase === 'loading' || phase === 'idle') {
     return <LoadingState rows={4} />;
   }
@@ -56,6 +69,13 @@ export function MissionsPage() {
         <Panel className="p-4"><Stat label="Awaiting approval" value={counts.get('AWAITING_APPROVAL') ?? 0} tone="ai" /></Panel>
         <Panel className="p-4"><Stat label="Completed" value={counts.get('COMPLETED') ?? 0} tone="positive" /></Panel>
         <Panel className="p-4"><Stat label="Failed / cancelled" value={(counts.get('FAILED') ?? 0) + (counts.get('CANCELLED') ?? 0)} tone="negative" /></Panel>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Panel className="p-4"><Stat label="Decision Ledger" value={ledgerStats.total} hint="mission-linked packets" /></Panel>
+        <Panel className="p-4"><Stat label="Ledger pending" value={ledgerStats.pending} tone="ai" hint="awaiting settlement" /></Panel>
+        <Panel className="p-4"><Stat label="Ledger settled" value={ledgerStats.settled} tone="positive" hint="terminal settlement" /></Panel>
+        <Panel className="p-4"><Stat label="Positive CLV rate" value={ledgerStats.positiveClvRate === null ? '—' : `${(ledgerStats.positiveClvRate * 100).toFixed(0)}%`} hint="measured CLV samples" /></Panel>
       </section>
 
       <section>
