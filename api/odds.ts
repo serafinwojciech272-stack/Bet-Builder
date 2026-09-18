@@ -46,7 +46,17 @@ function dateBoundsUtc(date: string) {
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function team(name: string) { return { id: slug(name), name, shortName: name.length > 18 ? name.slice(0, 18) : name, rating: 0.5, form: [] as Array<'W' | 'D' | 'L'>, injuriesOut: 0 }; }
 function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; if (key.startsWith('tennis_')) return 'tennis'; if (key.startsWith('volleyball_')) return 'volleyball'; if (key.startsWith('golf_')) return 'golf'; if (key.startsWith('handball_')) return 'handball'; if (key.startsWith('rugby')) return 'rugby'; if (key.startsWith('tabletennis_')) return 'tabletennis'; if (key.startsWith('darts_')) return 'darts'; if (key.startsWith('cricket_')) return 'cricket'; if (key.startsWith('aussierules_')) return 'aussierules'; return 'soccer'; }
-async function getActiveSports(apiKey: string): Promise<ApiSport[]> { const response = await fetch(`https://parlay-api.com/v1/sports/?apiKey=${encodeURIComponent(apiKey)}`); if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`); return await response.json() as ApiSport[]; }
+async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeoutMs = 7000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try { return await fetch(url, { ...init, signal: controller.signal }); }
+  finally { clearTimeout(timer); }
+}
+async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
+  const response = await fetchWithTimeout(`https://parlay-api.com/v1/sports/?apiKey=${encodeURIComponent(apiKey)}`, {}, 5000);
+  if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`);
+  return await response.json() as ApiSport[];
+}
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
@@ -73,9 +83,9 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     for (const group of preferredGroups) {
       const match = catalog.find((s) => s.active && s.group.toLowerCase() === group);
       if (match) selected.push(match);
-      if (selected.length >= 12) break;
+      if (selected.length >= 8) break;
     }
-    if (!selected.length) selected.push(...catalog.filter((s) => s.active).slice(0, 12));
+    if (!selected.length) selected.push(...catalog.filter((s) => s.active).slice(0, 8));
     sports = selected.map((s) => s.key);
   } else {
     const matching = availableSports.filter((s) => s.group.toLowerCase() === requestedSport.toLowerCase() || s.key.toLowerCase() === requestedSport.toLowerCase());
@@ -85,30 +95,30 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const successfulSports: string[] = []; const failedSports: string[] = [];
   const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; let droppedRecords = 0; let lastQuota: DatasetResponse['quota']; const bookmakerNames = new Map<string, string>();
   const now = Date.now();
-  for (const sportKey of sports) {
+  // Fetch sports concurrently instead of serially. The old sequential loop could turn a normal
+  // refresh into a 30–60s wait when one provider call was slow.
+  const results = await Promise.all(sports.map(async (sportKey) => {
     const url = new URL(`https://parlay-api.com/v1/sports/${encodeURIComponent(sportKey)}/odds/`);
     url.searchParams.set('apiKey', apiKey); url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
-    let response: Response;
     try {
-      response = await fetch(url);
+      const response = await fetchWithTimeout(url, {}, 7000);
+      const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
+      const quota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
+      if (!response.ok) return { sportKey, error: `ParlayAPI ${response.status}: ${(await response.text()).slice(0, 180)}`, quota };
+      return { sportKey, rawEvents: await response.json() as ApiEvent[], quota };
     } catch (error) {
-      issues.push({ code: 'provider-network-error', severity: 'warning', message: `ParlayAPI network failure for ${sportKey}: ${error instanceof Error ? error.message : 'request failed'}`, reference: sportKey });
-      failedSports.push(sportKey);
+      return { sportKey, error: error instanceof Error ? error.name === 'AbortError' ? 'request timeout after 7s' : error.message : 'request failed', quota: null };
+    }
+  }));
+  for (const result of results) {
+    if (result.quota) lastQuota = result.quota;
+    if ('error' in result) {
+      failedSports.push(result.sportKey);
+      issues.push({ code: result.error.includes('timeout') ? 'provider-timeout' : 'provider-error', severity: 'warning', message: `${result.error} for ${result.sportKey}`, reference: result.sportKey });
       continue;
     }
-    const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
-    lastQuota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
-    if (!response.ok) { failedSports.push(sportKey); const text = await response.text(); issues.push({ code: 'provider-error', severity: 'warning', message: `ParlayAPI ${response.status} for ${sportKey}: ${text.slice(0, 180)}`, reference: sportKey }); continue; }
-    let rawEvents: ApiEvent[];
-    try {
-      rawEvents = await response.json() as ApiEvent[];
-    } catch (error) {
-      issues.push({ code: 'provider-payload-error', severity: 'warning', message: `Invalid ParlayAPI payload for ${sportKey}: ${error instanceof Error ? error.message : 'invalid JSON'}`, reference: sportKey });
-      failedSports.push(sportKey);
-      continue;
-    }
-    successfulSports.push(sportKey);
-    for (const raw of rawEvents) {
+    successfulSports.push(result.sportKey);
+    for (const raw of result.rawEvents) {
       if (polishDate(raw.commence_time) !== requestedDate) continue;
       const sport = canonicalSport(raw.sport_key);
       const eventStart = new Date(raw.commence_time).getTime();
