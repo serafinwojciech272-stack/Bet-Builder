@@ -29,6 +29,24 @@ describe('deterministic portfolio optimizer', () => {
     expect(result.rejectedReasons.b).toContain('Correlation group limit');
   });
 
+
+  it('hard-blocks optimization when Decision Center is BLOCKED', () => {
+    const engine = createMockCoreEngine();
+    expect(() => engine.optimize({
+      stake: 100,
+      decisionGate: {
+        status: 'BLOCKED',
+        blockers: ['Mutually exclusive outcomes detected.'],
+        warnings: [],
+        trace: ['decision-center-blocked'],
+      },
+      selections: [
+        { id: 'over', odds: 2.1, probability: 0.52, correlationGroup: 'event:totals' },
+        { id: 'under', odds: 1.9, probability: 0.55, correlationGroup: 'event:totals' },
+      ],
+    })).toThrowError(/DECISION_GATE_BLOCKED/);
+  });
+
   it('applies confidence and EV gates with auditable rejection reasons', () => {
     const engine = createMockCoreEngine();
     const result = engine.optimize({
