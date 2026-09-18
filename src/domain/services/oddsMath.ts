@@ -60,7 +60,7 @@ export function consensusPrice(latest: readonly LatestBookQuote[]): number {
   let num = 0;
   let den = 0;
   for (const l of latest) {
-    const w = BOOKMAKERS[l.bookmaker].weight;
+    const w = BOOKMAKERS[l.bookmaker]?.weight ?? 0.5;
     num += l.quote.decimalOdds * w;
     den += w;
   }
