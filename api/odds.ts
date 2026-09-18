@@ -1,12 +1,5 @@
 import type { BookmakerId, MarketKey, OddsQuote, OddsSnapshot, SportEvent, SportKey } from '../src/domain/types.js';
 
-const PRIORITY_SPORTS = [
-  'soccer_epl', 'soccer_uefa_champs_league', 'soccer_uefa_europa_league', 'soccer_uefa_europa_conference_league',
-  'soccer_germany_bundesliga', 'soccer_italy_serie_a', 'soccer_spain_la_liga', 'soccer_france_ligue_one',
-  'soccer_netherlands_eredivisie', 'soccer_portugal_primeira_liga', 'soccer_belgium_first_div', 'soccer_turkey_super_league',
-  'basketball_nba', 'basketball_euroleague', 'basketball_wnba', 'icehockey_nhl', 'baseball_mlb', 'americanfootball_nfl',
-  'tennis_atp', 'tennis_wta',
-] as const;
 const MARKET_MAP: Record<string, MarketKey> = {
   h2h: 'match-winner',
   spreads: 'spread',
