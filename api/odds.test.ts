@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import handler from './odds';
+import handler from './odds.js';
 
 type Res = { statusCode: number; body: unknown; status(code:number): Res; setHeader(name:string,value:string): Res; end(body:string): void };
 function response(): Res {
