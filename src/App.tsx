@@ -1,16 +1,17 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { IntelligenceProvider } from './state/IntelligenceProvider';
 import { AppShell } from './components/AppShell';
-import { DashboardPage } from './pages/DashboardPage';
-import { EventsPage } from './pages/EventsPage';
-import SportsPage from './pages/SportsPage';
-import LivePage from './pages/LivePage';
-import AnalysisPage from './pages/AnalysisPage';
-import { EventAnalysisPage } from './pages/EventAnalysisPage';
-import { MissionsPage } from './pages/MissionsPage';
-import { MissionDetailPage } from './pages/MissionDetailPage';
-import { HistoryPage } from './pages/HistoryPage';
-import BuilderPage from './pages/BuilderPage';
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const EventsPage = lazy(() => import('./pages/EventsPage').then(m => ({ default: m.EventsPage })));
+const SportsPage = lazy(() => import('./pages/SportsPage'));
+const LivePage = lazy(() => import('./pages/LivePage'));
+const AnalysisPage = lazy(() => import('./pages/AnalysisPage'));
+const EventAnalysisPage = lazy(() => import('./pages/EventAnalysisPage').then(m => ({ default: m.EventAnalysisPage })));
+const MissionsPage = lazy(() => import('./pages/MissionsPage').then(m => ({ default: m.MissionsPage })));
+const MissionDetailPage = lazy(() => import('./pages/MissionDetailPage').then(m => ({ default: m.MissionDetailPage })));
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
+const BuilderPage = lazy(() => import('./pages/BuilderPage'));
 import { useBuilder } from './hooks/useBuilder';
 
 function BuilderRoute() {
@@ -23,7 +24,8 @@ export default function App() {
     <BrowserRouter>
       <IntelligenceProvider>
         <AppShell>
-          <Routes>
+          <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-[10px] uppercase tracking-[.18em] text-white/50">Loading Bet Builder intelligence…</div></div>}>
+            <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/sports" element={<SportsPage />} />
             <Route path="/sports/:eventId" element={<EventAnalysisPage />} />
@@ -36,7 +38,8 @@ export default function App() {
             <Route path="/missions/:missionId" element={<MissionDetailPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+          </Suspense>
         </AppShell>
       </IntelligenceProvider>
     </BrowserRouter>
