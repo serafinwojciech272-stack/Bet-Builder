@@ -23,5 +23,19 @@ export default defineConfig(async ({ mode }) => {
     plugins,
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
     define: processEnvDefines,
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor';
+            if (id.includes('/react-router') || id.includes('/@remix-run/')) return 'router-vendor';
+            if (id.includes('/lucide-react/')) return 'icons-vendor';
+            if (id.includes('/framer-motion/')) return 'motion-vendor';
+            return 'vendor';
+          },
+        },
+      },
+    },
   };
 });
