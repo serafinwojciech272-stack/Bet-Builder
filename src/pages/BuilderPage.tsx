@@ -47,7 +47,7 @@ export default function BuilderPage({ selections, stake, addSelection, removeSel
   const onSaveMission = async () => {
     if(!lastAnalysis || decision.status==='BLOCKED'){setMessage('Save blocked — run deep analysis and resolve Decision Center blockers first.');return;}
     if(!research || !control.researchGate.ready){setMessage('Save blocked — deep multilingual research gate is not ready.');return;}
-    const packet=createDecisionPacket(decision,selections.map(s=>({id:s.id,eventId:s.eventId,marketId:s.marketId,odds:s.odds,probability:s.probability,confidence:s.confidence,risk:s.risk,correlationGroup:s.correlationGroup})),optimization);
+    const packet=createDecisionPacket(decision,selections.map(s=>({id:s.id,eventId:s.eventId,marketId:s.marketId,odds:s.odds,probability:s.probability,confidence:s.confidence,risk:s.risk,correlationGroup:s.correlationGroup})),optimization,new Date(),research);
     if(!packet.mission.eligible){setMessage('Decision Packet blocked — mission was not created.');return;}
     const action=lastAnalysis.recommendedActions[0];
     if(!action){setMessage('Mission blocked — analysis returned no mission-eligible action.');return;}
