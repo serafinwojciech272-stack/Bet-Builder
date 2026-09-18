@@ -32,7 +32,7 @@ export default defineConfig(async ({ mode }) => {
             if (id.includes('/react-router') || id.includes('/@remix-run/')) return 'router-vendor';
             if (id.includes('/lucide-react/')) return 'icons-vendor';
             if (id.includes('/framer-motion/')) return 'motion-vendor';
-            return 'vendor';
+            return undefined;
           },
         },
       },
