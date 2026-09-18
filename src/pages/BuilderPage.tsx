@@ -31,12 +31,12 @@ export default function BuilderPage({selections,stake,addSelection,removeSelecti
   </div>
   <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-5">
    {[
-    ['01','DATA',dataset?.mode==='LIVE'?'LIVE':'DEMO',dataset?.mode==='LIVE'],
-    ['02','RESEARCH',research?'READY':'WAIT',Boolean(research)],
-    ['03','EVIDENCE',orchestrator.evidence?'READY':'WAIT',Boolean(orchestrator.evidence)],
-    ['04','CORRELATION',decision.blockers.length?'REVIEW':'CLEAR',!decision.blockers.length],
-    ['05','DECISION',control.decision==='BLOCK'?'BLOCK':orchestrator.missionReady?'READY':'REVIEW',orchestrator.missionReady]
-   ].map(([n,label,state,ok])=><div key={label} className="relative rounded-xl border border-white/[.07] bg-white/[.025] p-3">
+    {n:'01',label:'DATA',state:dataset?.mode==='LIVE'?'LIVE':'DEMO',ok:dataset?.mode==='LIVE'},
+    {n:'02',label:'RESEARCH',state:research?'READY':'WAIT',ok:Boolean(research)},
+    {n:'03',label:'EVIDENCE',state:orchestrator.evidence?'READY':'WAIT',ok:Boolean(orchestrator.evidence)},
+    {n:'04',label:'CORRELATION',state:decision.blockers.length?'REVIEW':'CLEAR',ok:!decision.blockers.length},
+    {n:'05',label:'DECISION',state:control.decision==='BLOCK'?'BLOCK':orchestrator.missionReady?'READY':'REVIEW',ok:orchestrator.missionReady}
+   ].map(({n,label,state,ok})=><div key={label} className="relative rounded-xl border border-white/[.07] bg-white/[.025] p-3">
     <div className="flex items-center justify-between"><span className="font-mono text-[8px] text-slate-700">{n}</span><span className={ok?'text-emerald-300':'text-amber-300'}>●</span></div>
     <div className="mt-2 text-[9px] font-black uppercase tracking-[.14em] text-slate-300">{label}</div>
     <div className="mt-1 text-[9px] font-mono uppercase text-slate-500">{state}</div>
