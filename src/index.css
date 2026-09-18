@@ -190,3 +190,86 @@ header.sticky nav a[aria-current="page"] svg{
 @media (prefers-reduced-motion:reduce){
   .club-backdrop main > *{animation:none}
 }
+
+
+/* FINAL POLISH v5 — decision spine, touch targets, premium telemetry */
+.club-backdrop main{
+  max-width:1600px;
+  margin-inline:auto;
+}
+.club-backdrop main > .space-y-6 > :first-child,
+.club-backdrop main > .space-y-6 > :first-child + *{
+  scroll-margin-top:96px;
+}
+.club-backdrop main .rounded-lg,
+.club-backdrop main .rounded-xl,
+.club-backdrop main .rounded-2xl{
+  transition:border-color .2s ease,box-shadow .2s ease,background-color .2s ease;
+}
+.club-backdrop main button,
+.club-backdrop main a{
+  -webkit-tap-highlight-color:transparent;
+}
+.club-backdrop main button{
+  min-height:38px;
+}
+.club-backdrop main input[type="date"],
+.club-backdrop main input[type="search"],
+.club-backdrop main select{
+  min-height:40px;
+}
+.club-backdrop main input::placeholder{
+  color:rgba(155,168,194,.58);
+}
+.club-backdrop main [role="status"]{
+  letter-spacing:.01em;
+}
+
+/* Stronger event-card hierarchy: scan → compare → decide */
+.club-backdrop main li > article,
+.club-backdrop main li > div{
+  position:relative;
+}
+.club-backdrop main li > article::before,
+.club-backdrop main li > div::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:14px;
+  bottom:14px;
+  width:2px;
+  border-radius:999px;
+  background:linear-gradient(180deg,rgba(155,140,255,.72),rgba(240,203,122,.42),transparent);
+  opacity:.45;
+  transition:opacity .2s ease,box-shadow .2s ease;
+}
+.club-backdrop main li:hover > article::before,
+.club-backdrop main li:hover > div::before{
+  opacity:1;
+  box-shadow:0 0 16px rgba(155,140,255,.3);
+}
+
+/* Keep primary decisions visually dominant */
+.club-backdrop main a[href*="/analysis"]{
+  font-weight:700;
+  letter-spacing:.01em;
+}
+.club-backdrop main a[href*="/analysis"]::after{
+  content:"";
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 10px currentColor;
+  opacity:.7;
+}
+@media (max-width:767px){
+  .club-backdrop main > *{
+    animation-duration:.3s;
+  }
+  .club-backdrop main li > article::before,
+  .club-backdrop main li > div::before{
+    top:10px;
+    bottom:10px;
+  }
+}
