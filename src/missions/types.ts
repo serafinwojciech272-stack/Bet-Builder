@@ -121,6 +121,7 @@ export interface MeasurementInfo {
   measuredAt: string;
   verdict: 'beat-close' | 'matched-close' | 'lost-to-close' | 'unresolved';
   closingLineValuePct: DeterministicNumber;
+  closingOdds: DeterministicNumber;
   realizedMovementPct: DeterministicNumber;
   calibrationDeltaPct: DeterministicNumber;
   brierScore: DeterministicNumber | null;
