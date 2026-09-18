@@ -10,11 +10,13 @@ const LANGUAGE_TERMS: Record<ResearchLanguage, { lineup: string; injury: string;
   nl: { lineup: 'opstelling blessures basiselftal', injury: 'blessure schorsing afwezig', preview: 'voorbeschouwing vorm analyse', tactics: 'tactiek vermoedelijke opstelling', tipster: 'voorspelling wedtips' },
 };
 
+type ResearchPurpose = 'lineup' | 'injury' | 'preview' | 'tactics' | 'tipster';
+
 const clamp = (n:number) => Math.max(0, Math.min(1, n));
 const hash = (s:string) => { let h=2166136261; for(const c of s){h^=c.charCodeAt(0); h=Math.imul(h,16777619);} return (h>>>0).toString(16); };
 
 export function buildResearchQueries(home:string, away:string, sport:string, league:string): ResearchQuery[] {
-  const pairs: Array<[ResearchLanguage, keyof typeof LANGUAGE_TERMS]> = [
+  const pairs: Array<[ResearchLanguage, ResearchPurpose]> = [
     ['pl','lineup'],['pl','preview'],['en','lineup'],['en','preview'],['en','tipster'],
     ['de','lineup'],['de','preview'],['de','tipster'],['de','tactics'],['it','preview'],
     ['es','preview'],['fr','preview'],['nl','preview'],
@@ -24,7 +26,7 @@ export function buildResearchQueries(home:string, away:string, sport:string, lea
     const q=purpose==='tipster'
       ? `"${home}" "${away}" ${t}`
       : `"${home}" "${away}" ${t} ${sport} ${league}`;
-    return { language, query:q, purpose: purpose==='lineup'?'lineup':purpose==='preview'?'preview':purpose==='tactics'?'tactics':'tipster-consensus' };
+    return { language, query:q, purpose: purpose==='lineup'?'lineup':purpose==='injury'?'injury':purpose==='preview'?'preview':purpose==='tactics'?'tactics':'tipster-consensus' };
   });
 }
 
