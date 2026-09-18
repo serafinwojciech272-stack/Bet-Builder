@@ -149,14 +149,14 @@ export function riskAlerts(intel: EventIntel[], limit = 5): AlertRow[] {
     .slice(0, limit)
     .map((i) => {
       const worst = [...i.risk.factors].sort(
-        (a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value,
+        (a, b) => (b?.score?.value ?? 0) * (b?.weight?.value ?? 0) - (a?.score?.value ?? 0) * (a?.weight?.value ?? 0),
       )[0];
       return {
         id: `${i.event.id}-risk`,
         eventId: i.event.id,
         eventLabel: `${i.event.homeTeam.shortName} v ${i.event.awayTeam.shortName}`,
         severity: i.risk.level === 'HIGH' ? ('error' as const) : ('warning' as const),
-        message: `${i.risk.level} risk (${(i.risk.score.value * 100).toFixed(0)}/100) — ${worst.note}`,
+        message: `${i.risk.level} risk (${(i.risk.score.value * 100).toFixed(0)}/100) — ${worst?.note ?? 'Risk factors unavailable in this snapshot.'}`,
         kind: i.risk.level,
       };
     });
