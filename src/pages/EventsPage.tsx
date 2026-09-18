@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Eye, Filter, Search, SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, Eye, Filter, Search, SlidersHorizontal, Swords, Trophy } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
 import { MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
@@ -79,17 +79,37 @@ export function EventsPage() {
           const hasAnalysis = analyses.some((a) => a.eventId === i.event.id);
           const isLive = i.event.status === 'live';
           return <li key={i.event.id}><Panel className="p-4 transition-colors hover:border-ai/40">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="min-w-[250px] flex-1">
-                <div className="flex flex-wrap items-center gap-2"><Chip tone="neutral">{SPORT_LABELS[i.event.sportKey]}</Chip><Chip tone={isLive ? 'negative' : 'positive'}>{isLive ? 'NA ŻYWO' : 'NADCHODZĄCE'}</Chip>{hasAnalysis ? <Chip tone="ai">ANALIZA GOTOWA</Chip> : null}</div>
-                <Link to={`/analysis/${i.event.id}`} className="mt-2 block text-base font-semibold text-foreground hover:text-ai">{i.event.homeTeam.name} <span className="text-faint">–</span> {i.event.awayTeam.name}</Link>
-                <p className="mt-1 text-xs text-muted">{i.event.league.name} · {MARKET_LABELS[i.market]}</p>
-                <p className="mt-1 text-xs font-medium text-foreground"><CalendarDays size={12} className="mr-1 inline text-ai" />{dateTime(i.event.startTime)} <span className="text-faint">· {relativeTime(i.event.startTime, nowTick)}</span></p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Chip tone="neutral">{SPORT_LABELS[i.event.sportKey]}</Chip>
+                  <Chip tone={isLive ? 'negative' : 'positive'}>{isLive ? 'NA ŻYWO' : 'NADCHODZĄCE'}</Chip>
+                  {hasAnalysis ? <Chip tone="ai">ANALIZA GOTOWA</Chip> : null}
+                </div>
+                <Link to={`/analysis/${i.event.id}`} className="mt-2 block text-lg font-semibold text-foreground hover:text-ai">{i.event.homeTeam.name} <span className="text-faint">vs</span> {i.event.awayTeam.name}</Link>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
+                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-faint"><Trophy size={11} className="text-ai" /> League</div>
+                    <div className="mt-1 text-xs font-semibold text-foreground">{i.event.league.name}</div>
+                  </div>
+                  <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
+                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-faint"><Swords size={11} className="text-market" /> Event</div>
+                    <div className="mt-1 text-xs font-semibold text-foreground">{i.event.competition}</div>
+                  </div>
+                  <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
+                    <div className="text-[9px] uppercase tracking-[0.12em] text-faint">Market</div>
+                    <div className="mt-1 text-xs font-semibold text-market">{MARKET_LABELS[i.market]}</div>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs font-medium text-foreground"><CalendarDays size={12} className="mr-1 inline text-ai" />{dateTime(i.event.startTime)} <span className="text-faint">· {relativeTime(i.event.startTime, nowTick)}</span></p>
               </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Stat label="Najlepszy kurs" value={best?.bestPrice.formatted ?? '—'} tone="market" />
-                <Stat label="Wartość" value={best?.edgePct.formatted ?? '—'} tone={(best?.edgePct.value ?? 0) > 0 ? 'positive' : 'default'} />
-                <Stat label="Ryzyko" value={i.risk.level === 'LOW' ? 'NISKIE' : i.risk.level === 'ELEVATED' ? 'PODWYŻSZONE' : i.risk.level === 'HIGH' ? 'WYSOKIE' : 'KRYTYCZNE'} mono={false} />
+              <div className="flex flex-col justify-between gap-3 lg:w-[280px]">
+                <div className="grid grid-cols-3 gap-2">
+                  <Stat label="Najlepszy kurs" value={best?.bestPrice.formatted ?? '—'} tone="market" />
+                  <Stat label="Wartość" value={best?.edgePct.formatted ?? '—'} tone={(best?.edgePct.value ?? 0) > 0 ? 'positive' : 'default'} />
+                  <Stat label="Ryzyko" value={i.risk.level === 'LOW' ? 'NISKIE' : i.risk.level === 'ELEVATED' ? 'PODWYŻSZONE' : i.risk.level === 'HIGH' ? 'WYSOKIE' : 'KRYTYCZNE'} mono={false} />
+                </div>
+                <Link to={`/analysis/${i.event.id}`} className="inline-flex items-center justify-center rounded-lg border border-ai/30 bg-ai/10 px-3 py-2 text-[11px] font-semibold text-ai hover:bg-ai/15">Analyze event →</Link>
               </div>
             </div>
           </Panel></li>;
