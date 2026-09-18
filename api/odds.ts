@@ -30,7 +30,26 @@ function json(res: JsonResponse, status: number, body: unknown) {
 }
 function queryValue(req: QueryRequest, key: string, fallback: string): string { const value = req.query?.[key]; return typeof value === 'string' ? value : fallback; }
 function polishDate(iso: string): string { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)); }
-function dateBoundsUtc(date: string) { const start = new Date(`${date}T00:00:00Z`); const end = new Date(`${date}T23:59:59Z`); return { from: new Date(start.getTime() - 3 * 60 * 60 * 1000).toISOString(), to: new Date(end.getTime() + 3 * 60 * 60 * 1000).toISOString() }; }
+function dateBoundsUtc(date: string) {
+  // The provider requires second-precision ISO timestamps with a trailing Z.
+  // The product date is Warsaw-local, so derive the UTC window from the
+  // Europe/Warsaw offset rather than assuming a fixed offset.
+  const probe = new Date(`${date}T12:00:00Z`);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Warsaw',
+    timeZoneName: 'longOffset',
+  }).formatToParts(probe);
+  const offsetPart = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+00:00';
+  const match = offsetPart.match(/GMT([+-])(\\d{2}):?(\\d{2})?/);
+  const sign = match?.[1] === '-' ? -1 : 1;
+  const hours = Number(match?.[2] ?? 0);
+  const minutes = Number(match?.[3] ?? 0);
+  const offsetMs = sign * (hours * 60 + minutes) * 60 * 1000;
+  const start = new Date(new Date(`${date}T00:00:00Z`).getTime() - offsetMs);
+  const end = new Date(new Date(`${date}T23:59:59Z`).getTime() - offsetMs);
+  const isoSeconds = (value: Date) => value.toISOString().replace(/\\.\\d{3}Z$/, 'Z');
+  return { from: isoSeconds(start), to: isoSeconds(end) };
+}
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function team(name: string) { return { id: slug(name), name, shortName: name.length > 18 ? name.slice(0, 18) : name, rating: 0.5, form: [] as Array<'W' | 'D' | 'L'>, injuriesOut: 0 }; }
 function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; return 'soccer'; }
