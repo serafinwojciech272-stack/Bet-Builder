@@ -95,12 +95,6 @@ export function HistoryPage() {
   if (phase === 'error') return <ErrorState detail={error ?? undefined} onRetry={() => void refresh()} />;
 
   const resolved = sorted.filter((r) => r.outcome);
-  const hitRate = resolved.length
-    ? resolved.filter((r) => r.outcome?.outcome === 1).length / resolved.length
-    : 0;
-  const avgBrier = resolved.length
-    ? resolved.reduce((sum, r) => sum + (r.outcome?.measurement.brierScore?.value ?? 0), 0) / resolved.length
-    : 0;
   const ledgerEntries = missions.map((m) => m.decisionLedger).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
   const settledLedger = ledgerEntries.filter((entry) => entry.settlement.status !== 'PENDING');
   const ledgerClv = ledgerEntries.filter((entry) => entry.clv.measured).map((entry) => entry.clv.valuePct ?? 0);
