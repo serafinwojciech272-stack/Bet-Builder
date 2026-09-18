@@ -250,7 +250,7 @@ export function EventAnalysisPage() {
                     const captured = rows.find((r) => r)?.capturedAt;
                     return (
                       <tr key={book} className="border-t border-line-soft">
-                        <td className="py-1.5 pr-2 font-sans text-foreground">{BOOKMAKERS[book].name}</td>
+                        <td className="py-1.5 pr-2 font-sans text-foreground">{BOOKMAKERS[book]?.name ?? book}</td>
                         {rows.map((r, i) => (
                           <td key={i} className="py-1.5 text-right text-market">
                             {r ? r.quote.decimalOdds.toFixed(2) : <span className="text-negative">—</span>}
