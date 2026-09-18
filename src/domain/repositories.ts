@@ -1,4 +1,4 @@
-import type { NormalizationIssue, OddsSnapshot, SportEvent } from './types';
+import type { NormalizationIssue, OddsSnapshot, SportEvent, ProviderHealth } from './types';
 import { RAW_EVENTS, RAW_ODDS } from './feed/rawFeed';
 import { normalizeEvents, normalizeOddsSnapshots } from './feed/normalization';
 
@@ -15,6 +15,7 @@ export interface CanonicalDataset {
   bookmakers?: string[];
   quota?: { remaining: number | null; used: number | null; lastCost: number | null };
   availableSports?: Array<{ key: string; title: string; group: string }>;
+  providerHealth?: ProviderHealth;
 }
 
 export interface SportsDataRepository {
@@ -24,6 +25,18 @@ export interface SportsDataRepository {
 }
 
 function delay(ms: number) { return new Promise<void>((resolve) => setTimeout(resolve, ms)); }
+
+
+function deriveProviderHealth(data: CanonicalDataset): ProviderHealth {
+  const fetchedAt = data.normalizedAt;
+  const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(fetchedAt).getTime()) / 1000));
+  const staleAfterSeconds = 600;
+  const queriedSports = data.sportsQueried?.length ?? 0;
+  const failedSports = data.issues.filter((i) => i.code === 'provider-error' || i.code === 'provider-network-error' || i.code === 'provider-payload-error').length;
+  const successfulSports = Math.max(0, queriedSports - failedSports);
+  const state = data.mode !== 'LIVE' ? 'OFFLINE' : ageSeconds > staleAfterSeconds ? 'STALE' : failedSports > 0 ? 'DEGRADED' : 'HEALTHY';
+  return { provider: data.provider ?? 'unknown', state, fetchedAt, ageSeconds, staleAfterSeconds, catalogCount: data.availableSports?.length ?? 0, queriedSports, successfulSports, failedSports, eventCount: data.events.length, snapshotCount: data.snapshots.length, bookmakerCount: data.bookmakers?.length ?? new Set(data.snapshots.map((s) => s.bookmaker)).size, warnings: data.issues.filter((i) => i.severity !== 'info').map((i) => i.message).slice(0, 6) };
+}
 
 /** Legacy deterministic repository retained for tests and explicit demo tooling. */
 export class MockSportsDataRepository implements SportsDataRepository {
@@ -89,7 +102,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
         this.cache.set(cacheKey, degraded);
         return degraded;
       }
-      const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };
+      const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };\n      normalized.providerHealth = deriveProviderHealth(normalized);
       this.cache.set(cacheKey, normalized);
       return normalized;
     } catch (error) {
