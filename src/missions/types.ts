@@ -1,5 +1,6 @@
 import type { DeterministicNumber, MarketKey } from '../domain/types';
 import type { DecisionPacket } from '../core/decisionPacket';
+import type { DecisionLedgerEntry } from '../core/decisionLedger';
 
 export type MissionStatus =
   | 'DRAFT'
@@ -155,6 +156,8 @@ export interface Mission {
   sourceAnalysisId: string;
   /** Immutable Decision Center/Core Engine evidence carried through the mission lifecycle. */
   decisionPacket?: DecisionPacket;
+  /** Ledger identity/evidence for the same immutable Decision Packet. */
+  decisionLedger?: DecisionLedgerEntry;
   target: MissionTarget;
   objective: string;
   rationale: string[];
