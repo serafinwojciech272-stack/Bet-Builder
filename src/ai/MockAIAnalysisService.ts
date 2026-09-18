@@ -50,20 +50,11 @@ function analysisId(eventId: string, market: string, at: Date): string {
 
 export interface MockAIAnalysisOptions {
   latencyMs?: number;
-  /** Correlation context (other monitored events / active missions). */
   correlationContext?: () => CorrelationContextEntry[];
-  /** Force a transport failure for error-state demos. */
   failNext?: () => boolean;
   now?: () => Date;
 }
 
-/**
- * Mock Sports Intelligence engine.
- *
- * It writes narrative, weighs qualitative factors and proposes missions — but
- * every single figure it emits is passed through from a deterministic domain
- * service. No arithmetic happens in this file beyond string formatting.
- */
 export class MockAIAnalysisService implements AIAnalysisService {
   readonly engineId = 'badbuilder-mock-intelligence';
   readonly mode = 'mock' as const;
@@ -163,7 +154,6 @@ export class MockAIAnalysisService implements AIAnalysisService {
         )[0]
       : null;
 
-    // Confidence blends deterministic quality, dispersion and risk scores.
     const confidenceScore =
       quality.score.value * 0.45 +
       (1 - risk.score.value) * 0.3 +
@@ -222,10 +212,13 @@ export class MockAIAnalysisService implements AIAnalysisService {
       };
     });
 
+    const bookmakerName = (id: string | null | undefined): string | null =>
+      id ? BOOKMAKERS[id]?.name ?? id : null;
+
     const valueSignals: ValueSignal[] = value.signals.map((s) => ({
       selectionId: s.selectionId,
       label: s.label,
-      bestBookmaker: s.bestBookmaker ? BOOKMAKERS[s.bestBookmaker]?.name ?? s.bestBookmaker : null,
+      bestBookmaker: bookmakerName(s.bestBookmaker),
       bestPrice: s.bestPrice,
       consensusPrice: s.consensusPrice,
       edgePct: s.edgePct,
@@ -300,7 +293,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       positiveSignals.push({
         id: 'ps-edge',
         label: `Model edge on ${topValue.label}`,
-        detail: `Best price ${topValue.bestPrice.formatted} at ${topValue.bestBookmaker ? BOOKMAKERS[topValue.bestBookmaker]?.name ?? topValue.bestBookmaker : 'n/a'} against model fair odds.`,
+        detail: `Best price ${topValue.bestPrice.formatted} at ${bookmakerName(topValue.bestBookmaker) ?? 'n/a'} against model fair odds.`,
         strength: topValue.qualityAdjustedEdgePct,
         origin: 'ai-inference',
       });
@@ -346,7 +339,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       negativeSignals.push({
         id: 'ns-steam',
         label: 'Steam move detected',
-        detail: `Monotone drift beyond 6% suggests informed money has already moved this market.`,
+        detail: 'Monotone drift beyond 6% suggests informed money has already moved this market.',
         strength: det(Math.min(1, movement.maxAbsChangePct.value / 12), 'ratio', 'movement-service'),
         origin: 'ai-inference',
       });
@@ -450,7 +443,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
         id: 'ra-monitor',
         kind: 'MONITOR_MARKET',
         title: `Monitor ${MARKET_LABELS[market]} — ${focus.label}`,
-        detail: `Track ${focus.label} at ${focus.bestBookmaker ? BOOKMAKERS[focus.bestBookmaker]?.name ?? focus.bestBookmaker : 'best book'} and reassess if the price moves materially.`,
+        detail: `Track ${focus.label} at ${bookmakerName(focus.bestBookmaker) ?? 'best book'} and reassess if the price moves materially.`,
         priority: focus.tier === 'strong' ? 'high' : 'medium',
         missionEligible: true,
         trigger: {
@@ -536,13 +529,9 @@ export class MockAIAnalysisService implements AIAnalysisService {
           ? `The defining market event is ${sharpestMove.label} moving ${sharpestMove.changePct.formatted} from ${sharpestMove.openingPrice.formatted} to ${sharpestMove.currentPrice.formatted}.`
           : 'No meaningful price action has been captured yet.'),
       topValue
-        ? `Against model ${model.modelVersion}, ${topValue.label} shows a ${topValue.edgePct.formatted} divergence versus the best available price of ${topValue.bestPrice.formatted}${topValue.bestBookmaker ? ` at ${BOOKMAKERS[topValue.bestBookmaker].name}` : ''}. After the feed-quality haircut the retained edge is ${topValue.qualityAdjustedEdgePct.formatted}, which classifies as ${topValue.tier}.`
+        ? `Against model ${model.modelVersion}, ${topValue.label} shows a ${topValue.edgePct.formatted} divergence versus the best available price of ${topValue.bestPrice.formatted}${topValue.bestBookmaker ? ` at ${bookmakerName(topValue.bestBookmaker) ?? topValue.bestBookmaker}` : ''}.`
         : 'No value signal could be constructed from the available prices.',
-      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. ${
-        risk.factors
-          .slice()
-          .sort((a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value)[0].note
-      }.`,
+      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. ${risk.factors.slice().sort((a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value)[0].note}.`,
       `Recommended posture: ${recommendedActions[0].title.toLowerCase()}. Every figure above is produced by the deterministic domain services (movement, data-quality, probability, value, risk, correlation); this layer supplies interpretation only.`,
     ];
 
@@ -552,7 +541,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       .reverse()
       .map((s) => ({
         snapshotId: s.id,
-        bookmaker: BOOKMAKERS[s.bookmaker]?.name ?? s.bookmaker,
+        bookmaker: bookmakerName(s.bookmaker) ?? s.bookmaker,
         market: s.market,
         capturedAt: s.capturedAt,
         quoteCount: det(s.quotes.length, 'count', 'odds-math'),
@@ -576,7 +565,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
             : stance === 'avoid'
               ? `Stand aside: ${quality.grade === 'D' ? 'feed integrity' : 'risk profile'} fails the bar`
               : stance === 'cautious'
-                ? `Cautious: divergence present but not durable`
+                ? 'Cautious: divergence present but not durable'
                 : `Neutral: monitor ${MARKET_LABELS[market]} for a cleaner entry`,
         narrative,
         stance,
