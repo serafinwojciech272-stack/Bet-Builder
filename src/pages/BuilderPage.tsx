@@ -6,6 +6,7 @@ import { liveEvents } from '../services/liveAdapter';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { evaluateDecisionCenter } from '../core/decisionCenter';
 import { createDecisionPacket } from '../core/decisionPacket';
+import { evaluateControlPlane } from '../core/controlPlane';
 import type { OptimizationResult } from '../core/types';
 
 interface Props { selections: import('../domain/types').Selection[]; stake: number; addSelection: (s: import('../domain/types').Selection) => void; removeSelection: (id: string) => void; clear: () => void; updateStake: (v: number) => void; }
@@ -13,7 +14,7 @@ interface Props { selections: import('../domain/types').Selection[]; stake: numb
 export default function BuilderPage({ selections, stake, addSelection, removeSelection, clear, updateStake }: Props) {
   const { dataset, phase, error, runAnalysis, optimizeBuilder, createMission, selectedDate } = useIntelligence();
   const [drawerOpen, setDrawerOpen] = useState(false); const [sportFilter, setSportFilter] = useState('all'); const [message, setMessage] = useState(''); const [optimization, setOptimization] = useState<OptimizationResult | null>(null); const [lastAnalysis, setLastAnalysis] = useState<Awaited<ReturnType<typeof runAnalysis>>>(null); const navigate = useNavigate();
-  const allEvents = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]); const events = useMemo(() => sportFilter === 'all' ? allEvents : allEvents.filter((e) => e.sport === sportFilter), [allEvents, sportFilter]); const decision = useMemo(() => evaluateDecisionCenter(selections), [selections]); const isAdded = (id: string) => selections.some((s) => s.id === id);
+  const control = useMemo(() => evaluateControlPlane(selections, decision), [selections, decision]); const allEvents = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]); const events = useMemo(() => sportFilter === 'all' ? allEvents : allEvents.filter((e) => e.sport === sportFilter), [allEvents, sportFilter]); const decision = useMemo(() => evaluateDecisionCenter(selections), [selections]); const isAdded = (id: string) => selections.some((s) => s.id === id);
   const onAnalyze = async () => { if (!selections.length) return; const eventIds=[...new Set(selections.map((s)=>s.eventId))]; const results=await Promise.all(eventIds.map((eventId)=>runAnalysis(eventId,{depth:'deep'}))); const firstAnalysis=results.find(Boolean) ?? null; setLastAnalysis(firstAnalysis); setMessage(`Core Intelligence: ${results.filter(Boolean).length}/${eventIds.length} event analyses completed at deep depth.`); };
   const onSaveMission = async () => {
     if (!lastAnalysis || decision.status === 'BLOCKED') { setMessage('Save blocked — run analysis and resolve Decision Center blockers first.'); return; }
@@ -27,8 +28,8 @@ export default function BuilderPage({ selections, stake, addSelection, removeSel
   const onOptimize = async () => {
     setOptimization(null);
     if (!selections.length) { setMessage('Decision Gate: blocked — add at least one selection.'); return; }
-    if (decision.status === 'BLOCKED') {
-      setMessage(`Decision Gate: BLOCKED — resolve ${decision.blockers.length} blocker(s) before Core Engine optimization.`);
+    if (control.decision === 'BLOCK') {
+      setMessage(`Control Plane: BLOCKED — ${control.hardStops.length} hard stop(s). Resolve them before optimization.`);
       return;
     }
     const result = await optimizeBuilder({decisionGate:{status:decision.status,blockers:decision.blockers,warnings:decision.warnings,trace:decision.trace},stake,minEv:0,maxSelections:8,maxPerCorrelationGroup:1,minConfidence:0.5,selections:selections.map((s)=>({id:s.id,odds:s.odds,probability:s.probability,correlationGroup:s.correlationGroup,confidence:s.confidence,risk:s.risk}))});
@@ -41,7 +42,7 @@ export default function BuilderPage({ selections, stake, addSelection, removeSel
     <header className="relative overflow-hidden rounded-2xl border border-white/[.08] bg-[#080c13]/80 px-5 py-5 shadow-2xl shadow-black/30 backdrop-blur-xl md:px-7 md:py-6"><div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl"/><div className="absolute -left-20 -bottom-24 h-56 w-56 rounded-full bg-cyan-400/5 blur-3xl"/><div className="relative flex flex-wrap items-end justify-between gap-4"><div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.28em] text-violet-300"><span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-400"/> Core Intelligence Platform</div><h1 className="mt-2 text-3xl font-black tracking-[-.04em] text-white md:text-4xl">Bet Builder <span className="text-slate-600">/</span> Decision Lab</h1><p className="mt-2 max-w-2xl text-xs leading-relaxed text-slate-500 md:text-sm">Build a portfolio. Audit dependencies. Let the Core Engine explain every decision before you act.</p></div><div className="flex items-center gap-2"><span className="rounded-full border border-emerald-400/20 bg-emerald-400/[.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[.16em] text-emerald-300">{dataset?.mode === 'LIVE' ? 'Live provider' : 'Demo dataset'}</span><span className="rounded-full border border-white/10 bg-white/[.03] px-3 py-1.5 text-[9px] font-black uppercase tracking-[.16em] text-slate-400">{selectedDate}</span></div></div></header>
     {message?<div role="status" className="rise mt-3 rounded-xl border border-violet-400/20 bg-violet-500/[.06] px-4 py-3 text-xs font-medium text-violet-200 shadow-lg shadow-violet-950/10">{message}</div>:null}
     {optimization?<div className="mt-3 grid gap-2 sm:grid-cols-4">{[['Combined odds',optimization.combinedOdds.toFixed(2)],['Estimated EV',`${optimization.estimatedEv>=0?'+':''}${(optimization.estimatedEv*100).toFixed(1)}%`],['Probability',`${(optimization.estimatedProbability*100).toFixed(1)}%`],['Diversification',`${(optimization.diversificationScore*100).toFixed(0)}%`]].map(([label,value])=><div key={label} className="glass rounded-xl p-3"><div className="text-[8px] font-bold uppercase tracking-[.16em] text-slate-600">{label}</div><div className="mt-1 text-lg font-black text-white">{value}</div></div>)}</div>:null}
-    <DecisionCenter result={decision} optimization={optimization} selections={selections}/>
+    <div className="mt-3 rounded-xl border border-white/[.08] bg-white/[.02] px-4 py-3 text-[10px] text-slate-400"><span className="font-black uppercase tracking-[.16em] text-violet-300">Control Plane</span><span className="mx-2 text-slate-700">·</span><span className={control.decision === 'BLOCK' ? 'text-red-300' : control.decision === 'REVIEW_REQUIRED' ? 'text-amber-300' : 'text-emerald-300'}>{control.decision}</span><span className="mx-2 text-slate-700">·</span>{control.reviewFlags.length} review flag(s)<span className="mx-2 text-slate-700">·</span>{control.opportunitySignals.length} signal(s)<span className="mx-2 text-slate-700">·</span>{control.counterfactual.interpretation}</div>\n    <DecisionCenter result={decision} optimization={optimization} selections={selections}/>
     <div className="mt-6 rounded-2xl border border-white/[.08] bg-[#080c13]/70 p-3">
   <div className="flex flex-wrap items-center gap-2">
     {['all', ...Array.from(new Set(allEvents.map((e) => e.sport)))].map((sport) => (
