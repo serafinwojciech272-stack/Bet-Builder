@@ -53,7 +53,7 @@ function consensusAt(
   let num = 0;
   let den = 0;
   for (const [book, price] of perBook) {
-    const w = BOOKMAKERS[book].weight;
+    const w = BOOKMAKERS[book]?.weight ?? 0.5;
     num += price * w;
     den += w;
   }
