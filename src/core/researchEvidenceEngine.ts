@@ -27,7 +27,7 @@ export function buildResearchEvidence(research:EventResearch):ResearchEvidence{
     const confidence=clamp(f.confidence*.45+rel*.25+freshness*.15+independence*.15);
     return {id:f.id,category:f.category,statement:f.statement,polarity:f.polarity,confidence,freshnessHours:f.freshnessHours,independentSources:f.independentSourceCount,reliabilityScore:rel,sourceIds:f.sourceIds,sourceTitles:sources.map(s=>s.title),sourcePublishers:sources.map(s=>s.publisher),languages:sources.map(s=>s.language)};
   });
-  const conflicts=research.findings
+  const conflicts:EvidenceConflict[]=research.findings
     .filter(f=>f.polarity==='neutral' || f.category==='contradiction')
     .map(f=>({category:f.category,supportive:f.polarity==='neutral'?['Neutral/uncertain evidence']:[],adverse:f.polarity==='adverse'?[f.statement]:[],severity:(f.category==='contradiction'||research.consensus.contradictionRate>=.5?'high':research.consensus.contradictionRate>=.25?'medium':'low') as 'low'|'medium'|'high'}));
   if(research.consensus.direction==='mixed' && !conflicts.some(c=>c.category==='consensus')){
