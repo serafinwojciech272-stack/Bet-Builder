@@ -1,18 +1,29 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BuilderPanel } from '../components/BuilderPanel';
 import { DecisionCenter } from '../components/DecisionCenter';
 import { liveEvents } from '../services/liveAdapter';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { evaluateDecisionCenter } from '../core/decisionCenter';
+import { createDecisionPacket } from '../core/decisionPacket';
 import type { OptimizationResult } from '../core/types';
 
 interface Props { selections: import('../domain/types').Selection[]; stake: number; addSelection: (s: import('../domain/types').Selection) => void; removeSelection: (id: string) => void; clear: () => void; updateStake: (v: number) => void; }
 
 export default function BuilderPage({ selections, stake, addSelection, removeSelection, clear, updateStake }: Props) {
-  const { dataset, phase, error, runAnalysis, optimizeBuilder, selectedDate } = useIntelligence();
-  const [drawerOpen, setDrawerOpen] = useState(false); const [message, setMessage] = useState(''); const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
+  const { dataset, phase, error, runAnalysis, optimizeBuilder, createMission, selectedDate } = useIntelligence();
+  const [drawerOpen, setDrawerOpen] = useState(false); const [message, setMessage] = useState(''); const [optimization, setOptimization] = useState<OptimizationResult | null>(null); const [lastAnalysis, setLastAnalysis] = useState<Awaited<ReturnType<typeof runAnalysis>>>(null); const navigate = useNavigate();
   const events = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]); const decision = useMemo(() => evaluateDecisionCenter(selections), [selections]); const isAdded = (id: string) => selections.some((s) => s.id === id);
-  const onAnalyze = async () => { if (!selections.length) return; const eventIds=[...new Set(selections.map((s)=>s.eventId))]; const results=await Promise.all(eventIds.map((eventId)=>runAnalysis(eventId,{depth:'deep'}))); setMessage(`Core Intelligence: ${results.filter(Boolean).length}/${eventIds.length} event analyses completed at deep depth.`); };
+  const onAnalyze = async () => { if (!selections.length) return; const eventIds=[...new Set(selections.map((s)=>s.eventId))]; const results=await Promise.all(eventIds.map((eventId)=>runAnalysis(eventId,{depth:'deep'}))); const firstAnalysis=results.find(Boolean) ?? null; setLastAnalysis(firstAnalysis); setMessage(`Core Intelligence: ${results.filter(Boolean).length}/${eventIds.length} event analyses completed at deep depth.`); };
+  const onSaveMission = async () => {
+    if (!lastAnalysis || decision.status === 'BLOCKED') { setMessage('Save blocked — run analysis and resolve Decision Center blockers first.'); return; }
+    const packet = createDecisionPacket(decision, selections.map((s) => ({ id:s.id, eventId:s.eventId, marketId:s.marketId, odds:s.odds, probability:s.probability, confidence:s.confidence, risk:s.risk, correlationGroup:s.correlationGroup })), optimization);
+    if (!packet.mission.eligible) { setMessage('Decision Packet blocked — mission was not created.'); return; }
+    const action = lastAnalysis.recommendedActions[0];
+    if (!action) { setMessage('Mission blocked — analysis returned no mission-eligible action.'); return; }
+    const mission = await createMission(packet ? lastAnalysis : lastAnalysis, action, { decisionPacket: packet, selectionId: selections.find((s) => s.eventId === lastAnalysis.eventId)?.id ?? null });
+    if (mission) { setMessage(`Mission saved: ${mission.id}. Opening approval gate…`); navigate(`/missions/${mission.id}`); }
+  };
   const onOptimize = async () => {
     setOptimization(null);
     if (!selections.length) { setMessage('Decision Gate: blocked — add at least one selection.'); return; }
