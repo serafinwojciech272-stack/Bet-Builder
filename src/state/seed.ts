@@ -76,6 +76,7 @@ function synthMeasurement(mission: Mission, analysis: AnalysisResponse, at: Date
       measuredAt: at.toISOString(),
       verdict: result.verdict,
       closingLineValuePct: result.closingLineValuePct,
+      closingOdds: det(1 / impliedAtClose, 'decimal-odds', 'measurement-service'),
       realizedMovementPct: result.realizedMovementPct,
       calibrationDeltaPct: result.calibrationDeltaPct,
       brierScore: result.brierScore,
