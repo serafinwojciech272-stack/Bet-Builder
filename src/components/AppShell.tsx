@@ -37,7 +37,8 @@ function SettingsControls(){
     <button type="button" onClick={()=>setSound(v=>!v)} className="rounded-lg p-1.5 text-muted hover:text-foreground" aria-label="Dźwięk włącz/wyłącz">{sound?<Volume2 size={13}/>:<VolumeX size={13}/>}</button>
   </div>
 }
-\nfunction Brand() {
+
+function Brand() {
   return <NavLink to="/" className="group flex min-w-0 items-center gap-3" aria-label="Bet Builder — strona główna"><span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-ai/40 bg-ai/[0.12] shadow-[0_0_28px_rgba(139,124,255,.16)]"><span className="absolute inset-0 bg-gradient-to-br from-ai/20 via-transparent to-transparent" /><Zap size={17} className="relative text-ai transition-transform duration-300 group-hover:scale-110" aria-hidden /></span><span className="hidden leading-none sm:block"><span className="block font-display text-[15px] font-bold tracking-[-0.02em] text-foreground">Bet Builder</span><span className="mt-1 block font-mono text-[8px] font-medium uppercase tracking-[0.22em] text-faint">Inteligencja sportowa</span></span></NavLink>;
 }
 export function AppShell({ children }: { children: ReactNode }) {
