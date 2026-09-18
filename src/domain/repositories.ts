@@ -54,6 +54,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
     const date = options.date ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const sport = options.sport ?? 'all';
     const cacheKey = `${date}:${sport}`;
+    if (this.testFallback) return this.testRepository.loadCanonicalDataset();
     if (!options.forceRefresh && this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
     try {
       const response = await fetch(`/api/odds?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`);
