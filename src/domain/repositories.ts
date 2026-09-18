@@ -47,7 +47,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
     const date = options.date ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); const sport = options.sport ?? 'all'; const cacheKey = `${date}:${sport}`;
     if (this.testFallback) return this.testRepository.loadCanonicalDataset(); if (!options.forceRefresh && this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
     try {
-      const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, ''); const isRenderStatic = window.location.hostname.endsWith('.onrender.com'); const apiBase = configuredBase || (isRenderStatic ? 'https://bet-builder-preview.vercel.app' : '');
+      const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, ''); const isRenderStatic = window.location.hostname.endsWith('.onrender.com'); const apiBase = configuredBase || (isRenderStatic ? 'https://bet-builder-api.onrender.com' : '');
       const response = await fetch(`${apiBase}/api/odds?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`);
       if (!response.ok) { let detail = `HTTP ${response.status}`; try { const body = await response.json() as { error?: string; message?: string }; detail = body.message ?? body.error ?? detail; } catch {} throw new Error(`LIVE_ODDS_UNAVAILABLE: ${detail}`); }
       const data = await response.json() as CanonicalDataset;
