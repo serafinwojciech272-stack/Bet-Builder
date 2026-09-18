@@ -44,7 +44,7 @@ describe('deterministic portfolio optimizer', () => {
         { id: 'over', odds: 2.1, probability: 0.52, correlationGroup: 'event:totals' },
         { id: 'under', odds: 1.9, probability: 0.55, correlationGroup: 'event:totals' },
       ],
-    })).toThrowError(/DECISION_GATE_BLOCKED/);
+    })).toThrowError(/Decision Gate: Mutually exclusive outcomes detected/);
   });
 
   it('applies confidence and EV gates with auditable rejection reasons', () => {
