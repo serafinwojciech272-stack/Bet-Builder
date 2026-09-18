@@ -21,6 +21,32 @@ export interface NormalizationIssue { code: NormalizationIssueCode | string; sev
 export interface NormalizationResult<T> { value: T; issues: NormalizationIssue[]; droppedRecords: number; }
 export type NumericUnit = 'probability' | 'percent' | 'decimal-odds' | 'ratio' | 'count' | 'minutes' | 'score';
 export type DomainServiceId = 'odds-math' | 'movement-service' | 'data-quality-service' | 'probability-service' | 'value-service' | 'risk-service' | 'correlation-service' | 'measurement-service';
+
+export type ProviderHealthState = 'HEALTHY' | 'DEGRADED' | 'STALE' | 'OFFLINE';
+export interface ProviderHealth {
+  provider: string;
+  state: ProviderHealthState;
+  fetchedAt: string;
+  ageSeconds: number;
+  staleAfterSeconds: number;
+  catalogCount: number;
+  queriedSports: number;
+  successfulSports: number;
+  failedSports: number;
+  eventCount: number;
+  snapshotCount: number;
+  bookmakerCount: number;
+  warnings: string[];
+}
+export interface MarketQuality {
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D';
+  freshness: number;
+  coverage: number;
+  priceIntegrity: number;
+  bookmakerDepth: number;
+  reasons: string[];
+}
 export interface DeterministicNumber { value: number; unit: NumericUnit; serviceId: DomainServiceId; provenance: 'deterministic'; formatted: string; }
 
 export interface Event { id: string; sport: string; league: string; competition: string; homeTeam: string; awayTeam: string; startTime: string; status: 'SCHEDULED' | 'LIVE' | 'FINISHED'; }
