@@ -71,6 +71,21 @@ export function MissionBuilder({ analysis }: { analysis: AnalysisResponse }) {
         </div>
       </div>
 
+      <div className="mb-5 rounded-xl border border-mission/25 bg-mission/[0.05] p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip tone="mission">{analysis.context.sportLabel}</Chip>
+          <Chip tone="neutral">{analysis.context.leagueName}</Chip>
+          <Chip tone="ai">{analysis.context.marketLabel}</Chip>
+          <span className="text-[10px] uppercase tracking-[0.12em] text-faint">Mission target</span>
+        </div>
+        <div className="mt-2 text-base font-semibold text-foreground">{analysis.context.eventLabel}</div>
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
+          <span>Start: {new Date(analysis.context.startTime).toLocaleString()}</span>
+          <span>Status: {analysis.context.status}</span>
+          <span>Analysis: {analysis.analysisId}</span>
+        </div>
+      </div>
+
       <fieldset className="mb-4">
         <legend className="mb-2 text-[11px] uppercase tracking-[0.12em] text-faint">
           Proposed mission
@@ -111,7 +126,7 @@ export function MissionBuilder({ analysis }: { analysis: AnalysisResponse }) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-[11px] text-faint">
-          Target selection
+          Target selection · market outcome
           <select
             value={selectionId}
             onChange={(e) => setSelectionId(e.target.value)}
