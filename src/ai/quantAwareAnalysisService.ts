@@ -4,6 +4,7 @@ import { runQuantDecision } from '../engine/quantDecisionEngine';
 import type { SportsDataRepository } from '../domain/repositories';
 import type { CoreEngineClient } from '../engine/CoreEngineClient';
 import { evaluateDecisionCenter } from '../core/decisionCenter';
+import type { RiskLevel as SelectionRiskLevel } from '../domain/types';
 import { InMemoryDecisionMemory, type DecisionMemoryRepository } from '../analytics/decisionMemory';
 
 /** Adds deterministic Quant Decision data and a single Core Engine optimization gate to the analysis contract. */
@@ -43,7 +44,7 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
       value: candidate.probability - 1 / candidate.odds,
       ev: (candidate.probability * candidate.odds) - 1,
       confidence: decision.marketSignals.find((signal) => signal.selectionId === candidate.id)?.confidence ?? analysis.confidence.score.value,
-      risk: analysis.riskAssessment.level,
+      risk: ({ LOW: 'LOW', MODERATE: 'MEDIUM', ELEVATED: 'HIGH', HIGH: 'HIGH' } as const)[analysis.riskAssessment.level] as SelectionRiskLevel,
       correlationGroup: candidate.correlationGroup ?? ('event:' + candidate.eventId),
     }));
     const decisionCenter = evaluateDecisionCenter(decisionGateSelections);
