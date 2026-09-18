@@ -1,4 +1,4 @@
-import type { EventResearch, ResearchFinding, ResearchLanguage, ResearchQuery, ResearchSource } from './types';
+import type { EventResearch, ResearchFinding, ResearchLanguage, ResearchQuery, ResearchSource, ResearchSourceKind } from './types';
 
 const LANGUAGE_TERMS: Record<ResearchLanguage, { lineup: string; injury: string; preview: string; tactics: string; tipster: string }> = {
   en: { lineup: 'lineup injuries starting XI team news', injury: 'injury suspension unavailable', preview: 'match preview form tactical preview', tactics: 'tactics expected lineup formation', tipster: 'prediction betting tips tipster odds' },
