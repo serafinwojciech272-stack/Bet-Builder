@@ -23,12 +23,12 @@ export function orchestrateDecision(selections:Selection[],research:EventResearc
   const missionReady=packetEligible&&control.decision==='PROCEED_TO_ANALYSIS';
   let stage:OrchestratorStage='INGESTED';
   if(!selections.length)stage='BLOCKED';
-  else if(!research)stage=control.decision==='BLOCK'?'BLOCKED':'RESEARCHED';
+  else if(!research)stage='REVIEW_REQUIRED';
   else if(control.decision==='BLOCK')stage='BLOCKED';
   else if(control.decision==='REVIEW_REQUIRED')stage='REVIEW_REQUIRED';
   else stage=missionReady?'MISSION_READY':'ANALYZED';
   const top=control.opportunitySignals[0];
-  const recommendedAction=top?{kind:missionReady?'MONITOR_MARKET':'DATA_QUALITY_WATCH',reason:top.reasons.join('; ')||'Monitor the highest-ranked opportunity signal.'}:null;
+  const recommendedAction=top?{kind:missionReady?(control.reviewFlags.includes('HIGH_DEPENDENCY')?'CORRELATION_GUARD':control.reviewFlags.includes('NEGATIVE_MODEL_EV')?'VALUE_CONFIRMATION':'REASSESS_ON_MOVEMENT'):'DATA_QUALITY_WATCH',reason:top.reasons.join('; ')||'Monitor the highest-ranked opportunity signal.'}:null;
   const auditTrail=[...control.auditTrail,...(evidence?.auditTrail??[])];
   auditTrail.push(`Orchestrator stage: ${stage}.`,`Packet eligibility: ${packetEligible?'YES':'NO'}; mission readiness: ${missionReady?'YES':'NO'}.`);
   const fingerprint=hash(JSON.stringify({version:'1.0',selectionIds:selections.map(s=>s.id),researchDigest:research?.digest??null,decision:{status:decision.status,ev:decision.ev,confidence:decision.confidence,marketQuality:decision.marketQuality.score},control:control.decision}));
