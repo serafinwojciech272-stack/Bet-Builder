@@ -13,6 +13,7 @@ interface ApiBookmaker { key: string; title: string; last_update: string; market
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
 interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; }
+let sportsCatalogCache: { apiKey: string; expiresAt: number; value: ApiSport[] } | null = null;
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
 function json(res: JsonResponse, status: number, body: unknown) {
   res.status(status)
@@ -53,9 +54,12 @@ async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeo
   finally { clearTimeout(timer); }
 }
 async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
+  if (sportsCatalogCache && sportsCatalogCache.apiKey === apiKey && sportsCatalogCache.expiresAt > Date.now()) return sportsCatalogCache.value;
   const response = await fetchWithTimeout(`https://parlay-api.com/v1/sports/?apiKey=${encodeURIComponent(apiKey)}`, {}, 5000);
   if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`);
-  return await response.json() as ApiSport[];
+  const value = await response.json() as ApiSport[];
+  sportsCatalogCache = { apiKey, expiresAt: Date.now() + 5 * 60 * 1000, value };
+  return value;
 }
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
