@@ -89,7 +89,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     sports = (matching.length ? matching : [{ key: requestedSport, title: requestedSport, group: requestedSport }]).slice(0, 8).map((s) => s.key);
   }
 
-  const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; let droppedRecords = 0; let lastQuota: DatasetResponse['quota']; const bookmakerNames = new Map<string, string>();
+  const successfulSports: string[] = []; const failedSports: string[] = [];\n  const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; let droppedRecords = 0; let lastQuota: DatasetResponse['quota']; const bookmakerNames = new Map<string, string>();
   const now = Date.now();
   for (const sportKey of sports) {
     const url = new URL(`https://parlay-api.com/v1/sports/${encodeURIComponent(sportKey)}/odds/`);
@@ -103,7 +103,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     }
     const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
     lastQuota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
-    if (!response.ok) { const text = await response.text(); issues.push({ code: 'provider-error', severity: 'warning', message: `ParlayAPI ${response.status} for ${sportKey}: ${text.slice(0, 180)}`, reference: sportKey }); continue; }
+    if (!response.ok) { failedSports.push(sportKey); const text = await response.text(); issues.push({ code: 'provider-error', severity: 'warning', message: `ParlayAPI ${response.status} for ${sportKey}: ${text.slice(0, 180)}`, reference: sportKey }); continue; }
     let rawEvents: ApiEvent[];
     try {
       rawEvents = await response.json() as ApiEvent[];
@@ -129,6 +129,6 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     }
   }
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
-  const body: DatasetResponse = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota };
+  const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota, providerHealth: { provider: 'parlay-api', state: failedSports.length ? (successfulSports.length ? 'DEGRADED' : 'OFFLINE') : 'HEALTHY', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 600, catalogCount: availableSports.length, queriedSports: sports.length, successfulSports: successfulSports.length, failedSports: failedSports.length, eventCount: events.size, snapshotCount: snapshots.length, bookmakerCount: bookmakerNames.size, warnings: issues.filter((i) => i.severity !== 'info').map((i) => i.message).slice(0, 6) } };
   return json(res, 200, body);
 }
