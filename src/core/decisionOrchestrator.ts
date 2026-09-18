@@ -3,7 +3,6 @@ import type { EventResearch } from '../research/types';
 import { evaluateDecisionCenter, type DecisionCenterResult } from './decisionCenter';
 import { evaluateControlPlane, type PortfolioControl } from './controlPlane';
 import { buildResearchEvidence, type ResearchEvidence } from './researchEvidenceEngine';
-import type { DecisionPacket } from './decisionPacket';
 
 export type OrchestratorStage='INGESTED'|'RESEARCHED'|'CONTROLLED'|'ANALYZED'|'PACKET_READY'|'MISSION_READY'|'REVIEW_REQUIRED'|'BLOCKED';
 export interface DecisionOrchestratorResult {
