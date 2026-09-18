@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { buildResearchQueries, normalizeResearchSources, synthesizeResearch } from '../src/research/researchEngine';
-import type { ResearchLanguage } from '../src/research/types';
+import { buildResearchQueries, normalizeResearchSources, synthesizeResearch } from '../src/research/researchEngine.js';
+import type { ResearchLanguage } from '../src/research/types.js';
 
 type Lang=ResearchLanguage;
 const googleLang:Record<Lang,string>={en:'en',de:'de',pl:'pl',it:'it',es:'es',fr:'fr',nl:'nl'};
