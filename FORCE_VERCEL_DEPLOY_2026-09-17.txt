@@ -1,1 +1,2 @@
 Force Vercel production deployment trigger. No application logic change.
+2026-09-18 private intelligence club visual pass trigger
