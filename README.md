@@ -6,4 +6,4 @@ Bet Builder preview application with Core Engine decision analysis.
 
 Decision Center target-odds optimization is type-safe and ready for Vercel production build validation.
 
-<!-- Vercel deployment trigger: 2026-09-18T05:20:00Z -->
+<!-- Vercel deployment trigger: 2026-09-18T07:05:00Z -->
