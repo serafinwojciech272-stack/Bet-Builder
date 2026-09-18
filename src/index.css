@@ -19,3 +19,16 @@ html[data-theme="light"] .bg-black\/10,html[data-theme="light"] .bg-black\/15,ht
 html[data-theme="light"] .border-white\/\[\.08\],html[data-theme="light"] .border-white\/\[\.07\],html[data-theme="light"] .border-white\/10{border-color:rgba(15,23,42,.10)!important}
 html[data-theme="light"] header.sticky{background:rgba(248,250,252,.86)!important;border-color:rgba(15,23,42,.10)!important}
 html[data-theme="light"] input,html[data-theme="light"] select{color:#111827!important}
+
+/* Premium private-club visual layer */
+.club-hero{min-height:420px;background-image:linear-gradient(90deg,rgba(5,6,13,.94) 0%,rgba(7,5,15,.68) 38%,rgba(7,5,15,.42) 68%,rgba(5,6,13,.78) 100%),url('/club-lounge.svg');background-size:cover;background-position:center 44%;border-color:rgba(240,203,122,.24)!important;box-shadow:0 35px 120px rgba(18,8,42,.42),inset 0 1px rgba(255,255,255,.06)}
+.club-hero::after{content:'';position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(180deg,transparent,rgba(5,6,13,.9));pointer-events:none}
+.club-hero .club-content{position:relative;z-index:2}
+.club-kicker{color:#f0cb7a!important;text-shadow:0 0 18px rgba(240,203,122,.28)}
+.club-title{font-family:Georgia,serif;letter-spacing:-.035em!important;text-shadow:0 5px 35px rgba(0,0,0,.5)}
+.club-title-accent{background:linear-gradient(90deg,#fff4c2 0%,#f0cb7a 45%,#b98cff 100%);background-clip:text;-webkit-background-clip:text}
+.club-tagline{color:rgba(255,255,255,.76)!important}
+.club-generator{background:linear-gradient(145deg,rgba(17,10,29,.88),rgba(8,11,24,.9));border-color:rgba(240,203,122,.28)!important;box-shadow:0 20px 70px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.05)}
+.club-ticket{background:linear-gradient(145deg,rgba(10,12,23,.94),rgba(17,9,27,.92));border-color:rgba(240,203,122,.24)!important;box-shadow:0 22px 80px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.045)}
+.club-gold{color:#f0cb7a}
+@media (max-width:767px){.club-hero{min-height:520px;background-position:58% center}.club-hero .club-content{padding-top:24px}.club-title{font-size:2.15rem}}
