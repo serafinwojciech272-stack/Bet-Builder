@@ -10,10 +10,11 @@ interface Props {
   onRemove: (id: string) => void;
   onAnalyze: () => void;
   onOptimize: () => void;
+  onSaveMission: () => void;
   feedMode?: 'LIVE' | 'DEMO' | 'UNKNOWN';
 }
 
-export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize, feedMode = 'UNKNOWN' }: Props) {
+export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize, onSaveMission, feedMode = 'UNKNOWN' }: Props) {
   const stats = useBuilderStats(selections, stake);
   const empty = selections.length === 0;
   return (
@@ -36,7 +37,7 @@ export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemo
             <div className="grid grid-cols-2 gap-2">{[['Combined odds',stats.multi.toFixed(2)],['Potential return',stats.ret.toFixed(2)],['Probability',`${Math.round(stats.estProb*100)}%`],['EV',`${stats.ev>=0?'+':''}${(stats.ev*100).toFixed(1)}%`]].map(([label,value])=><div key={label} className="rounded-xl border border-white/[.07] bg-white/[.025] p-2.5"><div className="text-[8px] uppercase tracking-wider text-slate-600">{label}</div><div className={`mt-1 text-sm font-black ${label==='EV'&&stats.ev>=0?'text-emerald-300':'text-white'}`}>{value}</div></div>)}</div>
             <div className="flex items-center justify-between rounded-xl border border-white/[.07] bg-white/[.02] px-3 py-2"><span className="text-[9px] font-bold uppercase tracking-[.15em] text-slate-500">Risk profile</span><RiskBadge risk={stats.risk as never} /></div>
             <div className="grid grid-cols-2 gap-2"><button type="button" onClick={onAnalyze} className="rounded-xl border border-violet-400/30 bg-violet-500/15 px-3 py-2.5 text-xs font-bold text-violet-100 shadow-[0_0_25px_rgba(124,92,255,.08)] transition hover:border-violet-300/50 hover:bg-violet-500/25">Analyze</button><button type="button" onClick={onOptimize} className="rounded-xl border border-white/12 bg-white/[.055] px-3 py-2.5 text-xs font-bold text-white transition hover:border-white/25 hover:bg-white/10">Optimize</button></div>
-            <button type="button" onClick={onClear} className="w-full rounded-xl border border-red-400/15 bg-red-400/[.035] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-red-300/80 transition hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-200">Clear builder</button>
+            <button type="button" onClick={onSaveMission} className="w-full rounded-xl border border-emerald-400/20 bg-emerald-400/[.06] px-3 py-2.5 text-xs font-bold text-emerald-200 transition hover:border-emerald-300/40 hover:bg-emerald-400/[.12]">Save as mission / Approval Gate</button><button type="button" onClick={onClear} className="w-full rounded-xl border border-red-400/15 bg-red-400/[.035] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-red-300/80 transition hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-200">Clear builder</button>
             <div className="flex items-center justify-center gap-1.5 pt-1"><span className="live-dot h-1.5 w-1.5 rounded-full bg-slate-500" aria-hidden /><span className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-600">{feedMode === 'LIVE' ? 'Live odds · Core Engine' : feedMode === 'DEMO' ? 'Demo data · Core Engine' : 'Feed unavailable · Core Engine'}</span></div>
           </div>
         </>
