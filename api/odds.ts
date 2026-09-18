@@ -40,14 +40,14 @@ function dateBoundsUtc(date: string) {
     timeZoneName: 'longOffset',
   }).formatToParts(probe);
   const offsetPart = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+00:00';
-  const match = offsetPart.match(/GMT([+-])(\\d{2}):?(\\d{2})?/);
+  const match = offsetPart.match(/GMT([+-])(\d{2}):?(\d{2})?/);
   const sign = match?.[1] === '-' ? -1 : 1;
   const hours = Number(match?.[2] ?? 0);
   const minutes = Number(match?.[3] ?? 0);
   const offsetMs = sign * (hours * 60 + minutes) * 60 * 1000;
   const start = new Date(new Date(`${date}T00:00:00Z`).getTime() - offsetMs);
   const end = new Date(new Date(`${date}T23:59:59Z`).getTime() - offsetMs);
-  const isoSeconds = (value: Date) => value.toISOString().replace(/\\.\\d{3}Z$/, 'Z');
+  const isoSeconds = (value: Date) => value.toISOString().replace(/\.\d{3}Z$/, 'Z');
   return { from: isoSeconds(start), to: isoSeconds(end) };
 }
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
