@@ -2,13 +2,13 @@
  * Canonical Sports Domain — single source of truth.
  */
 
-export type SportKey = 'soccer' | 'basketball' | 'americanfootball' | 'icehockey' | 'baseball';
+export type SportKey = 'soccer' | 'basketball' | 'americanfootball' | 'icehockey' | 'baseball' | 'tennis' | 'volleyball' | 'golf' | 'handball' | 'rugby' | 'tabletennis' | 'darts' | 'cricket' | 'aussierules';
 export type EventStatus = 'scheduled' | 'live' | 'final';
-export type MarketKey = 'match-winner' | 'moneyline' | 'totals' | 'spread' | 'both-teams-to-score';
+export type MarketKey = 'match-winner' | 'moneyline' | 'totals' | 'spread' | 'both-teams-to-score' | 'outrights';
 export type BookmakerId = string;
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
-export const SPORTS = ['soccer', 'basketball', 'americanfootball', 'icehockey', 'baseball'] as const;
+export const SPORTS = ['soccer', 'basketball', 'americanfootball', 'icehockey', 'baseball', 'tennis', 'volleyball', 'golf', 'handball', 'rugby', 'tabletennis', 'darts', 'cricket', 'aussierules'] as const;
 
 export interface Bookmaker { id: BookmakerId; name: string; weight: number; }
 export interface Team { id: string; name: string; shortName: string; rating: number; form: Array<'W' | 'D' | 'L'>; injuriesOut: number; }
