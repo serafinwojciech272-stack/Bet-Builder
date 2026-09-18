@@ -111,3 +111,82 @@ button[aria-pressed="true"]{border-color:rgba(240,203,122,.42)!important}
 .club-backdrop main::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:32px;background:linear-gradient(180deg,rgba(5,6,13,.08),rgba(5,6,13,.26));pointer-events:none}
 @media (max-width:900px){.club-interface-hero{grid-template-columns:1fr;min-height:0;padding:24px}.club-interface-console{width:100%}}
 @media (max-width:640px){.club-backdrop::before{background-position:58% top}.club-interface-hero{border-radius:18px;padding:20px}.club-interface-title{font-size:2.55rem}.club-interface-subtitle{font-size:13px}}
+
+
+/* UX/UI RUN v4: decision-first premium interface */
+:root{
+  --ux-max:1600px;
+  --ux-radius:18px;
+}
+.club-backdrop main{
+  padding-top:clamp(18px,2.6vw,40px);
+}
+.club-backdrop main > *{
+  animation:riseIn .42s cubic-bezier(.2,.7,.2,1) both;
+}
+.club-backdrop main > *:nth-child(2){animation-delay:.04s}
+.club-backdrop main > *:nth-child(3){animation-delay:.08s}
+.club-backdrop main > *:nth-child(4){animation-delay:.12s}
+
+/* Navigation: stronger active state and clearer interaction */
+header.sticky nav a[aria-current="page"]{
+  box-shadow:inset 0 -2px 0 rgba(240,203,122,.85),0 8px 25px rgba(0,0,0,.12);
+}
+header.sticky nav a[aria-current="page"] svg{
+  filter:drop-shadow(0 0 8px rgba(155,140,255,.55));
+}
+
+/* Event surfaces: reduce visual noise and increase scanability */
+.club-backdrop main article{
+  border-radius:var(--ux-radius);
+  background:linear-gradient(145deg,rgba(14,16,29,.82),rgba(8,10,19,.72));
+  border-color:rgba(255,255,255,.075);
+}
+.club-backdrop main article:hover{
+  border-color:rgba(240,203,122,.24);
+}
+.club-backdrop main article a{
+  transition:color .18s ease,text-shadow .18s ease;
+}
+.club-backdrop main article a:hover{
+  text-shadow:0 0 18px rgba(155,140,255,.24);
+}
+
+/* Inputs and selects: premium controls with stronger focus affordance */
+.club-backdrop input,
+.club-backdrop select{
+  min-height:38px;
+  border-radius:10px;
+}
+.club-backdrop input:focus,
+.club-backdrop select:focus{
+  box-shadow:0 0 0 2px rgba(155,140,255,.18),0 0 24px rgba(155,140,255,.08);
+}
+.club-backdrop input[type="checkbox"]{
+  accent-color:#9b8cff;
+}
+
+/* Primary actions: distinguish decision actions from utility actions */
+.club-backdrop main a[href*="/analysis"],
+.club-backdrop main a[href="/builder"]{
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+.club-backdrop main a[href*="/analysis"]:hover,
+.club-backdrop main a[href="/builder"]:hover{
+  border-color:rgba(240,203,122,.5);
+  background:linear-gradient(135deg,rgba(240,203,122,.13),rgba(155,140,255,.12));
+}
+
+/* Mobile: keep the first decision visible without excessive chrome */
+@media (max-width:767px){
+  header.sticky .club-opportunity{display:none}
+  .club-backdrop main{padding-left:12px;padding-right:12px}
+  .club-backdrop main article{border-radius:15px}
+  .club-backdrop main h1{line-height:1.02}
+  .club-backdrop main h2{line-height:1.08}
+}
+
+/* Accessibility and performance */
+@media (prefers-reduced-motion:reduce){
+  .club-backdrop main > *{animation:none}
+}
