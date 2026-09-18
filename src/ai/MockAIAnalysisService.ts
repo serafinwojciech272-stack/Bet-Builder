@@ -225,7 +225,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
     const valueSignals: ValueSignal[] = value.signals.map((s) => ({
       selectionId: s.selectionId,
       label: s.label,
-      bestBookmaker: s.bestBookmaker ? BOOKMAKERS[s.bestBookmaker].name : null,
+      bestBookmaker: s.bestBookmaker ? BOOKMAKERS[s.bestBookmaker]?.name ?? s.bestBookmaker : null,
       bestPrice: s.bestPrice,
       consensusPrice: s.consensusPrice,
       edgePct: s.edgePct,
@@ -300,7 +300,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       positiveSignals.push({
         id: 'ps-edge',
         label: `Model edge on ${topValue.label}`,
-        detail: `Best price ${topValue.bestPrice.formatted} at ${topValue.bestBookmaker ? BOOKMAKERS[topValue.bestBookmaker].name : 'n/a'} against model fair odds.`,
+        detail: `Best price ${topValue.bestPrice.formatted} at ${topValue.bestBookmaker ? BOOKMAKERS[topValue.bestBookmaker]?.name ?? topValue.bestBookmaker : 'n/a'} against model fair odds.`,
         strength: topValue.qualityAdjustedEdgePct,
         origin: 'ai-inference',
       });
@@ -450,7 +450,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
         id: 'ra-monitor',
         kind: 'MONITOR_MARKET',
         title: `Monitor ${MARKET_LABELS[market]} — ${focus.label}`,
-        detail: `Track ${focus.label} at ${focus.bestBookmaker ? BOOKMAKERS[focus.bestBookmaker].name : 'best book'} and reassess if the price moves materially.`,
+        detail: `Track ${focus.label} at ${focus.bestBookmaker ? BOOKMAKERS[focus.bestBookmaker]?.name ?? focus.bestBookmaker : 'best book'} and reassess if the price moves materially.`,
         priority: focus.tier === 'strong' ? 'high' : 'medium',
         missionEligible: true,
         trigger: {
@@ -552,7 +552,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       .reverse()
       .map((s) => ({
         snapshotId: s.id,
-        bookmaker: BOOKMAKERS[s.bookmaker].name,
+        bookmaker: BOOKMAKERS[s.bookmaker]?.name ?? s.bookmaker,
         market: s.market,
         capturedAt: s.capturedAt,
         quoteCount: det(s.quotes.length, 'count', 'odds-math'),
