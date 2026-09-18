@@ -14,6 +14,7 @@ export interface CanonicalDataset {
   sportsQueried?: string[];
   bookmakers?: string[];
   quota?: { remaining: number | null; used: number | null; lastCost: number | null };
+  availableSports?: Array<{ key: string; title: string; group: string }>;
 }
 
 export interface SportsDataRepository {
@@ -64,6 +65,30 @@ export class LiveSportsDataRepository implements SportsDataRepository {
         throw new Error(`LIVE_ODDS_UNAVAILABLE: ${detail}`);
       }
       const data = await response.json() as CanonicalDataset;
+      if (!data.events.length) {
+        const fallback = await this.testRepository.loadCanonicalDataset();
+        const providerIssues = data.issues ?? [];
+        const degraded: CanonicalDataset = {
+          ...fallback,
+          normalizedAt: new Date().toISOString(),
+          requestedDate: date,
+          provider: 'demo',
+          mode: 'DEMO',
+          availableSports: data.availableSports,
+          quota: data.quota,
+          issues: [
+            {
+              code: 'live-provider-empty',
+              severity: 'warning',
+              message: providerIssues[0]?.message ?? 'Live provider returned no events. Showing deterministic fallback data.',
+            },
+            ...providerIssues,
+            ...fallback.issues,
+          ],
+        };
+        this.cache.set(cacheKey, degraded);
+        return degraded;
+      }
       const normalized: CanonicalDataset = { ...data, provider: 'the-odds-api', mode: 'LIVE', requestedDate: date };
       this.cache.set(cacheKey, normalized);
       return normalized;
