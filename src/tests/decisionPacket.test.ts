@@ -17,6 +17,7 @@ const baseDecision = {
   warnings: [],
   strengths: ['quality'],
   trace: ['quant complete', 'decision center evaluated'],
+  marketQuality: { score: 0.86, grade: 'A' as const, confidence: 0.82, coverage: 0.7, integrity: 1, depth: 0.8, freshness: 0.9, reasons: [] },
 };
 
 const selections = [{
