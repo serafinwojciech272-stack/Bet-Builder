@@ -15,7 +15,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   const eventId=String(req.query.eventId??'').trim(),home=String(req.query.home??'').trim(),away=String(req.query.away??'').trim(),sport=String(req.query.sport??'soccer').trim(),league=String(req.query.league??'').trim();
   if(!home||!away)return res.status(400).json({error:'home_and_away_required'});
   const queries=buildResearchQueries(home,away,sport,league); const raw=[];
-  for(const q of queries){try{raw.push(...await search(q.query,q.language));}catch{}}
+  for(const q of queries){try{raw.push(...await search(q.query,q.language));}catch{ /* best-effort source retrieval */ }}
   const unique=[...new Map(raw.filter(x=>x.url).map(x=>[x.url,x])).values()].slice(0,120);
   const sources=normalizeResearchSources(unique);
   const research=synthesizeResearch(eventId||`${home}-${away}`,queries,sources);
