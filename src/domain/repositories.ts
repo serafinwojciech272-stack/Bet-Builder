@@ -103,8 +103,8 @@ export class LiveSportsDataRepository implements SportsDataRepository {
         requestedDate: date,
         provider: 'demo',
         mode: 'DEMO',
-        availableSports: fallback.availableSports,
-        quota: fallback.quota,
+        availableSports: data.availableSports,
+        quota: data.quota,
         issues: [
           {
             code: 'live-provider-fallback',
