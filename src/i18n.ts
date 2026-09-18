@@ -29,7 +29,7 @@ const EN_DE: Record<string,string> = {
 const PL_EN: Record<string,string> = Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl]));
 const PL_DE: Record<string,string> = Object.fromEntries(Object.entries(EN_DE).map(([pl,de])=>[pl,de]));
 
-function mapFor(lang:Lang){ return lang==='pl' ? EN_PL : lang==='de' ? {...PL_DE,...EN_DE} : {}; }
+function mapFor(lang:Lang){ return lang==='en' ? EN_PL : lang==='de' ? {...PL_DE,...EN_DE} : Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl])); }
 
 export function applyLanguage(lang:Lang){
   document.documentElement.lang=lang;
