@@ -1,23 +1,25 @@
 import type { OptimizationResult, DecisionGateInput } from './types';
 import type { DecisionCenterResult } from './decisionCenter';
 import type { EventResearch } from '../research/types';
+import type { ResearchEvidence } from './researchEvidenceEngine';
 
 export interface DecisionPacketSelection { id:string; eventId:string; marketId?:string; odds:number; probability:number; confidence:number; risk:string; correlationGroup:string; }
 export interface DecisionPacket {
   id:string; version:'1.0'; createdAt:string; status:DecisionGateInput['status']; blockers:string[]; warnings:string[]; trace:string[];
   source:{selectionIds:string[];combinedOdds:number;baseProbability:number;adjustedProbability:number;ev:number;confidence:number;quality:number;marketQuality:DecisionCenterResult['marketQuality'];dependencyMultiplier:number;correlationRisk:number;concentrationRisk:number;};
-  selections:DecisionPacketSelection[]; coreOptimization:OptimizationResult|null; research:EventResearch|null; mission:{eligible:boolean;reason:string};
+  selections:DecisionPacketSelection[]; coreOptimization:OptimizationResult|null; research:EventResearch|null; researchEvidence:ResearchEvidence|null; mission:{eligible:boolean;reason:string};
 }
 
-export function createDecisionPacket(decision:DecisionCenterResult,selections:DecisionPacketSelection[],optimization:OptimizationResult|null=null,now=new Date(),research:EventResearch|null=null):DecisionPacket{
+export function createDecisionPacket(decision:DecisionCenterResult,selections:DecisionPacketSelection[],optimization:OptimizationResult|null=null,now=new Date(),research:EventResearch|null=null,researchEvidence:ResearchEvidence|null=null):DecisionPacket{
   const status=decision.status, blockers=[...decision.blockers], warnings=[...decision.warnings], trace=[...decision.trace];
   if(optimization)trace.push('Core Engine optimization: '+optimization.selections.length+' selected, '+optimization.rejectedSelections.length+' rejected.');
   if(research){trace.push('Deep research: '+research.sources.length+' sources, '+research.findings.length+' findings, quality '+(research.researchQuality*100).toFixed(0)+'%.');trace.push('Research consensus: '+research.consensus.direction+'; lineup status: '+research.lineupStatus+'.');}
+  if(researchEvidence){trace.push('Evidence Engine: '+(researchEvidence.quality*100).toFixed(0)+'% quality, '+researchEvidence.evidence.length+' evidence item(s), '+researchEvidence.conflicts.length+' conflict(s).');trace.push('Evidence digest: '+researchEvidence.digest+'.');}
   trace.push('Decision Packet status: '+status+'.');
   return {
     id:'DP-'+now.getTime()+'-'+selections.map(s=>s.id).join('-').slice(0,48),version:'1.0',createdAt:now.toISOString(),status,blockers,warnings,trace,
     source:{selectionIds:selections.map(s=>s.id),combinedOdds:decision.combinedOdds,baseProbability:decision.baseProbability,adjustedProbability:decision.adjustedProbability,ev:decision.ev,confidence:decision.confidence,quality:decision.quality,marketQuality:decision.marketQuality,dependencyMultiplier:decision.dependencyMultiplier,correlationRisk:decision.correlationRisk,concentrationRisk:decision.concentrationRisk},
-    selections,coreOptimization:optimization,research,mission:{eligible:status!=='BLOCKED'&&(!research||research.researchQuality>=.5),reason:status==='BLOCKED'?'Blocked by Decision Center: '+blockers.join('; '):research&&research.researchQuality<.5?'Deep research quality below mission threshold.':status==='CAUTION'?'Mission eligible with '+warnings.length+' Decision Center warning(s) preserved.':'Decision Center READY — mission may enter the existing approval pipeline.'}
+    selections,coreOptimization:optimization,research,researchEvidence,mission:{eligible:status!=='BLOCKED'&&(!research||research.researchQuality>=.5),reason:status==='BLOCKED'?'Blocked by Decision Center: '+blockers.join('; '):research&&research.researchQuality<.5?'Deep research quality below mission threshold.':status==='CAUTION'?'Mission eligible with '+warnings.length+' Decision Center warning(s) preserved.':'Decision Center READY — mission may enter the existing approval pipeline.'}
   };
 }
 export function assertMissionEligible(packet:DecisionPacket):void{if(!packet.mission.eligible||packet.status==='BLOCKED')throw new Error('DECISION_PACKET_BLOCKED: '+(packet.blockers.join('; ')||'Decision Packet is blocked.'));}
