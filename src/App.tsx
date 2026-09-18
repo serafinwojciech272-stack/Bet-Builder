@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { IntelligenceProvider } from './state/IntelligenceProvider';
 import { AppShell } from './components/AppShell';
 const EventsPage = lazy(() => import('./pages/EventsPage').then(m => ({ default: m.EventsPage })));
@@ -20,7 +20,7 @@ function BuilderRoute() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <IntelligenceProvider>
         <AppShell>
           <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-[10px] uppercase tracking-[.18em] text-white/50">Loading Bet Builder intelligence…</div></div>}>
@@ -41,6 +41,6 @@ export default function App() {
           </Suspense>
         </AppShell>
       </IntelligenceProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
