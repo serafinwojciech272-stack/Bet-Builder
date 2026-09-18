@@ -39,7 +39,7 @@ function classify(title:string, snippet:string): ResearchSourceKind {
   return 'local-media';
 }
 
-function reliability(kind:ResearchSourceKind, publisher:string): 'A'|'B'|'C'|'D' {
+function reliability(kind:ResearchSourceKind): 'A'|'B'|'C'|'D' {
   if(kind==='official') return 'A';
   if(kind==='expert') return 'B';
   if(kind==='local-media') return 'B';
@@ -48,11 +48,11 @@ function reliability(kind:ResearchSourceKind, publisher:string): 'A'|'B'|'C'|'D'
 }
 
 export function normalizeResearchSources(items:Array<{url:string;title:string;publisher:string;language:ResearchLanguage;publishedAt?:string|null;snippet?:string}>): ResearchSource[] {
-  return items.map((x,i)=>{
+  return items.map((x)=>{
     const kind=classify(x.title,x.snippet??'');
     const snippet=x.snippet??'';
     const terms=(snippet+' '+x.title).match(/lineup|aufstellung|skład|injur|verletz|kontuz|absenc|suspens|taktik|tactic|forma|form|prediction|tip|tipp|prognos/gi)??[];
-    return { url:x.url,title:x.title,publisher:x.publisher,language:x.language,kind,reliability:reliability(kind,x.publisher),publishedAt:x.publishedAt??null,snippet,matchedTerms:[...new Set(terms.map(t=>t.toLowerCase()))] };
+    return { url:x.url,title:x.title,publisher:x.publisher,language:x.language,kind,reliability:reliability(kind),publishedAt:x.publishedAt??null,snippet,matchedTerms:[...new Set(terms.map(t=>t.toLowerCase()))] };
   }).slice(0,120);
 }
 
