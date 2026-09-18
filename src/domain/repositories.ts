@@ -8,7 +8,7 @@ export interface CanonicalDataset {
   issues: NormalizationIssue[];
   droppedRecords: number;
   normalizedAt: string;
-  provider?: 'demo' | 'the-odds-api';
+  provider?: 'demo' | 'parlay-api';
   mode?: 'DEMO' | 'LIVE';
   requestedDate?: string;
   sportsQueried?: string[];
@@ -89,7 +89,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
         this.cache.set(cacheKey, degraded);
         return degraded;
       }
-      const normalized: CanonicalDataset = { ...data, provider: 'the-odds-api', mode: 'LIVE', requestedDate: date };
+      const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };
       this.cache.set(cacheKey, normalized);
       return normalized;
     } catch (error) {
