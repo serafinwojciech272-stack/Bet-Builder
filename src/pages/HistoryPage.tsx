@@ -101,10 +101,12 @@ export function HistoryPage() {
   const avgBrier = resolved.length
     ? resolved.reduce((sum, r) => sum + (r.outcome?.measurement.brierScore?.value ?? 0), 0) / resolved.length
     : 0;
-  const avgClv = resolved.length
-    ? resolved.reduce((sum, r) => sum + (r.outcome?.measurement.closingLineValuePct.value ?? 0), 0) /
-      resolved.length
-    : 0;
+  const ledgerEntries = missions.map((m) => m.decisionLedger).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  const settledLedger = ledgerEntries.filter((entry) => entry.settlement.status !== 'PENDING');
+  const ledgerClv = ledgerEntries.filter((entry) => entry.clv.measured).map((entry) => entry.clv.valuePct ?? 0);
+  const avgClv = ledgerClv.length ? ledgerClv.reduce((sum, value) => sum + value, 0) / ledgerClv.length : 0;
+  const ledgerBrier = ledgerEntries.filter((entry) => entry.calibration.sampleEligible).map((entry) => entry.calibration.brierScore ?? 0);
+  const avgLedgerBrier = ledgerBrier.length ? ledgerBrier.reduce((sum, value) => sum + value, 0) / ledgerBrier.length : null;
 
   return (
     <div className="space-y-6">
@@ -119,10 +121,10 @@ export function HistoryPage() {
           <Stat label="Analyses stored" value={analyses.length} hint={`${resolved.length} resolved`} />
         </Panel>
         <Panel className="p-4">
-          <Stat label="Hit rate" tone="positive" value={`${(hitRate * 100).toFixed(0)}%`} hint="resolved selections" />
+          <Stat label="Ledger entries" value={ledgerEntries.length} hint={`${settledLedger.length} settled`} />
         </Panel>
         <Panel className="p-4">
-          <Stat label="Avg Brier" value={avgBrier.toFixed(3)} hint="lower is better" />
+          <Stat label="Ledger Brier" value={avgLedgerBrier === null ? '—' : avgLedgerBrier.toFixed(3)} hint="resolved ledger samples" />
         </Panel>
         <Panel className="p-4">
           <Stat
