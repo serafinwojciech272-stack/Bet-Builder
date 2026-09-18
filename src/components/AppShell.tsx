@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Database, History, Info, LayoutDashboard, ListFilter, Radar, RefreshCw, Trophy, Search, ShieldCheck, X, XCircle, Zap, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
