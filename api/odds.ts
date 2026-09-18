@@ -71,9 +71,9 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   let catalog: ApiSport[] = [];
   try { catalog = await getActiveSports(apiKey); }
   catch (e) { issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' }); }
-  const availableSports = catalog.filter((s) => s.active && !s.has_outrights).map((s) => ({ key: s.key, title: s.title, group: s.group }));
+  const availableSports = catalog.filter((s) => s.active).map((s) => ({ key: s.key, title: s.title, group: s.group }));
   if (requestedSport === 'all') {
-    // One provider call for the cross-sport board. The /upcoming endpoint is explicitly designed for this and avoids spending one request per league.
+    // Prefer the compact upcoming board, then use a small catalog-driven league batch if the provider does not return events.
     sports = ['upcoming'];
   } else {
     const matching = availableSports.filter((s) => s.group.toLowerCase() === requestedSport.toLowerCase() || s.key.toLowerCase() === requestedSport.toLowerCase());
