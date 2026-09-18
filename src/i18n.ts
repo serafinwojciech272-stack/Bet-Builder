@@ -11,9 +11,10 @@ const EN_PL: Record<string,string> = {
   'GENERUJ KUPON':'GENERATE COUPON','Generator kuponu AI':'AI coupon generator','Znajdź najlepszy kupon':'Find the best coupon',
   'Liczba zdarzeń':'Number of events','Kurs łączny':'Combined odds','Stawka':'Stake','Pokaż szczegóły AI, ryzyka i Decision Center':'Show AI, risk and Decision Center details',
   'Ukryj szczegóły techniczne':'Hide technical details','Pokaż szczegóły techniczne':'Show technical details','Odśwież dane':'Refresh data',
-  'Inteligencja sportowa':'Sports intelligence','Dane demonstracyjne':'Demo data','Prawdziwe dane':'Live data','Nadchodzące mecze':'Upcoming matches'
+  'Inteligencja sportowa':'Sports intelligence','Dane demonstracyjne':'Demo data','Prawdziwe dane':'Live data','Nadchodzące mecze':'Upcoming matches',
+  'Brak danych dostawcy dla':'No provider data for'
 };
-const EN_DE: Record<string,string> = {
+const PL_DE: Record<string,string> = {
   'Mecze':'Spiele','Kupon':'Wettschein','Analiza':'Analyse','Misje':'Missionen','Historia':'Historie',
   'Wydarzenia sportowe':'Sportereignisse','Szukaj drużyny lub ligi':'Team oder Liga suchen','Data':'Datum','Dyscyplina':'Sport','Sortuj':'Sortieren',
   'Wszystkie':'Alle','Wszystkie sporty':'Alle Sportarten','Godzina':'Zeit','Wartość':'Wert','Ruch kursu':'Quotenbewegung','Tylko monitorowane':'Nur überwachte',
@@ -23,35 +24,39 @@ const EN_DE: Record<string,string> = {
   'GENERUJ KUPON':'WETTSCHEIN GENERIEREN','Generator kuponu AI':'KI-Wettscheingenerator','Znajdź najlepszy kupon':'Besten Wettschein finden',
   'Liczba zdarzeń':'Anzahl Ereignisse','Kurs łączny':'Gesamtquote','Stawka':'Einsatz','Pokaż szczegóły AI, ryzyka i Decision Center':'KI-, Risiko- und Decision-Center-Details anzeigen',
   'Ukryj szczegóły techniczne':'Technische Details ausblenden','Pokaż szczegóły techniczne':'Technische Details anzeigen','Odśwież dane':'Daten aktualisieren',
-  'Inteligencja sportowa':'Sportintelligenz','Dane demonstracyjne':'Demodaten','Prawdziwe dane':'Live-Daten','Nadchodzące mecze':'Kommende Spiele'
+  'Inteligencja sportowa':'Sportintelligenz','Dane demonstracyjne':'Demodaten','Prawdziwe dane':'Live-Daten','Nadchodzące mecze':'Kommende Spiele',
+  'Brak danych dostawcy dla':'Keine Anbieterdaten für'
 };
+const EN_DE: Record<string,string> = Object.fromEntries(Object.entries(PL_DE).map(([pl,de])=>[EN_PL[pl]??pl,de]));
+const DE_EN: Record<string,string> = Object.fromEntries(Object.entries(EN_DE).map(([en,de])=>[de,en]));
+const DE_PL: Record<string,string> = Object.fromEntries(Object.entries(PL_DE).map(([pl,de])=>[de,pl]));
 
-const PL_EN: Record<string,string> = Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl]));
-const PL_DE: Record<string,string> = Object.fromEntries(Object.entries(EN_DE).map(([pl,de])=>[pl,de]));
-
-function mapFor(lang:Lang){ return lang==='en' ? EN_PL : lang==='de' ? {...PL_DE,...EN_DE} : Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl])); }
+function mapFor(lang:Lang): Record<string,string> {
+  if(lang==='en') return {...EN_PL,...DE_EN};
+  if(lang==='de') return {...PL_DE,...EN_DE};
+  return {...Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl])),...DE_PL};
+}
 
 export function applyLanguage(lang:Lang){
   document.documentElement.lang=lang;
   document.documentElement.dataset.lang=lang;
-  if(lang==='en') return;
   const map=mapFor(lang);
   const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
   const nodes:Text[]=[]; let node:Node|null;
   while((node=walker.nextNode())) nodes.push(node as Text);
   for(const text of nodes){
     const value=text.nodeValue?.trim();
-    if(!value || value.length>120) continue;
+    if(!value || value.length>160) continue;
     const replacement=map[value];
     if(replacement) text.nodeValue=text.nodeValue!.replace(value,replacement);
   }
   document.querySelectorAll<HTMLElement>('[placeholder],[title],[aria-label]').forEach(el=>{
     for(const attr of ['placeholder','title','aria-label']){
-      const value=el.getAttribute(attr); if(value && map[value]) el.setAttribute(attr,map[value]);
+      const value=el.getAttribute(attr);
+      if(value && map[value]) el.setAttribute(attr,map[value]);
     }
   });
 }
-
 export function installLanguageObserver(lang:Lang){
   applyLanguage(lang);
   const observer=new MutationObserver(()=>applyLanguage(lang));
