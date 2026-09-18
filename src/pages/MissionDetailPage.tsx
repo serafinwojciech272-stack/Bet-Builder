@@ -142,6 +142,35 @@ export function MissionDetailPage() {
         )}
       </Panel>
 
+      {mission.decisionLedger ? (
+        <Panel tone="market" className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <ClipboardList size={15} className="text-market" aria-hidden />
+                Decision Ledger
+                <OriginTag origin="deterministic" label="settlement + learning" className="ml-1" />
+              </h2>
+              <p className="mt-1 text-[11px] text-muted">Same Decision Packet, now persisted through approval, settlement, CLV and calibration.</p>
+            </div>
+            <Chip tone={mission.decisionLedger.settlement.status === 'PENDING' ? 'warn' : 'positive'}>
+              {mission.decisionLedger.settlement.status}
+            </Chip>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Ledger ID" value={mission.decisionLedger.id} mono />
+            <Stat label="Packet ID" value={mission.decisionLedger.decisionPacketId} mono />
+            <Stat label="CLV" value={mission.decisionLedger.clv.measured ? `${mission.decisionLedger.clv.valuePct! >= 0 ? '+' : ''}${mission.decisionLedger.clv.valuePct!.toFixed(2)}%` : '—'} />
+            <Stat label="Brier" value={mission.decisionLedger.calibration.brierScore?.toFixed(3) ?? '—'} />
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-line bg-surface-2 px-3 py-2"><span className="text-[10px] uppercase tracking-wider text-faint">Approval</span><p className="mt-1 text-xs text-foreground">{mission.decisionLedger.approvalState}</p></div>
+            <div className="rounded-lg border border-line bg-surface-2 px-3 py-2"><span className="text-[10px] uppercase tracking-wider text-faint">Closing odds</span><p className="mt-1 font-mono text-xs text-foreground">{mission.decisionLedger.settlement.closingOdds ?? '—'}</p></div>
+            <div className="rounded-lg border border-line bg-surface-2 px-3 py-2"><span className="text-[10px] uppercase tracking-wider text-faint">Learning</span><p className="mt-1 text-xs text-foreground">{mission.decisionLedger.learning.feedback}</p></div>
+          </div>
+        </Panel>
+      ) : null}
+
       <ApprovalGate mission={mission} />
 
       <div className="grid gap-4 lg:grid-cols-2">
