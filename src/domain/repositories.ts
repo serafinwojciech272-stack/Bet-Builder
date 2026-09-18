@@ -102,7 +102,8 @@ export class LiveSportsDataRepository implements SportsDataRepository {
         this.cache.set(cacheKey, degraded);
         return degraded;
       }
-      const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };\n      normalized.providerHealth = deriveProviderHealth(normalized);
+      const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };
+      normalized.providerHealth = deriveProviderHealth(normalized);
       this.cache.set(cacheKey, normalized);
       return normalized;
     } catch (error) {
