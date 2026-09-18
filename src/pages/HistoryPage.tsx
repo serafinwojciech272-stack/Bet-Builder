@@ -229,6 +229,9 @@ export function HistoryPage() {
                       <td className="py-2 text-right font-mono text-market">
                         {r.analysis.dataQuality.grade}
                       </td>
+                      <td className="py-2 text-right font-mono text-muted">
+                        {m.decisionLedger?.calibration.brierScore?.toFixed(3) ?? '—'}
+                      </td>
                       <td
                         className={cx(
                           'py-2 text-right font-mono',
@@ -365,8 +368,10 @@ export function HistoryPage() {
                     <th scope="col" className="py-1.5 font-medium">Status</th>
                     <th scope="col" className="py-1.5 font-medium">Approval</th>
                     <th scope="col" className="py-1.5 font-medium">Decision</th>
+                    <th scope="col" className="py-1.5 font-medium">Ledger</th>
                     <th scope="col" className="py-1.5 font-medium">Transitions</th>
                     <th scope="col" className="py-1.5 text-right font-medium">CLV</th>
+                    <th scope="col" className="py-1.5 text-right font-medium">Brier</th>
                     <th scope="col" className="py-1.5 text-right font-medium">Objective</th>
                     <th scope="col" className="py-1.5 text-right font-medium">Learning</th>
                   </tr>
@@ -416,6 +421,14 @@ export function HistoryPage() {
                         ) : (
                           <span className="text-faint">legacy</span>
                         )}
+                      </td>
+                      <td className="py-2 pr-2">
+                        {m.decisionLedger ? (
+                          <div className="space-y-1">
+                            <span className="font-mono text-[10px] text-ai">{m.decisionLedger.id}</span>
+                            <span className="block text-[10px] text-faint">{m.decisionLedger.settlement.status}</span>
+                          </div>
+                        ) : <span className="text-faint">—</span>}
                       </td>
                       <td className="py-2 pr-2 font-mono text-[10px] text-muted">
                         {m.history.map((h) => h.to.slice(0, 4)).join('→')}
