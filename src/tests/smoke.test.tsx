@@ -8,7 +8,7 @@ declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 async function mount(path: string) {
-  window.history.pushState({}, '', path);
+  window.location.hash = `#${path}`;
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -21,8 +21,8 @@ describe('application smoke tests', () => {
   it('boots the shell and renders every dashboard section', async () => {
     const { container, root } = await mount('/');
     const text = container.textContent ?? '';
-    for (const section of ['Canonical event explorer', 'Search teams, leagues or ids', 'All sports', 'Sort by']) expect(text).toContain(section);
-    expect(text).toMatch(/normalized events/);
+    for (const section of ['Wydarzenia sportowe', 'Szukaj drużyny lub ligi', 'Wszystkie', 'Sortuj']) expect(text).toContain(section);
+    expect(text).toContain('Mecze');
     root.unmount();
   }, 25_000);
 
