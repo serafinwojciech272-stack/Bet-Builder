@@ -94,7 +94,7 @@ export function EventsPage() {
                   </div>
                   <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
                     <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-faint"><Swords size={11} className="text-market" /> Event</div>
-                    <div className="mt-1 text-xs font-semibold text-foreground">{i.event.competition}</div>
+                    <div className="mt-1 text-xs font-semibold text-foreground">{isLive ? 'Live event' : 'Scheduled event'}</div>
                   </div>
                   <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
                     <div className="text-[9px] uppercase tracking-[0.12em] text-faint">Market</div>
