@@ -28,6 +28,7 @@ export interface DecisionPacket {
     ev: number;
     confidence: number;
     quality: number;
+    marketQuality: DecisionCenterResult['marketQuality'];
     dependencyMultiplier: number;
     correlationRisk: number;
     concentrationRisk: number;
@@ -69,6 +70,7 @@ export function createDecisionPacket(
       ev: decision.ev,
       confidence: decision.confidence,
       quality: decision.quality,
+      marketQuality: decision.marketQuality,
       dependencyMultiplier: decision.dependencyMultiplier,
       correlationRisk: decision.correlationRisk,
       concentrationRisk: decision.concentrationRisk,
