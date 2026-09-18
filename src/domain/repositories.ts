@@ -68,8 +68,27 @@ export class LiveSportsDataRepository implements SportsDataRepository {
       this.cache.set(cacheKey, normalized);
       return normalized;
     } catch (error) {
-      if (!this.testFallback) throw error;
-      return this.testRepository.loadCanonicalDataset();
+      // Production must remain renderable when the external provider is unavailable.
+      // Fall back to the deterministic dataset, but make the degradation explicit in the UI.
+      const fallback = await this.testRepository.loadCanonicalDataset();
+      const detail = error instanceof Error ? error.message : 'Unknown provider failure';
+      const degraded: CanonicalDataset = {
+        ...fallback,
+        normalizedAt: new Date().toISOString(),
+        requestedDate: date,
+        provider: 'demo',
+        mode: 'DEMO',
+        issues: [
+          {
+            code: 'live-provider-fallback',
+            severity: 'warning',
+            message: 'Live odds unavailable (' + detail + '). Showing deterministic fallback data.',
+          },
+          ...fallback.issues,
+        ],
+      };
+      this.cache.set(cacheKey, degraded);
+      return degraded;
     }
   }
   async getEvent(eventId: string): Promise<SportEvent | null> { const data = await this.loadCanonicalDataset(); return data.events.find((e) => e.id === eventId) ?? null; }
