@@ -2,6 +2,7 @@ import { det } from '../domain/numbers';
 import type { AnalysisResponse, RecommendedAction } from '../ai/contracts';
 import type { DecisionPacket } from '../core/decisionPacket';
 import { assertMissionEligible } from '../core/decisionPacket';
+import { createLedgerEntry } from '../core/decisionLedger';
 import type {
   ApprovalCheck,
   Mission,
@@ -221,13 +222,19 @@ export function buildMissionFromAnalysis(
     blockers.push('Risk level HIGH — only a data-quality watch may be approved for this market.');
   }
 
+  const id = missionId(analysis, type, options.idSuffix ?? String(now.getTime()).slice(-6));
+  const decisionLedger = options.decisionPacket
+    ? createLedgerEntry(options.decisionPacket, { missionId: id, approvalState: 'PENDING', now })
+    : undefined;
+
   return {
-    id: missionId(analysis, type, options.idSuffix ?? String(now.getTime()).slice(-6)),
+    id,
     type,
     createdAt: iso,
     updatedAt: iso,
     sourceAnalysisId: analysis.analysisId,
     decisionPacket: options.decisionPacket,
+    decisionLedger,
     target,
     objective: action.title,
     rationale: [
