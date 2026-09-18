@@ -45,6 +45,7 @@ export function evaluateDecisionCenter(selections: Selection[]): DecisionCenterR
   const empty: DecisionCenterResult = {
     status: 'BLOCKED', combinedOdds: 0, baseProbability: 0, adjustedProbability: 0, ev: 0,
     dependencyMultiplier: 1, correlationRisk: 0, concentrationRisk: 0, confidence: 0, quality: 0,
+    marketQuality: { score: 0, grade: 'D', confidence: 0, coverage: 0, integrity: 0, depth: 0, freshness: 0, reasons: ['No selections submitted.'] },
     legDecisions: [], blockers: ['Add at least one selection to open the decision center.'], warnings: [], strengths: [], trace: ['No portfolio submitted.'],
   };
   if (!selections.length) return empty;
