@@ -96,7 +96,7 @@ describe('Bet Builder functional pipeline smoke', () => {
     expect(completed.status).toBe('COMPLETED');
     expect(completed.execution?.steps.length).toBeGreaterThan(3);
     expect(completed.measurement).not.toBeNull();
-    expect(completed.decisionLedger?.status).toMatch(/WON|LOST|VOID|CANCELLED/);
+    expect(completed.decisionLedger?.settlement.status).toMatch(/WON|LOST|VOID|CANCELLED/);
     expect(completed.learning.version).toBe(2);
   });
 });
