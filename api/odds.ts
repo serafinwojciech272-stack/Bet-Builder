@@ -73,8 +73,17 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   catch (e) { issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' }); }
   const availableSports = catalog.filter((s) => s.active).map((s) => ({ key: s.key, title: s.title, group: s.group }));
   if (requestedSport === 'all') {
-    // Prefer the compact upcoming board, then use a small catalog-driven league batch if the provider does not return events.
-    sports = ['upcoming'];
+    // ParlayAPI exposes sport keys through /sports; unlike the legacy feed it has no documented `upcoming` key.
+    // Query a bounded cross-sport board to keep refreshes cheap while the full provider catalog remains visible.
+    const preferredGroups = ['soccer', 'basketball', 'tennis', 'volleyball', 'icehockey', 'baseball', 'americanfootball', 'golf', 'handball', 'rugby', 'tabletennis', 'darts', 'cricket', 'aussierules'];
+    const selected: ApiSport[] = [];
+    for (const group of preferredGroups) {
+      const match = catalog.find((s) => s.active && s.group.toLowerCase() === group);
+      if (match) selected.push(match);
+      if (selected.length >= 12) break;
+    }
+    if (!selected.length) selected.push(...catalog.filter((s) => s.active).slice(0, 12));
+    sports = selected.map((s) => s.key);
   } else {
     const matching = availableSports.filter((s) => s.group.toLowerCase() === requestedSport.toLowerCase() || s.key.toLowerCase() === requestedSport.toLowerCase());
     sports = (matching.length ? matching : [{ key: requestedSport, title: requestedSport, group: requestedSport }]).slice(0, 8).map((s) => s.key);
