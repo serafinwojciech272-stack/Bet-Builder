@@ -6,6 +6,7 @@ const packet = createDecisionPacket({
   status: 'READY', combinedOdds: 2, baseProbability: 0.55, adjustedProbability: 0.52, ev: 0.04,
   dependencyMultiplier: 0.96, correlationRisk: 0.1, concentrationRisk: 0.4, confidence: 0.8, quality: 0.9,
   legDecisions: [], blockers: [], warnings: [], strengths: [], trace: ['decision-center'],
+  marketQuality: { score: 0.9, grade: 'A' as const, confidence: 0.8, coverage: 0.8, integrity: 1, depth: 0.8, freshness: 0.9, reasons: [] },
 }, [{ id: 'sel-1', eventId: 'EVT-1', marketId: 'h2h', odds: 2, probability: 0.52, confidence: 0.8, risk: 'LOW', correlationGroup: 'EVT-1' }], null, new Date('2026-09-18T00:00:00.000Z'));
 
 describe('Decision Ledger lifecycle', () => {
