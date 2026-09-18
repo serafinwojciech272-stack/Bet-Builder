@@ -11,10 +11,11 @@ interface Props {
   onAnalyze: () => void;
   onOptimize: () => void;
   onSaveMission: () => void;
+  onGenerateSmart: () => void;
   feedMode?: 'LIVE' | 'DEMO' | 'UNKNOWN';
 }
 
-export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize, onSaveMission, feedMode = 'UNKNOWN' }: Props) {
+export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize, onSaveMission, onGenerateSmart, feedMode = 'UNKNOWN' }: Props) {
   const stats = useBuilderStats(selections, stake);
   const empty = selections.length === 0;
   const modeLabel = feedMode === 'LIVE' ? 'Prawdziwe kursy · ParlayAPI' : feedMode === 'DEMO' ? 'Tryb demonstracyjny' : 'Źródło kursów niedostępne';
@@ -94,6 +95,7 @@ export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemo
               <RiskBadge risk={stats.risk as never} />
             </div>
 
+            <button type="button" onClick={onGenerateSmart} className="mb-2 flex w-full items-center justify-between rounded-xl border border-cyan-400/20 bg-cyan-400/[.055] px-3 py-2.5 text-left text-xs font-bold text-cyan-200 transition hover:border-cyan-300/40 hover:bg-cyan-400/[.10]"><span>Sugestia modelowa</span><span className="text-[9px] font-normal text-cyan-300/60">EV + jakość + dywersyfikacja →</span></button>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={onAnalyze} className="rounded-xl border border-violet-400/30 bg-violet-500/15 px-3 py-2.5 text-xs font-bold text-violet-100 shadow-[0_0_25px_rgba(124,92,255,.08)] transition hover:border-violet-300/50 hover:bg-violet-500/25">Deep Analyze</button>
               <button type="button" onClick={onOptimize} className="rounded-xl border border-white/12 bg-white/[.055] px-3 py-2.5 text-xs font-bold text-white transition hover:border-white/25 hover:bg-white/10">Optimize</button>
