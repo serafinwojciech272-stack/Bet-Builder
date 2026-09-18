@@ -1,164 +1,56 @@
-/* Deep Enhance v6 — UX, visual hierarchy, performance and resilient interaction layer */
+/* Deep Enhance v6 + Fabulous Pass 2 — cinematic decision polish */
+:root{--de-glow:rgba(155,140,255,.16);--de-gold:rgba(240,203,122,.32);--de-panel:rgba(9,12,24,.76);--de-line:rgba(255,255,255,.08)}
+html{scroll-behavior:smooth;scroll-padding-top:88px}body{min-height:100vh;text-rendering:optimizeLegibility}img,svg,video{max-width:100%}img{height:auto}button,a,input,select{touch-action:manipulation}
+.club-backdrop main{max-width:1600px;margin-inline:auto;padding-inline:clamp(12px,2vw,28px)}
+.club-backdrop main section,.club-backdrop main article,.club-backdrop main [data-card]{contain:layout paint}
+.club-backdrop main article{position:relative;overflow:hidden;isolation:isolate}
+.club-backdrop main article::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px rgba(255,255,255,.045);opacity:.8}
+.club-backdrop main article:hover{transform:translateY(-2px)}
+.club-backdrop main article:focus-within{border-color:rgba(155,140,255,.34)!important;box-shadow:0 0 0 1px rgba(155,140,255,.1),0 18px 55px rgba(0,0,0,.28)}
+.club-backdrop main li{min-width:0}.club-backdrop main li>article,.club-backdrop main li>div{min-height:64px}
+.club-backdrop main a[href*="/analysis"],.club-backdrop main a[href*="/builder"]{position:relative;overflow:hidden}
+.club-backdrop main a[href*="/analysis"]::before,.club-backdrop main a[href*="/builder"]::before{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.1) 48%,transparent 68%);transform:translateX(-120%);transition:transform .65s ease;pointer-events:none}
+.club-backdrop main a[href*="/analysis"]:hover::before,.club-backdrop main a[href*="/builder"]:hover::before{transform:translateX(120%)}
+.club-backdrop [aria-live="polite"],.club-backdrop [role="status"]{contain:content}.club-backdrop .live-dot{filter:drop-shadow(0 0 7px rgba(94,230,165,.55))}
+.club-backdrop input,.club-backdrop select{background-color:rgba(5,8,17,.58);border-color:rgba(255,255,255,.09);color:inherit;outline:none}
+.club-backdrop input:hover,.club-backdrop select:hover{border-color:rgba(155,140,255,.24)}
+.club-backdrop input:focus-visible,.club-backdrop select:focus-visible{border-color:rgba(155,140,255,.58);box-shadow:0 0 0 3px rgba(155,140,255,.12),0 0 30px rgba(155,140,255,.08)}
+.club-backdrop a:focus-visible,.club-backdrop button:focus-visible{outline:2px solid rgba(240,203,122,.9);outline-offset:3px}
+.club-backdrop h1,.club-backdrop h2,.club-backdrop h3,.club-backdrop p,.club-backdrop span{overflow-wrap:anywhere}
+@media(max-width:767px){html{scroll-padding-top:72px}.club-backdrop main{padding-inline:10px}.club-backdrop main button,.club-backdrop main a{min-height:40px}.club-backdrop main article{border-radius:15px}.club-backdrop main article:hover{transform:none}.club-backdrop main .overflow-x-auto{scrollbar-width:thin;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}}
+@media(min-width:768px) and (max-width:1100px){.club-backdrop main{padding-inline:16px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.club-backdrop main article:hover{transform:none}.club-backdrop main>*{animation:none}.club-generator::after,.club-ticket::after,.club-opportunity::after{animation:none}}
+@media(max-width:767px){.club-interface-console,.club-generator,.club-ticket{backdrop-filter:blur(10px)}}
 
-:root{
-  --de-glow:rgba(155,140,255,.16);
-  --de-gold:rgba(240,203,122,.32);
-  --de-panel:rgba(9,12,24,.76);
-  --de-line:rgba(255,255,255,.08);
-}
-
-html{scroll-behavior:smooth;scroll-padding-top:88px}
-body{min-height:100vh;text-rendering:optimizeLegibility}
-img,svg,video{max-width:100%}
-img{height:auto}
-button,a,input,select{touch-action:manipulation}
-
-.club-backdrop main{
-  max-width:1600px;
-  margin-inline:auto;
-  padding-inline:clamp(12px,2vw,28px);
-}
-
-/* Decision hierarchy */
-.club-backdrop main section,
-.club-backdrop main article,
-.club-backdrop main [data-card]{
-  contain:layout paint;
-}
-.club-backdrop main article{
-  position:relative;
-  overflow:hidden;
-  isolation:isolate;
-}
-.club-backdrop main article::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  border-radius:inherit;
-  box-shadow:inset 0 1px rgba(255,255,255,.045);
-  opacity:.8;
-}
-.club-backdrop main article:hover{
-  transform:translateY(-2px);
-}
-.club-backdrop main article:focus-within{
-  border-color:rgba(155,140,255,.34)!important;
-  box-shadow:0 0 0 1px rgba(155,140,255,.10),0 18px 55px rgba(0,0,0,.28);
-}
-
-/* Better scan rhythm for dense betting/event lists */
-.club-backdrop main li{
-  min-width:0;
-}
-.club-backdrop main li > article,
-.club-backdrop main li > div{
-  min-height:64px;
-}
-.club-backdrop main a[href*="/analysis"],
-.club-backdrop main a[href*="/builder"]{
-  position:relative;
-  overflow:hidden;
-}
-.club-backdrop main a[href*="/analysis"]::before,
-.club-backdrop main a[href*="/builder"]::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.10) 48%,transparent 68%);
-  transform:translateX(-120%);
-  transition:transform .65s ease;
-  pointer-events:none;
-}
-.club-backdrop main a[href*="/analysis"]:hover::before,
-.club-backdrop main a[href*="/builder"]:hover::before{
-  transform:translateX(120%);
-}
-
-/* Live-state telemetry */
-.club-backdrop [aria-live="polite"],
-.club-backdrop [role="status"]{
-  contain:content;
-}
-.club-backdrop .live-dot{
-  filter:drop-shadow(0 0 7px rgba(94,230,165,.55));
-}
-
-/* Inputs: clear state progression */
-.club-backdrop input,
-.club-backdrop select{
-  background-color:rgba(5,8,17,.58);
-  border-color:rgba(255,255,255,.09);
-  color:inherit;
-  outline:none;
-}
-.club-backdrop input:hover,
-.club-backdrop select:hover{
-  border-color:rgba(155,140,255,.24);
-}
-.club-backdrop input:focus-visible,
-.club-backdrop select:focus-visible{
-  border-color:rgba(155,140,255,.58);
-  box-shadow:0 0 0 3px rgba(155,140,255,.12),0 0 30px rgba(155,140,255,.08);
-}
-
-/* Keyboard accessibility without changing mouse aesthetics */
-.club-backdrop a:focus-visible,
-.club-backdrop button:focus-visible{
-  outline:2px solid rgba(240,203,122,.9);
-  outline-offset:3px;
-}
-
-/* Mobile: thumb-friendly controls and reduced chrome */
-@media (max-width:767px){
-  html{scroll-padding-top:72px}
-  .club-backdrop main{
-    padding-inline:10px;
-  }
-  .club-backdrop main button,
-  .club-backdrop main a{
-    min-height:40px;
-  }
-  .club-backdrop main article{
-    border-radius:15px;
-  }
-  .club-backdrop main article:hover{
-    transform:none;
-  }
-  .club-backdrop main .overflow-x-auto{
-    scrollbar-width:thin;
-    overscroll-behavior-x:contain;
-    -webkit-overflow-scrolling:touch;
-  }
-}
-
-/* Tablet: prevent oversized desktop density */
-@media (min-width:768px) and (max-width:1100px){
-  .club-backdrop main{
-    padding-inline:16px;
-  }
-}
-
-/* Performance: do not animate expensive surfaces when motion is disabled */
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  .club-backdrop main article:hover{transform:none}
-}
-
-/* Avoid backdrop-filter cost on low-power/mobile contexts */
-@media (max-width:767px){
-  .club-interface-console,
-  .club-generator,
-  .club-ticket{
-    backdrop-filter:blur(10px);
-  }
-}
-
-/* Defensive overflow rules for long team/event names */
-.club-backdrop h1,
-.club-backdrop h2,
-.club-backdrop h3,
-.club-backdrop p,
-.club-backdrop span{
-  overflow-wrap:anywhere;
-}
+/* Fabulous Pass 2 — cinematic product layer */
+@keyframes fabShimmer{0%,62%{transform:translateX(-130%);opacity:0}72%{opacity:.35}88%,100%{transform:translateX(130%);opacity:0}}
+@keyframes fabOrbit{0%,100%{transform:rotate(0deg) scale(1)}50%{transform:rotate(1deg) scale(1.018)}}
+@keyframes fabPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,203,122,0),0 14px 45px rgba(0,0,0,.22)}50%{box-shadow:0 0 28px rgba(240,203,122,.11),0 18px 55px rgba(0,0,0,.3)}}
+@keyframes fabScan{0%{transform:translateY(-120%);opacity:0}18%{opacity:.28}55%{opacity:.08}100%{transform:translateY(120%);opacity:0}}
+.club-backdrop{background:radial-gradient(900px 500px at 50% 0%,rgba(155,140,255,.045),transparent 70%)}
+.club-backdrop::after{background:radial-gradient(circle at 78% 16%,rgba(240,203,122,.11),transparent 18%),radial-gradient(circle at 18% 58%,rgba(155,140,255,.12),transparent 24%),radial-gradient(circle at 52% 82%,rgba(74,207,255,.045),transparent 22%),linear-gradient(90deg,rgba(4,5,11,.24),transparent 42%,rgba(4,5,11,.2))}
+header.sticky{background:linear-gradient(180deg,rgba(5,7,14,.92),rgba(5,7,14,.78));box-shadow:0 12px 55px rgba(0,0,0,.28),inset 0 -1px rgba(255,255,255,.025)}
+header.sticky::after{height:1px;background:linear-gradient(90deg,transparent,rgba(155,140,255,.34),rgba(240,203,122,.5),rgba(155,140,255,.24),transparent)}
+header.sticky nav a{letter-spacing:.005em}
+header.sticky nav a[aria-current="page"]{background:linear-gradient(135deg,rgba(240,203,122,.09),rgba(155,140,255,.09));box-shadow:inset 0 -2px 0 rgba(240,203,122,.9),0 8px 30px rgba(0,0,0,.16)}
+.club-interface-hero{min-height:330px;border-color:rgba(240,203,122,.25);background:linear-gradient(120deg,rgba(5,6,13,.9),rgba(12,8,25,.62) 52%,rgba(5,6,13,.78));box-shadow:0 40px 140px rgba(0,0,0,.46),0 0 80px rgba(100,75,255,.06),inset 0 1px rgba(255,255,255,.07)}
+.club-interface-hero::after{content:"";position:absolute;inset:-30% 0;background:linear-gradient(180deg,transparent 38%,rgba(240,203,122,.035) 50%,transparent 62%);animation:fabScan 9s ease-in-out infinite;pointer-events:none}
+.club-interface-console{border-color:rgba(240,203,122,.26);box-shadow:0 28px 85px rgba(0,0,0,.42),0 0 45px rgba(155,140,255,.07),inset 0 1px rgba(255,255,255,.055)}
+.club-console-grid>div{transition:transform .2s ease,border-color .2s ease,background-color .2s ease}
+.club-console-grid>div:hover{transform:translateY(-2px);border-color:rgba(240,203,122,.2);background:rgba(240,203,122,.035)}
+.club-primary-cta{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(240,203,122,.23),rgba(155,140,255,.16));box-shadow:0 12px 38px rgba(0,0,0,.28),0 0 30px rgba(240,203,122,.06)}
+.club-primary-cta::after{content:"";position:absolute;inset:0;width:45%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);transform:translateX(-130%);animation:fabShimmer 8s ease-in-out infinite;pointer-events:none}
+.club-secondary-cta{background:rgba(155,140,255,.075);box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.club-title-accent{background:linear-gradient(90deg,#fff4cf 0%,#f0cb7a 38%,#c0a3ff 78%,#8b7cff 100%);background-clip:text;-webkit-background-clip:text}
+.club-signal{border-color:rgba(240,203,122,.16);background:linear-gradient(90deg,rgba(240,203,122,.035),rgba(155,140,255,.035));box-shadow:0 0 24px rgba(240,203,122,.035)}
+.club-opportunity{border-color:rgba(240,203,122,.2);background:linear-gradient(135deg,rgba(240,203,122,.06),rgba(155,140,255,.035));box-shadow:0 10px 38px rgba(0,0,0,.2)}
+.club-opportunity::after{opacity:.7}
+.club-backdrop main article{background:linear-gradient(145deg,rgba(15,18,33,.86),rgba(7,9,18,.78));border-color:rgba(255,255,255,.085);box-shadow:0 16px 52px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.04)}
+.club-backdrop main article:hover{border-color:rgba(240,203,122,.26);box-shadow:0 24px 76px rgba(0,0,0,.3),0 0 36px rgba(155,140,255,.07),inset 0 1px rgba(255,255,255,.05)}
+.club-backdrop main li>article::before,.club-backdrop main li>div::before{width:2px;background:linear-gradient(180deg,rgba(240,203,122,.78),rgba(155,140,255,.62),transparent);opacity:.58}
+.club-backdrop main a[href*="/analysis"]::after{content:"";display:inline-block;width:5px;height:5px;margin-left:7px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor;opacity:.75}
+.club-backdrop main button[aria-pressed="true"]{border-color:rgba(240,203,122,.48)!important;background:linear-gradient(135deg,rgba(240,203,122,.1),rgba(155,140,255,.08))}
+.club-backdrop main [role="status"]{text-shadow:0 0 14px rgba(155,140,255,.08)}
+footer{opacity:.88}
+@media(max-width:900px){.club-interface-hero{grid-template-columns:1fr;min-height:0;padding:24px}}
+@media(max-width:640px){body{background-attachment:scroll}.club-interface-hero{border-radius:18px;padding:20px}.club-interface-title{font-size:2.55rem}.club-interface-subtitle{font-size:13px}.club-signal{display:none}.club-backdrop main{padding-top:20px}}
