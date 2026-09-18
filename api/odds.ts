@@ -18,7 +18,7 @@ interface ApiOutcome { name: string; price: number; point?: number; }
 interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; }
 interface ApiBookmaker { key: string; title: string; last_update: string; markets: ApiMarket[]; }
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
-interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'the-odds-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
+interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'the-odds-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; }
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
 function json(res: JsonResponse, status: number, body: unknown) {
@@ -52,7 +52,7 @@ function dateBoundsUtc(date: string) {
 }
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function team(name: string) { return { id: slug(name), name, shortName: name.length > 18 ? name.slice(0, 18) : name, rating: 0.5, form: [] as Array<'W' | 'D' | 'L'>, injuriesOut: 0 }; }
-function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; return 'soccer'; }
+function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; if (key.startsWith('tennis_')) return 'tennis'; if (key.startsWith('volleyball_')) return 'volleyball'; if (key.startsWith('golf_')) return 'golf'; if (key.startsWith('handball_')) return 'handball'; if (key.startsWith('rugby')) return 'rugby'; if (key.startsWith('tabletennis_')) return 'tabletennis'; if (key.startsWith('darts_')) return 'darts'; if (key.startsWith('cricket_')) return 'cricket'; if (key.startsWith('aussierules_')) return 'aussierules'; return 'soccer'; }
 async function getActiveSports(apiKey: string): Promise<ApiSport[]> { const response = await fetch(`https://api.the-odds-api.com/v4/sports/?apiKey=${encodeURIComponent(apiKey)}`); if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`); return await response.json() as ApiSport[]; }
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
@@ -63,22 +63,22 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
   const requestedSport = queryValue(req, 'sport', 'all');
   // Provider-safe default: BTTS stays supported by the normalizer but is not requested from the current live endpoint.
-  const markets = queryValue(req, 'markets', 'h2h,spreads,totals');
+  const markets = queryValue(req, 'markets', requestedSport === 'all' ? 'h2h' : 'h2h,spreads,totals');
   const regions = queryValue(req, 'regions', 'eu');
   const { from, to } = dateBoundsUtc(requestedDate);
   const issues: DatasetResponse['issues'] = [];
   let sports: string[];
+  let catalog: ApiSport[] = [];
+  try { catalog = await getActiveSports(apiKey); }
+  catch (e) { issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' }); }
+  const availableSports = catalog.filter((s) => s.active && !s.has_outrights).map((s) => ({ key: s.key, title: s.title, group: s.group }));
   if (requestedSport === 'all') {
-    try {
-      const catalog = await getActiveSports(apiKey);
-      const active = new Set(catalog.filter((s) => s.active && !s.has_outrights).map((s) => s.key));
-      sports = PRIORITY_SPORTS.filter((key) => active.has(key)).slice(0, 14);
-      if (!sports.length) sports = ['soccer_epl'];
-    } catch (e) {
-      issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' });
-      sports = ['soccer_epl', 'soccer_uefa_champs_league', 'soccer_italy_serie_a', 'soccer_spain_la_liga', 'basketball_nba', 'icehockey_nhl', 'baseball_mlb', 'americanfootball_nfl'];
-    }
-  } else sports = [requestedSport];
+    // One provider call for the cross-sport board. The /upcoming endpoint is explicitly designed for this and avoids spending one request per league.
+    sports = ['upcoming'];
+  } else {
+    const matching = availableSports.filter((s) => s.group.toLowerCase() === requestedSport.toLowerCase() || s.key.toLowerCase() === requestedSport.toLowerCase());
+    sports = (matching.length ? matching : [{ key: requestedSport, title: requestedSport, group: requestedSport }]).slice(0, 8).map((s) => s.key);
+  }
 
   const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; let droppedRecords = 0; let lastQuota: DatasetResponse['quota']; const bookmakerNames = new Map<string, string>();
   const now = Date.now();
@@ -108,6 +108,6 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     }
   }
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
-  const body: DatasetResponse = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'the-odds-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), quota: lastQuota };
+  const body: DatasetResponse = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'the-odds-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota };
   return json(res, 200, body);
 }
