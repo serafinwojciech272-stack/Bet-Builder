@@ -1,4 +1,4 @@
-import { Component, StrictMode, type ErrorInfo, type ReactNode } from 'react'
+import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
@@ -50,9 +50,7 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AppErrorBoundary>
-      <App />
-    </AppErrorBoundary>
-  </StrictMode>,
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
 )
