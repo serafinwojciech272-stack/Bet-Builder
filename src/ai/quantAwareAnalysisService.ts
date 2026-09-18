@@ -3,6 +3,7 @@ import type { AnalysisRequest, AnalysisResponse, QuantDecisionPacket } from './c
 import { runQuantDecision } from '../engine/quantDecisionEngine';
 import type { SportsDataRepository } from '../domain/repositories';
 import type { CoreEngineClient } from '../engine/CoreEngineClient';
+import { evaluateDecisionCenter } from '../core/decisionCenter';
 import { InMemoryDecisionMemory, type DecisionMemoryRepository } from '../analytics/decisionMemory';
 
 /** Adds deterministic Quant Decision data and a single Core Engine optimization gate to the analysis contract. */
@@ -30,7 +31,37 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
     const modelProbabilityBySelection = Object.fromEntries(analysis.probabilityEstimates.map((estimate) => [estimate.selectionId, estimate.modelProbability.value]));
     const decision = runQuantDecision({ event, snapshots, modelProbabilityBySelection });
 
-    const coreOptimization = await this.coreEngine.optimizeBuilder({
+    const decisionGateSelections = decision.candidates.map((candidate) => ({
+      id: candidate.id,
+      marketId: candidate.marketId ?? analysis.context.market,
+      eventId: candidate.eventId,
+      name: candidate.label ?? candidate.id,
+      shortName: candidate.label ?? candidate.id,
+      odds: candidate.odds,
+      probability: candidate.probability,
+      impliedProbability: 1 / candidate.odds,
+      value: candidate.probability - 1 / candidate.odds,
+      ev: (candidate.probability * candidate.odds) - 1,
+      confidence: decision.marketSignals.find((signal) => signal.selectionId === candidate.id)?.confidence ?? analysis.confidence.score.value,
+      risk: analysis.riskAssessment.level,
+      correlationGroup: candidate.correlationGroup ?? ('event:' + candidate.eventId),
+    }));
+    const decisionCenter = evaluateDecisionCenter(decisionGateSelections);
+    const coreOptimization = decisionCenter.status === 'BLOCKED'
+      ? {
+          selections: [],
+          rejectedSelections: decision.candidates.map((candidate) => candidate.id),
+          rejectedReasons: Object.fromEntries(decision.candidates.map((candidate) => [candidate.id, 'Decision Center BLOCKED before Core Engine optimization.'])),
+          stake: 1,
+          combinedOdds: 1,
+          estimatedProbability: 0,
+          estimatedEv: 0,
+          potentialReturn: 0,
+          potentialProfit: 0,
+          diversificationScore: 0,
+          rationale: 'Decision Gate BLOCKED: ' + decisionCenter.blockers.join('; '),
+        }
+      : await this.coreEngine.optimizeBuilder({
       selections: decision.candidates.map((candidate) => ({
         id: candidate.id,
         eventId: candidate.eventId,
@@ -42,10 +73,10 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
       })),
       stake: 1,
       decisionGate: {
-        status: 'READY',
-        blockers: [],
-        warnings: [],
-        trace: ['quant-decision-complete', `event:${event.id}`, `candidate-count:${decision.candidates.length}`],
+        status: decisionCenter.status,
+        blockers: [...decisionCenter.blockers],
+        warnings: [...decisionCenter.warnings],
+        trace: [...decisionCenter.trace, 'quant-decision-complete', 'event:' + event.id, 'candidate-count:' + decision.candidates.length],
       },
       minEv: 0,
       maxSelections: request.depth === 'deep' ? 8 : 5,
@@ -55,6 +86,12 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
     });
 
     const quantDecision: QuantDecisionPacket = {
+      decisionGate: {
+        status: decisionCenter.status,
+        blockers: [...decisionCenter.blockers],
+        warnings: [...decisionCenter.warnings],
+        trace: [...decisionCenter.trace],
+      },
       generatedAt: decision.generatedAt,
       marketSignals: decision.marketSignals.map((signal) => ({ ...signal, fairProbabilitySource: signal.fairProbabilitySource ?? 'MARKET_IMPLIED' })),
       candidates: decision.candidates,
