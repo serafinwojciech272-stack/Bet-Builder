@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Command, Database, History, Info, LayoutDashboard, ListFilter, Radar, RefreshCw, Trophy, Search, ShieldCheck, X, XCircle, Zap } from 'lucide-react';
+import { CheckCircle2, Database, History, Info, LayoutDashboard, ListFilter, Radar, RefreshCw, Trophy, Search, ShieldCheck, X, XCircle, Zap } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { Button, EngineBadge } from './ui';
 import { cx, relativeTime } from '../lib/format';
