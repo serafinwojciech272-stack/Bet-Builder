@@ -21,7 +21,7 @@ export default function BuilderPage({ selections, stake, addSelection, removeSel
     if (!packet.mission.eligible) { setMessage('Decision Packet blocked — mission was not created.'); return; }
     const action = lastAnalysis.recommendedActions[0];
     if (!action) { setMessage('Mission blocked — analysis returned no mission-eligible action.'); return; }
-    const mission = await createMission(packet ? lastAnalysis : lastAnalysis, action, { decisionPacket: packet, selectionId: selections.find((s) => s.eventId === lastAnalysis.eventId)?.id ?? null });
+    const mission = await createMission(lastAnalysis, action, { decisionPacket: packet, selectionId: selections.find((s) => s.eventId === lastAnalysis.eventId)?.id ?? null });
     if (mission) { setMessage(`Mission saved: ${mission.id}. Opening approval gate…`); navigate(`/missions/${mission.id}`); }
   };
   const onOptimize = async () => {
