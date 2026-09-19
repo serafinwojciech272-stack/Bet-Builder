@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-type AdapterRequest = { method?: string; query: Record<string, string> };
+type AdapterRequest = { method?: string; query: Record<string, string>; headers?: Record<string, string | undefined> };
 type AdapterResponse = {
   status: (code: number) => AdapterResponse;
   setHeader: (name: string, value: string) => AdapterResponse;
@@ -13,7 +13,7 @@ function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const query: Record<string, string> = {};
   for (const [key, value] of url.searchParams.entries()) query[key] = value;
-  const request = { method: req.method ?? 'GET', query };
+  const request = { method: req.method ?? 'GET', query, headers: { origin: req.headers.origin } };
   const response = {
     status(code: number) { res.statusCode = code; return response; },
     setHeader(name: string, value: string) { res.setHeader(name, value); return response; },
