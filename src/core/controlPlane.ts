@@ -1,7 +1,7 @@
-import type { Selection } from '../domain/types';
-import type { EventResearch } from '../research/types';
-import type { DecisionCenterResult } from './decisionCenter';
-import { evaluateDecisionCenter } from './decisionCenter';
+import type { Selection } from '../domain/types.js';
+import type { EventResearch } from '../research/types.js';
+import type { DecisionCenterResult } from './decisionCenter.js';
+import { evaluateDecisionCenter } from './decisionCenter.js';
 
 export type ControlDecision = 'PROCEED_TO_ANALYSIS' | 'REVIEW_REQUIRED' | 'BLOCK';
 export interface OpportunitySignal { selectionId:string; eventId:string; edge:number; ev:number; confidence:number; quality:number; signalScore:number; reasons:string[]; }
