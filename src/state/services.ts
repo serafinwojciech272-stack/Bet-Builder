@@ -30,16 +30,7 @@ export function createWorkspace(): Workspace {
   let failNext = false;
   const correlationContext = () => correlationCache;
 
-  void dataRepository.loadCanonicalDataset().then((dataset) => {
-    correlationCache = dataset.events.map((e) => ({
-      eventId: e.id,
-      label: `${e.homeTeam.name} vs ${e.awayTeam.name}`,
-      leagueId: e.league.id,
-      teamIds: [e.homeTeam.id, e.awayTeam.id],
-      startTime: e.startTime,
-      market: primaryMarketFor(e.id, dataset.snapshots) ?? 'match-winner',
-    }));
-  }).catch(() => undefined);
+  // Do not preload live odds here: the provider bootstrap is owned by IntelligenceProvider.\n  // A second hidden request doubled provider traffic and could delay first paint.\n
 
   const baseAnalysisService = new MockAIAnalysisService(dataRepository, {
     latencyMs: 620,
