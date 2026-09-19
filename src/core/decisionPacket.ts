@@ -1,7 +1,7 @@
-import type { OptimizationResult, DecisionGateInput } from './types';
-import type { DecisionCenterResult } from './decisionCenter';
-import type { EventResearch } from '../research/types';
-import type { ResearchEvidence } from './researchEvidenceEngine';
+import type { OptimizationResult, DecisionGateInput } from './types.js';
+import type { DecisionCenterResult } from './decisionCenter.js';
+import type { EventResearch } from '../research/types.js';
+import type { ResearchEvidence } from './researchEvidenceEngine.js';
 
 export interface DecisionPacketSelection { id:string; eventId:string; marketId?:string; odds:number; probability:number; confidence:number; risk:string; correlationGroup:string; }
 export interface DecisionPacket {
@@ -24,8 +24,8 @@ export function createDecisionPacket(decision:DecisionCenterResult,selections:De
 }
 export function assertMissionEligible(packet:DecisionPacket):void{if(!packet.mission.eligible||packet.status==='BLOCKED')throw new Error('DECISION_PACKET_BLOCKED: '+(packet.blockers.join('; ')||'Decision Packet is blocked.'));}
 
-import type { AnalysisResponse } from '../ai/contracts';
-import { evaluateDecisionCenter } from './decisionCenter';
+import type { AnalysisResponse } from '../ai/contracts.js';
+import { evaluateDecisionCenter } from './decisionCenter.js';
 export function createDecisionPacketFromAnalysis(analysis:AnalysisResponse,now=new Date(),selectionIds?:string[]):DecisionPacket{
   const candidateSource=analysis.quantDecision?.candidates??analysis.valueSignals.map(signal=>({id:signal.selectionId,eventId:analysis.eventId,marketId:analysis.context.market,odds:signal.bestPrice.value,probability:analysis.probabilityEstimates.find(p=>p.selectionId===signal.selectionId)?.modelProbability.value??0,qualityScore:analysis.dataQuality.score.value,correlationGroup:'event:'+analysis.eventId}));
   const candidates=selectionIds?.length?candidateSource.filter(candidate=>selectionIds.includes(candidate.id)):candidateSource;
