@@ -55,7 +55,7 @@ async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeo
 }
 async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
   if (sportsCatalogCache && sportsCatalogCache.apiKey === apiKey && sportsCatalogCache.expiresAt > Date.now()) return sportsCatalogCache.value;
-  const response = await fetchWithTimeout(`https://parlay-api.com/v1/sports/?apiKey=${encodeURIComponent(apiKey)}`, {}, 5000);
+  const response = await fetchWithTimeout('https://parlay-api.com/v1/sports/', { headers: { 'X-API-Key': apiKey } }, 5000);
   if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`);
   const value = await response.json() as ApiSport[];
   sportsCatalogCache = { apiKey, expiresAt: Date.now() + 5 * 60 * 1000, value };
