@@ -38,7 +38,7 @@ describe('odds API contract', () => {
 
   it('normalizes a minimal provider response', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-09-18T12:01:00Z'));
+    vi.setSystemTime(new Date('2026-09-18T12:00:30Z'));
     vi.stubEnv('PARLAY_API_KEY', 'test-key');
     const payload = [{ key: 'soccer_test', group: 'soccer', title: 'Test Soccer', active: true, has_outrights: false }];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
