@@ -28,17 +28,16 @@ const digest = (value: unknown): string => {
   return (hash >>> 0).toString(16).padStart(8, '0');
 };
 
+const hashEvent = (event: Omit<AuditEvent, 'hash'>): string => digest(event);
+
 export function appendAuditEvent(
   events: AuditEvent[],
   input: Omit<AuditEvent, 'id' | 'previousHash' | 'hash'>,
 ): AuditEvent {
   const previousHash = events.at(-1)?.hash ?? null;
-  const event = {
-    ...input,
-    id: `${input.runId}-${events.length + 1}`,
-    previousHash,
-    hash: digest({ ...input, previousHash }),
-  };
+  const id = `${input.runId}-${events.length + 1}`;
+  const unsigned = { ...input, id, previousHash };
+  const event = { ...unsigned, hash: hashEvent(unsigned) };
   events.push(event);
   return event;
 }
@@ -46,15 +45,8 @@ export function appendAuditEvent(
 export function verifyAuditChain(events: AuditEvent[]): { valid: boolean; brokenAt: string | null } {
   let previousHash: string | null = null;
   for (const event of events) {
-    const expected = digest({
-      id: event.id,
-      runId: event.runId,
-      type: event.type,
-      at: event.at,
-      actor: event.actor,
-      payloadDigest: event.payloadDigest,
-      previousHash,
-    });
+    const { hash, ...unsigned } = event;
+    const expected = hashEvent(unsigned);
     if (event.previousHash !== previousHash || event.hash !== expected) {
       return { valid: false, brokenAt: event.id };
     }
