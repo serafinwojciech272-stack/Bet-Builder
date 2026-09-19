@@ -1,6 +1,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-type Handler = (req: any, res: any) => Promise<unknown> | unknown;
+type AdapterRequest = { method?: string; query: Record<string, string> };
+type AdapterResponse = {
+  status: (code: number) => AdapterResponse;
+  setHeader: (name: string, value: string) => AdapterResponse;
+  end: (body: string) => void;
+  json: (body: unknown) => void;
+};
+type Handler = (req: AdapterRequest, res: AdapterResponse) => Promise<unknown> | unknown;
 
 function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost');
@@ -23,10 +30,13 @@ const researchHandler = researchModule.default as Handler;
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app').split(',').map((value) => value.trim()).filter(Boolean));
+  if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method === 'OPTIONS') { res.statusCode = origin && !allowedOrigins.has(origin) ? 403 : 204; res.end(); return; }
 
   try {
     if (url.pathname === '/api/odds') return await adapt(oddsHandler, req, res);
@@ -38,7 +48,7 @@ const server = createServer(async (req, res) => {
       if (apiKey) {
         const started = Date.now();
         try {
-          const response = await fetch('https://parlay-api.com/v1/sports/', { headers: { 'X-API-Key': apiKey }, signal: AbortSignal.timeout(5000) });
+          const response = await fetch('https://parlay-api.com/v1/sports/', { headers: { 'X-API-Key': apiKey, Accept: 'application/json' }, signal: AbortSignal.timeout(5000) });
           let sportsCount: number | undefined;
           if (response.ok) {
             const body = await response.json();
@@ -66,7 +76,7 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     res.statusCode = 500;
     res.setHeader('Content-Type','application/json; charset=utf-8');
-    res.end(JSON.stringify({ error:'INTERNAL_SERVER_ERROR', message:error instanceof Error ? error.message : 'Unknown error' }));
+    res.end(JSON.stringify({ error:'INTERNAL_SERVER_ERROR' }));
   }
 });
 
