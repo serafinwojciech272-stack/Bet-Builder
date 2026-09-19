@@ -27,7 +27,7 @@ export default function SportsPage() {
     <section className="relative overflow-hidden rounded-2xl border border-market/20 bg-gradient-to-br from-market/[.10] via-surface to-surface-2 p-6 sm:p-8">
       <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-market/10 blur-3xl" />
       <div className="relative flex flex-wrap items-end justify-between gap-5">
-        <div><div className="flex flex-wrap items-center gap-2"><Chip tone="market"><Radio size={11}/> Źródło danych</Chip><Chip tone="positive"><span className="live-dot h-1.5 w-1.5 rounded-full bg-positive"/> Na żywo</Chip></div>
+        <div><div className="flex flex-wrap items-center gap-2"><Chip tone="market"><Radio size={11}/> Źródło danych</Chip><Chip tone={dataset?.mode === "LIVE" ? "positive" : "warn"}><span className="live-dot h-1.5 w-1.5 rounded-full bg-positive"/> {dataset?.mode === "LIVE" ? "Na żywo" : "Demo"}</Chip></div>
           <h1 className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Rynek sportowy</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">Wydarzenia, rynki i kursy dla wybranego dnia.</p>
         </div>
