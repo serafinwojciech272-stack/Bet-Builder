@@ -1,10 +1,10 @@
-import type { Selection } from '../domain/types';
-import type { EventResearch } from '../research/types';
-import { orchestrateDecision, type DecisionOrchestratorResult } from './decisionOrchestrator';
-import { createDecisionPacket, type DecisionPacket } from './decisionPacket';
-import { createLedgerEntry, type DecisionLedgerEntry } from './decisionLedger';
-import { evaluateCalibrationLoop, type CalibrationLoopResult } from './calibrationLoop';
-import { appendAuditEvent, digestPayload, type AuditEvent, verifyAuditChain } from './auditTrail';
+import type { Selection } from '../domain/types.js';
+import type { EventResearch } from '../research/types.js';
+import { orchestrateDecision, type DecisionOrchestratorResult } from './decisionOrchestrator.js';
+import { createDecisionPacket, type DecisionPacket } from './decisionPacket.js';
+import { createLedgerEntry, type DecisionLedgerEntry } from './decisionLedger.js';
+import { evaluateCalibrationLoop, type CalibrationLoopResult } from './calibrationLoop.js';
+import { appendAuditEvent, digestPayload, type AuditEvent, verifyAuditChain } from './auditTrail.js';
 
 export interface CoreEngineRun {
   version: '1.0.0';
