@@ -51,6 +51,25 @@ export interface DeterministicNumber { value: number; unit: NumericUnit; service
 
 export interface Event { id: string; sport: string; league: string; competition: string; homeTeam: string; awayTeam: string; startTime: string; status: 'SCHEDULED' | 'LIVE' | 'FINISHED'; }
 export interface Market { id: string; eventId: string; type: string; name: string; category: string; status: 'OPEN' | 'SUSPENDED' | 'CLOSED'; }
-export interface Selection { id: string; marketId: string; eventId: string; name: string; shortName: string; line?: number; odds: number; probability: number; impliedProbability: number; value: number; ev: number; confidence: number; risk: RiskLevel; correlationGroup: string; }
+export interface Selection {
+  id: string;
+  marketId: string;
+  eventId: string;
+  name: string;
+  shortName: string;
+  line?: number;
+  odds: number;
+  probability: number;
+  impliedProbability: number;
+  value: number;
+  ev: number;
+  confidence: number;
+  risk: RiskLevel;
+  correlationGroup: string;
+  /** 0..1 freshness of the exact price used for this selection. Optional for legacy/demo data. */
+  dataFreshness?: number;
+  /** Number of independent bookmaker snapshots contributing to this market. */
+  bookmakerDepth?: number;
+}
 export interface EventWithMarkets extends Event { markets: Array<Market & { selections: Selection[] }>; }
 export interface DemoOddsSnapshot { id: string; selectionId: string; odds: number; timestamp: string; provider: string; sourceQuality: 'HIGH' | 'MEDIUM' | 'LOW'; }
