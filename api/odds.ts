@@ -12,13 +12,13 @@ interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; 
 interface ApiBookmaker { key: string; title: string; last_update: string; markets: ApiMarket[]; }
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
 interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
-interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; }
+interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; headers?: Record<string, string | undefined>; }
 let sportsCatalogCache: { apiKey: string; expiresAt: number; value: ApiSport[] } | null = null;
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
 function json(res: JsonResponse, status: number, body: unknown) {
   res.status(status)
     .setHeader('Content-Type', 'application/json; charset=utf-8')
-    .setHeader('Cache-Control', 's-maxage=45, stale-while-revalidate=30')
+    .setHeader('Cache-Control', 'no-store')
     .setHeader('X-BadBuilder-Provider', 'parlay-api');
   res.end(JSON.stringify(body));
 }
@@ -63,6 +63,13 @@ async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
 }
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
+  const origin = req.headers?.origin;
+  const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app').split(',').map((value) => value.trim()).filter(Boolean));
+  if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return json(res, 204, '');
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
   const apiKey = process.env.PARLAY_API_KEY?.trim();
   if (!apiKey) return json(res, 503, { error: 'ODDS_PROVIDER_NOT_CONFIGURED' });
@@ -140,10 +147,12 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
       }
     }
   }
-  const maxFeedLatencyMs = snapshots.reduce((max, snapshot) => Math.max(max, snapshot.feedLatencyMs), 0);
-  const ageSeconds = Math.floor(maxFeedLatencyMs / 1000);
-  if (maxFeedLatencyMs > STALE_AFTER_MS) issues.push({ code: 'stale-odds', severity: 'warning', message: `Latest normalized odds feed is stale by approximately ${ageSeconds}s.` });
+  // A single abandoned/finished market must not mark the entire provider stale.
+  // Health is based on the freshest successfully normalized quote.
+  const freshestFeedLatencyMs = snapshots.length ? snapshots.reduce((min, snapshot) => Math.min(min, snapshot.feedLatencyMs), Number.POSITIVE_INFINITY) : 0;
+  const ageSeconds = Math.floor(freshestFeedLatencyMs / 1000);
+  if (snapshots.length && freshestFeedLatencyMs > STALE_AFTER_MS) issues.push({ code: 'stale-odds', severity: 'warning', message: `Latest normalized odds feed is stale by approximately ${ageSeconds}s.` });
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
-  const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota, providerHealth: { provider: 'parlay-api', state: failedSports.length ? (successfulSports.length ? 'DEGRADED' : 'OFFLINE') : (maxFeedLatencyMs > STALE_AFTER_MS ? 'STALE' : 'HEALTHY'), fetchedAt: new Date().toISOString(), ageSeconds, staleAfterSeconds: 600, catalogCount: availableSports.length, queriedSports: sports.length, successfulSports: successfulSports.length, failedSports: failedSports.length, eventCount: events.size, snapshotCount: snapshots.length, bookmakerCount: bookmakerNames.size, warnings: issues.filter((i) => i.severity !== 'info').map((i) => i.message).slice(0, 6) } };
+  const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota, providerHealth: { provider: 'parlay-api', state: failedSports.length ? (successfulSports.length ? 'DEGRADED' : 'OFFLINE') : (snapshots.length && freshestFeedLatencyMs > STALE_AFTER_MS ? 'STALE' : 'HEALTHY'), fetchedAt: new Date().toISOString(), ageSeconds, staleAfterSeconds: 600, catalogCount: availableSports.length, queriedSports: sports.length, successfulSports: successfulSports.length, failedSports: failedSports.length, eventCount: events.size, snapshotCount: snapshots.length, bookmakerCount: bookmakerNames.size, warnings: issues.filter((i) => i.severity !== 'info').map((i) => i.message).slice(0, 6) } };
   return json(res, 200, body);
 }
