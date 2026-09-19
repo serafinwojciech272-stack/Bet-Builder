@@ -62,13 +62,13 @@ export class MockCoreEngineClient implements CoreEngineClient {
     return {
       engineId: this.engineId,
       mode: this.mode,
-      version: '0.10.0-mock',
+      version: '0.11.0-decision-intelligence',
       supportsExecution: true,
       supportsMeasurement: true,
       supportsLearning: true,
       supportsPortfolioOptimization: true,
       supportsMonetaryExecution: false,
-      notes: 'Simulated Core Engine. Execution is observational only; portfolio optimization is deterministic and auditable.',
+      notes: 'Deterministic Decision Intelligence boundary. Execution is observational only; portfolio optimization is deterministic, freshness-aware and auditable. No monetary execution.',
     };
   }
 
