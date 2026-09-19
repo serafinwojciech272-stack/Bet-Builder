@@ -1,5 +1,5 @@
-import type { DecisionLedgerEntry, CalibrationSummary } from './decisionLedger';
-import { calibrateLedger } from './decisionLedger';
+import type { DecisionLedgerEntry, CalibrationSummary } from './decisionLedger.js';
+import { calibrateLedger } from './decisionLedger.js';
 
 export type CalibrationState = 'INSUFFICIENT_SAMPLE' | 'OBSERVE' | 'CALIBRATION_READY';
 
