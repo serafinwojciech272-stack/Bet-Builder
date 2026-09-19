@@ -102,7 +102,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     const matching = availableSports.filter((s) => s.group.toLowerCase() === requestedSport.toLowerCase() || s.key.toLowerCase() === requestedSport.toLowerCase());
     if (requestedSport.toLowerCase() === 'soccer') {
       const priority = ['soccer_epl', 'soccer_spain_la_liga', 'soccer_germany_bundesliga', 'soccer_italy_serie_a', 'soccer_france_ligue_one', 'soccer_usa_mls', 'soccer_poland_ekstraklasa', 'soccer_netherlands_eredivisie'];
-      const prioritized = priority.map((key) => matching.find((sport) => sport.key === key)).filter((sport): sport is typeof matching[number] => Boolean(sport));
+      const prioritized = priority.map((key) => matching.find((sport) => sport.key === key)).filter((sport) => sport !== undefined);
       sports = (prioritized.length ? prioritized : matching).slice(0, 8).map((s) => s.key);
     } else {
       sports = (matching.length ? matching : [{ key: requestedSport, title: requestedSport, group: requestedSport }]).slice(0, 8).map((s) => s.key);
