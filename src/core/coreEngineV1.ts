@@ -23,6 +23,8 @@ export interface CoreEngineRun {
 export interface CoreEngineLedgerStore {
   append(entry: DecisionLedgerEntry): Promise<void> | void;
   list(): Promise<DecisionLedgerEntry[]> | DecisionLedgerEntry[];
+  persistRun?(run: CoreEngineRun): Promise<void> | void;
+  persistAudit?(events: AuditEvent[]): Promise<void> | void;
 }
 
 export class InMemoryCoreEngineLedgerStore implements CoreEngineLedgerStore {
@@ -117,7 +119,7 @@ export async function runCoreEngineV1(
     payloadDigest: digestPayload({ state: calibration.state, resolvedCount: calibration.summary.resolvedCount, shrinkage: calibration.recommendedProbabilityShrinkage }),
   });
 
-  return {
+  const run: CoreEngineRun = {
     version: '1.0.0',
     runId,
     startedAt,
@@ -130,4 +132,8 @@ export async function runCoreEngineV1(
     calibration,
     executionPolicy: 'OBSERVATIONAL_ONLY',
   };
+
+  if (store.persistRun) await store.persistRun(run);
+  if (store.persistAudit) await store.persistAudit(audit);
+  return run;
 }
