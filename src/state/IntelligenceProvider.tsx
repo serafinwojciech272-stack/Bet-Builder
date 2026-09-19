@@ -43,10 +43,18 @@ export function IntelligenceProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async (date = selectedDate, forceRefresh = false, sport = 'all') => {
     setPhase('loading'); setError(null); setSelectedDate(date);
     try {
-      const data = await workspace.dataRepository.loadCanonicalDataset({ date, forceRefresh, sport }); setDataset(data);
-      const [health, caps] = await Promise.all([workspace.analysisService.health(), workspace.coreEngine.capabilities()]);
-      setEngine({ aiEngineId: health.engineId, aiOnline: health.ok, aiDetail: health.detail, coreEngineId: caps.engineId, coreVersion: caps.version, monetaryExecution: caps.supportsMonetaryExecution, portfolioOptimization: caps.supportsPortfolioOptimization });
-      if (!seedPromiseRef.current) seedPromiseRef.current = seedWorkspace(workspace); await seedPromiseRef.current; await syncStores(); setLastRefreshedAt(new Date().toISOString()); setPhase('ready');
+      const data = await workspace.dataRepository.loadCanonicalDataset({ date, forceRefresh, sport });
+      setDataset(data);
+      if (!seedPromiseRef.current) seedPromiseRef.current = seedWorkspace(workspace);
+      await seedPromiseRef.current;
+      await syncStores();
+      setLastRefreshedAt(new Date().toISOString());
+      // Data availability is the critical path. AI/Core health is observability,
+      // so do not block the event board while those checks complete.
+      setPhase('ready');
+      void Promise.all([workspace.analysisService.health(), workspace.coreEngine.capabilities()])
+        .then(([health, caps]) => setEngine({ aiEngineId: health.engineId, aiOnline: health.ok, aiDetail: health.detail, coreEngineId: caps.engineId, coreVersion: caps.version, monetaryExecution: caps.supportsMonetaryExecution, portfolioOptimization: caps.supportsPortfolioOptimization }))
+        .catch(() => undefined);
     } catch (e) { setError(e instanceof Error ? e.message : 'Unknown bootstrap failure'); setPhase('error'); }
   }, [workspace, selectedDate, syncStores]);
   useEffect(() => { void refresh(); }, [refresh]);
