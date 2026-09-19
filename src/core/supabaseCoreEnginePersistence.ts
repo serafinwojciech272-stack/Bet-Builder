@@ -102,7 +102,7 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
         execution_policy: run.executionPolicy,
         status: run.orchestrator.decision.status,
         packet_id: run.packet.id,
-        fingerprint: run.packet.fingerprint,
+        fingerprint: run.packet.id,
         input_digest: run.audit[0]?.payloadDigest ?? null,
         output_digest: run.audit.at(-1)?.payloadDigest ?? null,
         audit_valid: run.auditIntegrity.valid,
