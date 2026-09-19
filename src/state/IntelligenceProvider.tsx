@@ -36,7 +36,7 @@ export function IntelligenceProvider({ children }: { children: ReactNode }) {
   const [analyses, setAnalyses] = useState<AnalysisRecord[]>([]); const [missions, setMissions] = useState<Mission[]>([]); const [engine, setEngine] = useState<EngineStatus | null>(null);
   const [analysisJobs, setAnalysisJobs] = useState<Record<string, AnalysisJobState>>({}); const [busyMissionIds, setBusyMissionIds] = useState<string[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]); const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null); const [selectedDate, setSelectedDate] = useState(localDate); const [nowTick, setNowTick] = useState(() => Date.now());
-  const seedPromiseRef = useRef<Promise<unknown> | null>(null); const operator = 'j.moreau';
+  const seedPromiseRef = useRef<Promise<unknown> | null>(null); const operator = (import.meta.env.VITE_OPERATOR_ID as string | undefined)?.trim() || 'operator';
   const pushToast = useCallback((toast: Omit<Toast, 'id'>) => { const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; setToasts((p) => [...p, { ...toast, id }]); window.setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 6000); }, []);
   const dismissToast = useCallback((id: string) => setToasts((p) => p.filter((t) => t.id !== id)), []);
   const syncStores = useCallback(async () => { const [a, m] = await Promise.all([workspace.analysisRepository.list(), workspace.missionRepository.list()]); setAnalyses(a); setMissions(m); }, [workspace]);
