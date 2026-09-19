@@ -60,12 +60,13 @@ export class LiveSportsDataRepository implements SportsDataRepository {
       const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
       // Production UI lives on Vercel while the live odds service runs on Render.
       // Prefer the explicit API base and otherwise call the live Render service directly.
-      const apiBase = configuredBase || 'https://bet-builder-api-live.onrender.com';
+      const apiBase = configuredBase || '';
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 9000);
       let response: Response;
       try {
-        response = await fetch(`${apiBase}/api/odds?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, { signal: controller.signal });
+        const endpoint = apiBase ? `${apiBase}/api/odds` : '/api/live-odds';
+        response = await fetch(`${endpoint}?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, { signal: controller.signal });
       } finally {
         window.clearTimeout(timeout);
       }
