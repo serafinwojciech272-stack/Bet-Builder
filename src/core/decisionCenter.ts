@@ -1,6 +1,6 @@
-import type { Selection } from '../domain/types';
-import { combinedOdds, modelEv, impliedProbability } from '../analytics/calcs';
-import { analyzeDependencies } from '../analytics/dependency';
+import type { Selection } from '../domain/types.js';
+import { combinedOdds, modelEv, impliedProbability } from '../analytics/calcs.js';
+import { analyzeDependencies } from '../analytics/dependency.js';
 
 export type DecisionStatus = 'READY' | 'CAUTION' | 'BLOCKED';
 
