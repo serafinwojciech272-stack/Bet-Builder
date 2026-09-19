@@ -83,8 +83,17 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const issues: DatasetResponse['issues'] = [];
   let sports: string[];
   let catalog: ApiSport[] = [];
+  let catalogDegraded = false;
   try { catalog = await getActiveSports(apiKey); }
-  catch (e) { issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' }); }
+  catch (e) {
+    catalogDegraded = true;
+    issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' });
+    catalog = [
+      ['soccer_epl','Soccer','EPL'], ['soccer_spain_la_liga','Soccer','La Liga'], ['soccer_germany_bundesliga','Soccer','Bundesliga'],
+      ['soccer_italy_serie_a','Soccer','Serie A'], ['soccer_france_ligue_one','Soccer','Ligue 1'], ['soccer_poland_ekstraklasa','Soccer','Ekstraklasa'],
+      ['basketball_nba','Basketball','NBA'], ['tennis_atp','Tennis','ATP'], ['baseball_mlb','Baseball','MLB'], ['americanfootball_nfl','American Football','NFL']
+    ].map(([key, group, title]) => ({ key, group, title, active: true, has_outrights: false }));
+  }
   const availableSports = catalog.filter((s) => s.active).map((s) => ({ key: s.key, title: s.title, group: s.group }));
   if (requestedSport === 'all') {
     // ParlayAPI exposes sport keys through /sports; unlike the legacy feed it has no documented `upcoming` key.
