@@ -103,9 +103,9 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   // refresh into a 30–60s wait when one provider call was slow.
   const results = await Promise.all(sports.map(async (sportKey) => {
     const url = new URL(`https://parlay-api.com/v1/sports/${encodeURIComponent(sportKey)}/odds/`);
-    url.searchParams.set('apiKey', apiKey); url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
+    url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
     try {
-      const response = await fetchWithTimeout(url, {}, 7000);
+      const response = await fetchWithTimeout(url, { headers: { 'X-API-Key': apiKey } }, 7000);
       const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
       const quota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
       if (!response.ok) return { sportKey, error: `ParlayAPI ${response.status}: ${(await response.text()).slice(0, 180)}`, quota };
