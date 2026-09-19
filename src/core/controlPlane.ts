@@ -22,6 +22,8 @@ export function evaluateControlPlane(selections:Selection[], decision:DecisionCe
   if(decision.correlationRisk>=.2) reviewFlags.push('HIGH_DEPENDENCY');
   if(decision.concentrationRisk>=.67&&selections.length>1) reviewFlags.push('CONCENTRATION_RISK');
   if(decision.ev<0) reviewFlags.push('NEGATIVE_MODEL_EV');
+  if(decision.marketQuality.freshness<0.5) reviewFlags.push('STALE_PRICE_INPUT');
+  if(decision.marketQuality.freshness<0.25) hardStops.push('PRICE_FEED_TOO_STALE');
   const researchGate=research?{ready:research.researchQuality>=.5&&research.sources.length>=3,quality:research.researchQuality,findings:research.findings.length,sources:research.sources.length,warnings:research.warnings}: {ready:false,quality:0,findings:0,sources:0,warnings:['Deep research has not been completed.']};
   if(selections.length && !researchGate.ready) reviewFlags.push('RESEARCH_GATE_NOT_READY');
   if(research && research.lineupStatus==='unknown') reviewFlags.push('LINEUP_UNCERTAIN');
