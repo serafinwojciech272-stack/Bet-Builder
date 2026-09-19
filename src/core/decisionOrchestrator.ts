@@ -1,8 +1,8 @@
-import type { Selection } from '../domain/types';
-import type { EventResearch } from '../research/types';
-import { evaluateDecisionCenter, type DecisionCenterResult } from './decisionCenter';
-import { evaluateControlPlane, type PortfolioControl } from './controlPlane';
-import { buildResearchEvidence, type ResearchEvidence } from './researchEvidenceEngine';
+import type { Selection } from '../domain/types.js';
+import type { EventResearch } from '../research/types.js';
+import { evaluateDecisionCenter, type DecisionCenterResult } from './decisionCenter.js';
+import { evaluateControlPlane, type PortfolioControl } from './controlPlane.js';
+import { buildResearchEvidence, type ResearchEvidence } from './researchEvidenceEngine.js';
 
 export type OrchestratorStage='INGESTED'|'RESEARCHED'|'CONTROLLED'|'ANALYZED'|'PACKET_READY'|'MISSION_READY'|'REVIEW_REQUIRED'|'BLOCKED';
 export interface DecisionOrchestratorResult {
