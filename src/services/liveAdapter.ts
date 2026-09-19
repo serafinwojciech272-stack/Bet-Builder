@@ -69,6 +69,8 @@ function eventToLegacy(event: SportEvent, dataset: CanonicalDataset): EventWithM
         const implied = impliedProbability(quote.decimalOdds);
         const probability = consensus.get(quoteKey(quote.label)) ?? implied;
         const coverage = new Set(marketSnapshots.map((s) => s.bookmaker)).size;
+        const freshnessMs = Math.max(0, snapshot.feedLatencyMs);
+        const freshness = Math.max(0, Math.min(1, 1 - freshnessMs / (10 * 60 * 1000)));
         return {
           id: quote.selectionId,
           marketId,
@@ -84,6 +86,8 @@ function eventToLegacy(event: SportEvent, dataset: CanonicalDataset): EventWithM
           confidence: Math.min(0.95, 0.5 + coverage * 0.07),
           risk: riskForOdds(quote.decimalOdds),
           correlationGroup: `${event.id}:${marketType}`,
+          dataFreshness: freshness,
+          bookmakerDepth: coverage,
         };
       }),
     };
