@@ -55,7 +55,7 @@ async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeo
 }
 async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
   if (sportsCatalogCache && sportsCatalogCache.apiKey === apiKey && sportsCatalogCache.expiresAt > Date.now()) return sportsCatalogCache.value;
-  const response = await fetchWithTimeout('https://parlay-api.com/v1/sports/', { headers: { 'X-API-Key': apiKey } }, 5000);
+  const response = await fetchWithTimeout('https://parlay-api.com/v1/sports/', { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } }, 5000);
   if (!response.ok) throw new Error(`SPORTS_CATALOG_${response.status}`);
   const value = await response.json() as ApiSport[];
   sportsCatalogCache = { apiKey, expiresAt: Date.now() + 5 * 60 * 1000, value };
@@ -64,7 +64,7 @@ async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
-  const apiKey = process.env.PARLAY_API_KEY;
+  const apiKey = process.env.PARLAY_API_KEY?.trim();
   if (!apiKey) return json(res, 503, { error: 'ODDS_PROVIDER_NOT_CONFIGURED' });
   const requestedDate = queryValue(req, 'date', polishDate(new Date().toISOString()));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
@@ -105,13 +105,13 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     const url = new URL(`https://parlay-api.com/v1/sports/${encodeURIComponent(sportKey)}/odds/`);
     url.searchParams.set('regions', regions); url.searchParams.set('markets', markets); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
     try {
-      const response = await fetchWithTimeout(url, { headers: { 'X-API-Key': apiKey } }, 7000);
+      const response = await fetchWithTimeout(url, { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } }, 5500);
       const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last'));
       const quota = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
       if (!response.ok) return { sportKey, error: `ParlayAPI ${response.status}: ${(await response.text()).slice(0, 180)}`, quota };
       return { sportKey, rawEvents: await response.json() as ApiEvent[], quota };
     } catch (error) {
-      return { sportKey, error: error instanceof Error ? error.name === 'AbortError' ? 'request timeout after 7s' : error.message : 'request failed', quota: null };
+      return { sportKey, error: error instanceof Error ? error.name === 'AbortError' ? 'request timeout after 5.5s' : error.message : 'request failed', quota: null };
     }
   }));
   for (const result of results) {
