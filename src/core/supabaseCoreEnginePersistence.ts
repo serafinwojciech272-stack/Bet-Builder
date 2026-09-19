@@ -1,6 +1,6 @@
-import type { DecisionLedgerEntry } from './decisionLedger';
-import type { AuditEvent } from './auditTrail';
-import type { CoreEngineRun, CoreEngineLedgerStore } from './coreEngineV1';
+import type { DecisionLedgerEntry } from './decisionLedger.js';
+import type { AuditEvent } from './auditTrail.js';
+import type { CoreEngineRun, CoreEngineLedgerStore } from './coreEngineV1.js';
 
 export interface SupabaseRestConfig {
   url: string;
