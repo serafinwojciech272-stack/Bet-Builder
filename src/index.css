@@ -331,3 +331,72 @@ header.sticky nav a[aria-current="page"] svg{
   .club-backdrop main article::after,.club-backdrop main .glass-strong::after{display:none}
 }
 @media (prefers-reduced-motion:reduce){.club-interface-hero::after{display:none}}
+
+
+/* FINAL VISUAL PASS v7 — mission control command-center treatment */
+.club-backdrop main > .space-y-8 > section:first-child{
+  position:relative;overflow:hidden;min-height:310px;padding:34px!important;
+  border:1px solid rgba(240,203,122,.20)!important;border-radius:24px;
+  background:
+    radial-gradient(520px 260px at 82% 18%,rgba(240,203,122,.13),transparent 68%),
+    radial-gradient(480px 300px at 12% 95%,rgba(155,140,255,.14),transparent 70%),
+    linear-gradient(120deg,rgba(7,7,16,.94),rgba(13,9,25,.78) 55%,rgba(7,9,19,.90)),
+    url('/decision-nocturne.svg') center/cover no-repeat!important;
+  box-shadow:0 35px 120px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.065);
+}
+.club-backdrop main > .space-y-8 > section:first-child::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(112deg,transparent 35%,rgba(240,203,122,.06) 49%,transparent 62%);
+  transform:translateX(-55%);animation:signalSweep 11s ease-in-out infinite;
+}
+.club-backdrop main > .space-y-8 > section:first-child::after{
+  content:"";position:absolute;width:430px;height:430px;right:-170px;top:-190px;border:1px solid rgba(240,203,122,.08);border-radius:50%;
+  box-shadow:0 0 100px rgba(155,140,255,.05),inset 0 0 50px rgba(155,140,255,.025);pointer-events:none;
+}
+.club-backdrop main > .space-y-8 > section:first-child h1{
+  position:relative;z-index:2;font-family:Georgia,'Times New Roman',serif!important;
+  font-size:clamp(2.8rem,6vw,5.6rem)!important;line-height:.92!important;letter-spacing:-.045em!important;
+  color:#fff;text-shadow:0 10px 45px rgba(0,0,0,.55);
+}
+.club-backdrop main > .space-y-8 > section:first-child h1::after{
+  content:"";display:block;width:118px;height:2px;margin-top:18px;
+  background:linear-gradient(90deg,#f0cb7a,#9b8cff,transparent);box-shadow:0 0 18px rgba(240,203,122,.18);
+}
+.club-backdrop main > .space-y-8 > section:first-child p{position:relative;z-index:2;max-width:720px}
+.club-backdrop main > .space-y-8 > section:nth-child(2) > article,
+.club-backdrop main > .space-y-8 > section:nth-child(3) > article{
+  background:linear-gradient(145deg,rgba(18,20,35,.88),rgba(8,10,20,.76))!important;
+  border-color:rgba(255,255,255,.075)!important;
+  box-shadow:0 18px 55px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.04);
+  transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;
+}
+.club-backdrop main > .space-y-8 > section:nth-child(2) > article:hover,
+.club-backdrop main > .space-y-8 > section:nth-child(3) > article:hover{
+  transform:translateY(-2px);border-color:rgba(240,203,122,.22)!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.28),0 0 30px rgba(155,140,255,.05);
+}
+.club-backdrop main > .space-y-8 > section:nth-child(4) > article{
+  border-color:rgba(155,140,255,.20)!important;
+  background:linear-gradient(120deg,rgba(155,140,255,.075),rgba(240,203,122,.025) 55%,rgba(5,8,18,.65))!important;
+  box-shadow:0 20px 70px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.045);
+}
+.club-backdrop main > .space-y-8 > section:nth-child(4) button{
+  min-height:42px;border:1px solid rgba(240,203,122,.30);border-radius:11px;padding-inline:15px;
+  background:linear-gradient(135deg,rgba(240,203,122,.15),rgba(155,140,255,.12));
+  color:#fff0c2;box-shadow:0 10px 35px rgba(0,0,0,.22);
+}
+.club-backdrop main > .space-y-8 > section:nth-child(4) button:hover{
+  border-color:rgba(240,203,122,.55);box-shadow:0 14px 45px rgba(0,0,0,.30),0 0 24px rgba(240,203,122,.06);
+}
+.club-backdrop main > .space-y-8 > section:nth-child(5) [role="tablist"]{
+  padding:5px;border:1px solid rgba(255,255,255,.06);border-radius:13px;background:rgba(7,9,17,.52);width:max-content;max-width:100%;
+}
+@media (max-width:760px){
+  .club-backdrop main > .space-y-8 > section:first-child{min-height:0;padding:24px!important;border-radius:18px}
+  .club-backdrop main > .space-y-8 > section:first-child h1{font-size:2.8rem!important}
+  .club-backdrop main > .space-y-8 > section:first-child::after{width:250px;height:250px;right:-120px;top:-100px}
+  .club-backdrop main > .space-y-8 > section:nth-child(4) button{width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .club-backdrop main > .space-y-8 > section:first-child::before{animation:none}
+}
