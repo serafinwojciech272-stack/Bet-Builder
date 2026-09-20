@@ -74,7 +74,7 @@ describe('odds API contract', () => {
     expect(bodyOf(res).events).toHaveLength(1);
     expect(bodyOf(res).snapshots).toHaveLength(1);
     expect(bodyOf(res).providerHealth.state).toBe('HEALTHY');
-    expect((res.body as any).providerHealth.ageSeconds).toBeLessThan(120);
+    expect(bodyOf(res).providerHealth.ageSeconds).toBeLessThan(120);
   });
 
   it('marks old provider quotes as stale instead of healthy', async () => {
@@ -92,8 +92,8 @@ describe('odds API contract', () => {
     const res = response();
     await handler({ method: 'GET', query: { date: '2026-09-18', sport: 'soccer' } }, res);
     expect(res.statusCode).toBe(200);
-    expect((res.body as any).providerHealth.state).toBe('STALE');
-    expect((res.body as any).providerHealth.ageSeconds).toBeGreaterThan(600);
+    expect(bodyOf(res).providerHealth.state).toBe('STALE');
+    expect(bodyOf(res).providerHealth.ageSeconds).toBeGreaterThan(600);
     expect(bodyOf(res).issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'stale-odds', severity: 'warning' })]));
   });
 });
