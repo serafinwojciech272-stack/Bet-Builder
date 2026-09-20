@@ -83,10 +83,8 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const issues: DatasetResponse['issues'] = [];
   let sports: string[];
   let catalog: ApiSport[] = [];
-  let catalogDegraded = false;
   try { catalog = await getActiveSports(apiKey); }
   catch (e) {
-    catalogDegraded = true;
     issues.push({ code: 'sports-catalog-error', severity: 'warning', message: e instanceof Error ? e.message : 'Could not load sports catalog.' });
     catalog = [
       ['soccer_epl','Soccer','EPL'], ['soccer_spain_la_liga','Soccer','La Liga'], ['soccer_germany_bundesliga','Soccer','Bundesliga'],
