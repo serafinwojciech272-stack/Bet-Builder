@@ -66,7 +66,7 @@ const server = createServer(async (req, res) => {
             requestId: response.headers.get('x-request-id') ?? undefined,
             remaining: response.headers.get('x-requests-remaining') ?? undefined,
           };
-        } catch {
+        } catch (error) {
           providerHealth = { configured:true, status:'UNREACHABLE', latencyMs:Date.now()-started, error:error instanceof Error ? error.name : 'REQUEST_FAILED' };
         }
       }
