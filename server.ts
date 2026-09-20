@@ -76,7 +76,7 @@ const server = createServer(async (req, res) => {
     res.statusCode = 404;
     res.setHeader('Content-Type','application/json; charset=utf-8');
     res.end(JSON.stringify({ error:'NOT_FOUND' }));
-  } catch (error) {
+  } catch {
     res.statusCode = 500;
     res.setHeader('Content-Type','application/json; charset=utf-8');
     res.end(JSON.stringify({ error:'INTERNAL_SERVER_ERROR' }));
