@@ -26,11 +26,11 @@
       "headers": [
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET,OPTIONS"
+          "value": "GET,POST,OPTIONS"
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type"
+          "value": "Content-Type, Authorization, X-Core-Engine-E2E-Token"
         },
         {
           "key": "Cache-Control",
