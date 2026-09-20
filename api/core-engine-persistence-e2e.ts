@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { Selection } from '../src/domain/types.js';
 import { runCoreEngineV1 } from '../src/core/coreEngineV1.js';
+import { settleLedgerEntry } from '../src/core/decisionLedger.js';
 import { verifyAuditChain, type AuditEvent } from '../src/core/auditTrail.js';
 import { createSupabaseCoreEngineLedgerStoreFromEnv } from '../src/core/supabaseCoreEnginePersistence.js';
 
@@ -98,6 +99,108 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const first = await runCoreEngineV1([selection], null, store, TEST_NOW);
     const second = await runCoreEngineV1([selection], null, store, TEST_NOW);
 
+
+    // Full lifecycle: create -> persist -> approve -> execute(observational) -> measure -> complete -> learn -> audit -> restart/recovery.
+    const lifecycleAudit = [...first.audit];
+    const lifecycleAt = (offsetMs: number) => new Date(TEST_NOW.getTime() + offsetMs).toISOString();
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'APPROVAL_RECORDED',
+      at: lifecycleAt(1_000),
+      actor: 'OPERATOR',
+      payloadDigest: digestPayload({ ledgerId: first.ledgerEntry.id, approvalState: 'APPROVED' }),
+    });
+
+    let lifecycleLedger = {
+      ...first.ledgerEntry,
+      approvalState: 'APPROVED',
+      missionId: 'E2E-PERSISTENCE-MISSION',
+    };
+    await store.append(lifecycleLedger);
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'EXECUTION_RECORDED',
+      at: lifecycleAt(2_000),
+      actor: 'CORE_ENGINE',
+      payloadDigest: digestPayload({ policy: 'OBSERVATIONAL_ONLY', execution: 'SIMULATED_NO_MONEY' }),
+    });
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'MEASUREMENT_RECORDED',
+      at: lifecycleAt(3_000),
+      actor: 'SYSTEM',
+      payloadDigest: digestPayload({ objectiveOutcome: 1, closingOdds: 2.0 }),
+    });
+
+    lifecycleLedger = settleLedgerEntry(lifecycleLedger, {
+      status: 'WON',
+      settledAt: new Date(TEST_NOW.getTime() + 4_000),
+      objectiveOutcome: 1,
+      closingOdds: 2.0,
+    });
+    await store.append(lifecycleLedger);
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'SETTLEMENT_RECORDED',
+      at: lifecycleAt(4_000),
+      actor: 'SYSTEM',
+      payloadDigest: digestPayload({ status: lifecycleLedger.settlement.status, settledAt: lifecycleLedger.settlement.settledAt }),
+    });
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'COMPLETION_RECORDED',
+      at: lifecycleAt(5_000),
+      actor: 'SYSTEM',
+      payloadDigest: digestPayload({ state: 'COMPLETED', ledgerId: lifecycleLedger.id }),
+    });
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'LEARNING_EVALUATED',
+      at: lifecycleAt(6_000),
+      actor: 'CORE_ENGINE',
+      payloadDigest: digestPayload({ feedback: lifecycleLedger.learning.feedback, lesson: lifecycleLedger.learning.lesson }),
+    });
+
+    await store.persistAudit?.(lifecycleAudit);
+
+    // Restart/recovery: reconstruct the state from durable Supabase rows using a fresh store instance.
+    const recoveryStore = createSupabaseCoreEngineLedgerStoreFromEnv();
+    if (!recoveryStore) throw new Error('CORE_ENGINE_PERSISTENCE_NOT_CONFIGURED');
+    const recoveredLedger = (await recoveryStore.list()).find((entry) => entry.id === lifecycleLedger.id);
+    const recoveredAudit = await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`);
+    const recoveredAuditEvents = recoveredAudit.map((row) => ({
+      id: String(row.id),
+      runId: String(row.run_id),
+      type: row.event_type as AuditEvent['type'],
+      at: String(row.at),
+      actor: row.actor as AuditEvent['actor'],
+      payloadDigest: String(row.payload_digest),
+      previousHash: row.previous_hash === null ? null : String(row.previous_hash),
+      hash: String(row.hash),
+    }));
+    const recoveredIntegrity = verifyAuditChain(recoveredAuditEvents);
+
+    appendAuditEvent(lifecycleAudit, {
+      runId: TEST_RUN_ID,
+      type: 'RECOVERY_VERIFIED',
+      at: lifecycleAt(7_000),
+      actor: 'SYSTEM',
+      payloadDigest: digestPayload({
+        recoveredLedgerId: recoveredLedger?.id ?? null,
+        approvalState: recoveredLedger?.approvalState ?? null,
+        settlement: recoveredLedger?.settlement.status ?? null,
+        learning: recoveredLedger?.learning.feedback ?? null,
+        auditValid: recoveredIntegrity.valid,
+      }),
+    });
+    await store.persistAudit?.(lifecycleAudit);
+
     const after = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
       ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(first.ledgerEntry.id)}&select=id,decision_packet_id,status`),
@@ -116,6 +219,18 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     }));
     const auditIntegrity = verifyAuditChain(persistedAudit);
 
+    const lifecycleComplete =
+      lifecycleLedger.approvalState === 'APPROVED' &&
+      lifecycleLedger.settlement.status === 'WON' &&
+      lifecycleLedger.settlement.objectiveOutcome === 1 &&
+      lifecycleLedger.clv.measured &&
+      lifecycleLedger.learning.feedback === 'POSITIVE' &&
+      recoveredLedger?.id === lifecycleLedger.id &&
+      recoveredLedger.approvalState === 'APPROVED' &&
+      recoveredLedger.settlement.status === 'WON' &&
+      recoveredLedger.learning.feedback === 'POSITIVE' &&
+      recoveredIntegrity.valid;
+
     const idempotent =
       first.runId === TEST_RUN_ID &&
       second.runId === TEST_RUN_ID &&
@@ -123,7 +238,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       first.ledgerEntry.id === second.ledgerEntry.id &&
       after.runs.length === 1 &&
       after.ledger.length === 1 &&
-      after.audit.length === first.audit.length &&
+      after.audit.length === 13 &&
       after.runs[0]?.run_id === TEST_RUN_ID &&
       after.ledger[0]?.id === first.ledgerEntry.id &&
       after.audit.every((row, index) => row.id === first.audit[index]?.id);
@@ -136,7 +251,10 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       auditIntegrity.valid &&
       after.runs.length === 1 &&
       after.ledger.length === 1 &&
-      after.audit.length === 6 &&
+      after.audit.length === 13 &&
+      lifecycleComplete &&
+      recoveredAuditEvents.length === 13 &&
+      recoveredIntegrity.valid &&
       idempotent;
 
     return json(res, pass ? 200 : 500, {
@@ -150,7 +268,9 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
         engineRun: true,
         runPersisted: after.runs.length === 1,
         ledgerPersisted: after.ledger.length === 1,
-        auditPersisted: after.audit.length === 6,
+        auditPersisted: after.audit.length === 13,
+        lifecycleComplete,
+        restartRecovery: recoveredLedger?.id === lifecycleLedger.id && recoveredIntegrity.valid,
         persistedAuditChainValid: auditIntegrity.valid,
         returnedAuditChainValid: first.auditIntegrity.valid && second.auditIntegrity.valid,
         idempotency: idempotent,
@@ -163,7 +283,8 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
         },
       },
       calibration: first.calibration,
-      note: 'Synthetic deterministic E2E record. No monetary execution is performed.',
+      lifecycle: ['create', 'persist', 'approve', 'execute_observational_only', 'measure', 'complete', 'learn', 'audit', 'restart_recovery'],
+      note: 'Synthetic deterministic E2E lifecycle. Execution is observational only; no monetary execution is performed.',
     });
   } catch (error) {
     return json(res, 500, {
