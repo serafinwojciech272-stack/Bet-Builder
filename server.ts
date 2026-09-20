@@ -13,7 +13,7 @@ function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const query: Record<string, string> = {};
   for (const [key, value] of url.searchParams.entries()) query[key] = value;
-  const request = { method: req.method ?? 'GET', query, headers: { origin: req.headers.origin } };
+  const request = { method: req.method ?? 'GET', query, headers: { origin: req.headers.origin, authorization: req.headers.authorization, 'x-core-engine-e2e-token': req.headers['x-core-engine-e2e-token'] } };
   const response = {
     status(code: number) { res.statusCode = code; return response; },
     setHeader(name: string, value: string) { res.setHeader(name, value); return response; },
@@ -25,8 +25,10 @@ function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse) {
 
 const oddsModule = await import('./api/odds.ts');
 const researchModule = await import('./api/research.ts');
+const coreEngineE2EModule = await import('./api/core-engine-persistence-e2e.ts');
 const oddsHandler = oddsModule.default as Handler;
 const researchHandler = researchModule.default as Handler;
+const coreEngineE2EHandler = coreEngineE2EModule.default as Handler;
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
@@ -34,13 +36,14 @@ const server = createServer(async (req, res) => {
   const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app').split(',').map((value) => value.trim()).filter(Boolean));
   if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Core-Engine-E2E-Token');
   if (req.method === 'OPTIONS') { res.statusCode = origin && !allowedOrigins.has(origin) ? 403 : 204; res.end(); return; }
 
   try {
     if (url.pathname === '/api/odds') return await adapt(oddsHandler, req, res);
     if (url.pathname === '/api/research') return await adapt(researchHandler, req, res);
+    if (url.pathname === '/api/core-engine-persistence-e2e') return await adapt(coreEngineE2EHandler, req, res);
     if (url.pathname === '/health') {
       res.setHeader('Content-Type','application/json; charset=utf-8');
       const apiKey = process.env.PARLAY_API_KEY?.trim();
