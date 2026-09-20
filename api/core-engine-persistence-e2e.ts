@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { authenticateSupabaseUser, authorizedByInternalToken } from './auth.js';
+import { authenticateSupabaseUser, authorizedByInternalToken, bearerToken } from './auth.js';
 import type { Selection } from '../src/domain/types.js';
 import { runCoreEngineV1 } from '../src/core/coreEngineV1.js';
 import { settleLedgerEntry } from '../src/core/decisionLedger.js';
@@ -84,6 +84,34 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
   const authorization = await authorized(req, url, key);
   if (!authorization.ok) return json(res, 401, { error: 'UNAUTHORIZED' });
   const authMode = authorization.authMode;
+  let rlsProbe: { applicable: boolean; enforced: boolean; httpStatus: number | null; visibleRows: number | null } = {
+    applicable: false,
+    enforced: false,
+    httpStatus: null,
+    visibleRows: null,
+  };
+  if (authMode === 'SUPABASE_USER') {
+    const probe = await fetch(
+      `${url.replace(/\/$/, '')}/rest/v1/ce_missions?select=id&limit=1`,
+      {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${bearerToken(req)}`,
+        },
+      },
+    );
+    let visibleRows: number | null = null;
+    if (probe.ok) {
+      const rows = await probe.json() as unknown[];
+      visibleRows = rows.length;
+    }
+    rlsProbe = {
+      applicable: true,
+      enforced: !probe.ok || visibleRows === 0,
+      httpStatus: probe.status,
+      visibleRows,
+    };
+  }
 
   try {
     const store = createSupabaseCoreEngineLedgerStoreFromEnv();
@@ -276,6 +304,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
         observationalOnly: first.executionPolicy === 'OBSERVATIONAL_ONLY',
         authentication: authMode,
         authenticatedUserId: authorization.userId ?? null,
+        rlsProbe,
         deterministicIdsStable: first.runId === second.runId && first.packet.id === second.packet.id && first.ledgerEntry.id === second.ledgerEntry.id,
         preExistingRows: {
           runs: before.runs.length,
