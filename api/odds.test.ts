@@ -2,6 +2,9 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import handler from './odds.js';
 
 type Res = { statusCode: number; body: unknown; status(code:number): Res; setHeader(name:string,value:string): Res; end(body:string): void };
+type OddsBody = { events: unknown[]; snapshots: unknown[]; providerHealth: { state: string; ageSeconds: number }; issues: Array<{ code: string; severity: string }> };
+function bodyOf(res: Res): OddsBody { return res.body as OddsBody; }
+
 function response(): Res {
   const r: Res = {
     statusCode: 200,
@@ -68,9 +71,9 @@ describe('odds API contract', () => {
     const res = response();
     await handler({ method: 'GET', query: { date: '2026-09-18', sport: 'soccer' } }, res);
     expect(res.statusCode).toBe(200);
-    expect((res.body as any).events).toHaveLength(1);
-    expect((res.body as any).snapshots).toHaveLength(1);
-    expect((res.body as any).providerHealth.state).toBe('HEALTHY');
+    expect(bodyOf(res).events).toHaveLength(1);
+    expect(bodyOf(res).snapshots).toHaveLength(1);
+    expect(bodyOf(res).providerHealth.state).toBe('HEALTHY');
     expect((res.body as any).providerHealth.ageSeconds).toBeLessThan(120);
   });
 
@@ -91,6 +94,6 @@ describe('odds API contract', () => {
     expect(res.statusCode).toBe(200);
     expect((res.body as any).providerHealth.state).toBe('STALE');
     expect((res.body as any).providerHealth.ageSeconds).toBeGreaterThan(600);
-    expect((res.body as any).issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'stale-odds', severity: 'warning' })]));
+    expect(bodyOf(res).issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'stale-odds', severity: 'warning' })]));
   });
 });
