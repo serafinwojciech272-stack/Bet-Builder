@@ -72,7 +72,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
       }
       if (!response.ok) {
         let detail = `HTTP ${response.status}`;
-        try { const body = await response.json() as { error?: string; message?: string }; detail = body.message ?? body.error ?? detail; } catch {}
+        try { const body = await response.json() as { error?: string; message?: string }; detail = body.message ?? body.error ?? detail; } catch { /* Ignore malformed provider error payload. */ }
         throw new Error(`LIVE_ODDS_UNAVAILABLE: ${detail}`);
       }
       const data = await response.json() as CanonicalDataset;
