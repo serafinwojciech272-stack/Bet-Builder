@@ -153,7 +153,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
         auditPersisted: after.audit.length === 6,
         persistedAuditChainValid: auditIntegrity.valid,
         returnedAuditChainValid: first.auditIntegrity.valid && second.auditIntegrity.valid,
-        idempotency,
+        idempotency: idempotent,
         observationalOnly: first.executionPolicy === 'OBSERVATIONAL_ONLY',
         deterministicIdsStable: first.runId === second.runId && first.packet.id === second.packet.id && first.ledgerEntry.id === second.ledgerEntry.id,
         preExistingRows: {
