@@ -45,8 +45,7 @@ export function appendAuditEvent(
 export function verifyAuditChain(events: AuditEvent[]): { valid: boolean; brokenAt: string | null } {
   let previousHash: string | null = null;
   for (const event of events) {
-    const unsigned = { ...event };
-    delete unsigned.hash;
+    const unsigned = Object.fromEntries(Object.entries(event).filter(([key]) => key !== 'hash')) as Omit<AuditEvent, 'hash'>;
     const expected = hashEvent(unsigned);
     if (event.previousHash !== previousHash || event.hash !== expected) {
       return { valid: false, brokenAt: event.id };
