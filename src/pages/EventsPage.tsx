@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Eye, Filter, Search, Swords, Trophy, Zap, Radar } from 'lucide-react';
+import { CalendarDays, Eye, Filter, Search, Swords, Trophy } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
 import { MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
