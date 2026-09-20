@@ -1,7 +1,11 @@
 export type Lang = 'pl' | 'en' | 'de';
-export const LANGS: Array<{id:Lang;label:string}> = [{id:'pl',label:'PL'},{id:'en',label:'EN'},{id:'de',label:'DE'}];
+export const LANGS: Array<{ id: Lang; label: string }> = [
+  { id: 'pl', label: 'PL' },
+  { id: 'en', label: 'EN' },
+  { id: 'de', label: 'DE' },
+];
 
-const EN_PL: Record<string,string> = {
+const EN_PL: Record<string, string> = {
   'Mecze':'Matches','Kupon':'Coupon','Analiza':'Analysis','Misje':'Missions','Historia':'History',
   'Wydarzenia sportowe':'Sport events','Szukaj drużyny lub ligi':'Search team or league','Data':'Date','Dyscyplina':'Sport','Sortuj':'Sort',
   'Wszystkie':'All','Wszystkie sporty':'All sports','Godzina':'Time','Wartość':'Value','Ruch kursu':'Odds movement','Tylko monitorowane':'Monitored only',
@@ -14,7 +18,7 @@ const EN_PL: Record<string,string> = {
   'Inteligencja sportowa':'Sports intelligence','Dane demonstracyjne':'Demo data','Prawdziwe dane':'Live data','Nadchodzące mecze':'Upcoming matches',
   'Brak danych dostawcy dla':'No provider data for'
 };
-const PL_DE: Record<string,string> = {
+const PL_DE: Record<string, string> = {
   'Mecze':'Spiele','Kupon':'Wettschein','Analiza':'Analyse','Misje':'Missionen','Historia':'Historie',
   'Wydarzenia sportowe':'Sportereignisse','Szukaj drużyny lub ligi':'Team oder Liga suchen','Data':'Datum','Dyscyplina':'Sport','Sortuj':'Sortieren',
   'Wszystkie':'Alle','Wszystkie sporty':'Alle Sportarten','Godzina':'Zeit','Wartość':'Wert','Ruch kursu':'Quotenbewegung','Tylko monitorowane':'Nur überwachte',
@@ -27,39 +31,73 @@ const PL_DE: Record<string,string> = {
   'Inteligencja sportowa':'Sportintelligenz','Dane demonstracyjne':'Demodaten','Prawdziwe dane':'Live-Daten','Nadchodzące mecze':'Kommende Spiele',
   'Brak danych dostawcy dla':'Keine Anbieterdaten für'
 };
-const EN_DE: Record<string,string> = Object.fromEntries(Object.entries(PL_DE).map(([pl,de])=>[EN_PL[pl]??pl,de]));
-const DE_EN: Record<string,string> = Object.fromEntries(Object.entries(EN_DE).map(([en,de])=>[de,en]));
-const DE_PL: Record<string,string> = Object.fromEntries(Object.entries(PL_DE).map(([pl,de])=>[de,pl]));
+const EN_DE: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [EN_PL[pl] ?? pl, de]));
+const DE_EN: Record<string, string> = Object.fromEntries(Object.entries(EN_DE).map(([en, de]) => [de, en]));
+const DE_PL: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [de, pl]));
 
-function mapFor(lang:Lang): Record<string,string> {
-  if(lang==='en') return {...EN_PL,...DE_EN};
-  if(lang==='de') return {...PL_DE,...EN_DE};
-  return {...Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl])),...DE_PL};
+function mapFor(lang: Lang): Record<string, string> {
+  if (lang === 'en') return { ...EN_PL, ...DE_EN };
+  if (lang === 'de') return { ...PL_DE, ...EN_DE };
+  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL };
 }
 
-export function applyLanguage(lang:Lang){
-  document.documentElement.lang=lang;
-  document.documentElement.dataset.lang=lang;
-  const map=mapFor(lang);
-  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
-  const nodes:Text[]=[]; let node:Node|null;
-  while((node=walker.nextNode())) nodes.push(node as Text);
-  for(const text of nodes){
-    const value=text.nodeValue?.trim();
-    if(!value || value.length>160) continue;
-    const replacement=map[value];
-    if(replacement) text.nodeValue=text.nodeValue!.replace(value,replacement);
+const originalText = new WeakMap<Text, string>();
+let activeLang: Lang = 'pl';
+let scheduled = false;
+
+function translateNode(text: Text, map: Record<string, string>) {
+  const current = text.nodeValue ?? '';
+  if (!current.trim()) return;
+  if (!originalText.has(text)) originalText.set(text, current);
+  const source = originalText.get(text) ?? current;
+  const trimmed = source.trim();
+  if (!trimmed || trimmed.length > 160) return;
+  const replacement = map[trimmed];
+  if (!replacement) {
+    if (current !== source) text.nodeValue = source;
+    return;
   }
-  document.querySelectorAll<HTMLElement>('[placeholder],[title],[aria-label]').forEach(el=>{
-    for(const attr of ['placeholder','title','aria-label']){
-      const value=el.getAttribute(attr);
-      if(value && map[value]) el.setAttribute(attr,map[value]);
+  const start = source.indexOf(trimmed);
+  const end = start + trimmed.length;
+  text.nodeValue = `${source.slice(0, start)}${replacement}${source.slice(end)}`;
+}
+
+export function applyLanguage(lang: Lang) {
+  activeLang = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dataset.lang = lang;
+  const map = mapFor(lang);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) nodes.push(node as Text);
+  for (const text of nodes) translateNode(text, map);
+
+  document.querySelectorAll<HTMLElement>('[placeholder],[title],[aria-label]').forEach((el) => {
+    for (const attr of ['placeholder', 'title', 'aria-label']) {
+      const current = el.getAttribute(attr);
+      if (!current) continue;
+      const sourceKey = `data-bb-i18n-${attr}`;
+      const source = el.getAttribute(sourceKey) ?? current;
+      if (!el.hasAttribute(sourceKey)) el.setAttribute(sourceKey, source);
+      const replacement = map[source];
+      if (replacement) el.setAttribute(attr, replacement);
+      else el.setAttribute(attr, source);
     }
   });
 }
-export function installLanguageObserver(lang:Lang){
+
+export function installLanguageObserver(lang: Lang) {
+  activeLang = lang;
   applyLanguage(lang);
-  const observer=new MutationObserver(()=>applyLanguage(lang));
-  observer.observe(document.body,{subtree:true,childList:true,characterData:true});
-  return ()=>observer.disconnect();
+  const observer = new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    window.requestAnimationFrame(() => {
+      scheduled = false;
+      applyLanguage(activeLang);
+    });
+  });
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+  return () => observer.disconnect();
 }
