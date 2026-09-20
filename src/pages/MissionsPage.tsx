@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowUpRight, Radar, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, Loader2, Radar, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import type { MissionStatus } from '../missions/types';
@@ -13,6 +13,49 @@ const ALL_STATUSES: MissionStatus[] = [...MISSION_STATUS_ORDER, 'FAILED', 'CANCE
 export function MissionsPage() {
   const { missions, phase, error, refresh, nowTick } = useIntelligence();
   const [status, setStatus] = useState<MissionStatus | 'all'>('all');
+  const [e2eState, setE2eState] = useState<'idle' | 'running' | 'pass' | 'fail'>('idle');
+  const [e2eMessage, setE2eMessage] = useState<string | null>(null);
+
+  async function runProductionE2E() {
+    setE2eState('running');
+    setE2eMessage(null);
+    try {
+      const candidates = Object.keys(localStorage).filter((key) => key.includes('auth-token'));
+      let accessToken: string | null = null;
+      for (const key of candidates) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw) as { access_token?: string; currentSession?: { access_token?: string } };
+          accessToken = parsed.access_token ?? parsed.currentSession?.access_token ?? null;
+          if (accessToken) break;
+        } catch {
+          // Ignore unrelated localStorage entries.
+        }
+      }
+      if (!accessToken) {
+        setE2eState('fail');
+        setE2eMessage('Brak aktywnej sesji Supabase. Zaloguj się przed uruchomieniem production E2E.');
+        return;
+      }
+
+      const response = await fetch('/api/core-engine-persistence-e2e', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const body = await response.json() as { status?: string; checks?: { authentication?: string; rlsProbe?: { enforced?: boolean } }; error?: string };
+      const passed = response.ok && body.status === 'PASS';
+      setE2eState(passed ? 'pass' : 'fail');
+      setE2eMessage(
+        passed
+          ? `PASS · ${body.checks?.authentication ?? 'SUPABASE_USER'} · RLS boundary verified`
+          : body.error ?? `E2E failed (HTTP ${response.status})`,
+      );
+    } catch (error) {
+      setE2eState('fail');
+      setE2eMessage(error instanceof Error ? error.message : 'Production E2E request failed');
+    }
+  }
 
   const counts = useMemo(() => {
     const map = new Map<MissionStatus, number>();
@@ -76,6 +119,31 @@ export function MissionsPage() {
         <Panel className="p-4"><Stat label="Ledger pending" value={ledgerStats.pending} tone="ai" hint="awaiting settlement" /></Panel>
         <Panel className="p-4"><Stat label="Ledger settled" value={ledgerStats.settled} tone="positive" hint="terminal settlement" /></Panel>
         <Panel className="p-4"><Stat label="Positive CLV rate" value={ledgerStats.positiveClvRate === null ? '—' : `${(ledgerStats.positiveClvRate * 100).toFixed(0)}%`} hint="measured CLV samples" /></Panel>
+      </section>
+
+      <section>
+        <Panel className="border border-mission/20 bg-mission/[.04] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              {e2eState === 'pass' ? <CheckCircle2 className="mt-0.5 text-positive" size={18} /> : e2eState === 'fail' ? <ShieldAlert className="mt-0.5 text-negative" size={18} /> : <ShieldCheck className="mt-0.5 text-mission" size={18} />}
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[.16em] text-mission">Production E2E hardening</div>
+                <div className="mt-1 text-sm font-semibold text-foreground">Lifecycle → API → Supabase → recovery</div>
+                <div className="mt-1 text-xs text-muted">Runs only with the current authenticated Supabase session. No client-side secret is used.</div>
+                {e2eMessage && <div className="mt-2 text-xs text-muted">{e2eMessage}</div>}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void runProductionE2E()}
+              disabled={e2eState === 'running'}
+              className="inline-flex items-center gap-2 rounded-xl bg-mission px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-[.12em] text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+            >
+              {e2eState === 'running' ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+              {e2eState === 'running' ? 'Running…' : 'Run production E2E'}
+            </button>
+          </div>
+        </Panel>
       </section>
 
       <section>
