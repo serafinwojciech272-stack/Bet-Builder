@@ -38,5 +38,8 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Backend health smoke
+        run: npm run test:health
+
       - name: Production build
         run: npm run build
