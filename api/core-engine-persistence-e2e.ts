@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { authenticateSupabaseUser, authorizedByInternalToken } from './auth.js';
 import type { Selection } from '../src/domain/types.js';
 import { runCoreEngineV1 } from '../src/core/coreEngineV1.js';
 import { settleLedgerEntry } from '../src/core/decisionLedger.js';
@@ -51,17 +52,12 @@ function header(req: E2ERequest, name: string): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? '';
 }
 
-function authorized(req: E2ERequest): boolean {
+async function authorized(req: E2ERequest, url: string, serviceRoleKey: string): Promise<{ ok: boolean; authMode: 'INTERNAL_E2E' | 'SUPABASE_USER' | 'NONE'; userId?: string }> {
   const expected = process.env.CORE_ENGINE_E2E_TOKEN?.trim() ?? '';
-  if (!expected) return false;
-
-  const bearer = header(req, 'authorization');
-  const supplied = bearer.toLowerCase().startsWith('bearer ')
-    ? bearer.slice(7).trim()
-    : header(req, 'x-core-engine-e2e-token').trim();
-
-  if (!supplied || supplied.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  if (expected && authorizedByInternalToken(req, expected)) return { ok: true, authMode: 'INTERNAL_E2E' };
+  const user = await authenticateSupabaseUser(req, url, serviceRoleKey);
+  if (user) return { ok: true, authMode: 'SUPABASE_USER', userId: user.id };
+  return { ok: false, authMode: 'NONE' };
 }
 
 async function supabaseRows(url: string, key: string, table: string, query: string): Promise<Record<string, unknown>[]> {
@@ -79,12 +75,15 @@ async function supabaseRows(url: string, key: string, table: string, query: stri
 }
 
 export default async function handler(req: E2ERequest, res: E2EResponse) {
-  if (!authorized(req)) return json(res, 404, { error: 'NOT_FOUND' });
   if (req.method !== 'POST') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
 
   const url = process.env.SUPABASE_URL?.trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) return json(res, 503, { error: 'CORE_ENGINE_PERSISTENCE_NOT_CONFIGURED' });
+
+  const authorization = await authorized(req, url, key);
+  if (!authorization.ok) return json(res, 401, { error: 'UNAUTHORIZED' });
+  const authMode = authorization.authMode;
 
   try {
     const store = createSupabaseCoreEngineLedgerStoreFromEnv();
@@ -275,6 +274,8 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
         returnedAuditChainValid: first.auditIntegrity.valid && second.auditIntegrity.valid,
         idempotency: idempotent,
         observationalOnly: first.executionPolicy === 'OBSERVATIONAL_ONLY',
+        authentication: authMode,
+        authenticatedUserId: authorization.userId ?? null,
         deterministicIdsStable: first.runId === second.runId && first.packet.id === second.packet.id && first.ledgerEntry.id === second.ledgerEntry.id,
         preExistingRows: {
           runs: before.runs.length,
@@ -284,7 +285,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       },
       calibration: first.calibration,
       lifecycle: ['create', 'persist', 'approve', 'execute_observational_only', 'measure', 'complete', 'learn', 'audit', 'restart_recovery'],
-      note: 'Synthetic deterministic E2E lifecycle. Execution is observational only; no monetary execution is performed.',
+      note: 'Synthetic deterministic E2E lifecycle. Execution is observational only; no monetary execution is performed. Supabase bearer authentication is accepted for authenticated operator verification; internal E2E token remains available for trusted automation.',
     });
   } catch (error) {
     return json(res, 500, {
