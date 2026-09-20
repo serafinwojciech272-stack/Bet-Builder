@@ -91,7 +91,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
 
     const before = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
-      ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=like.CE1-*&decision_packet_id=like.DP-*e2e-persistence-selection*&select=id,decision_packet_id`),
+      ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(`LED-DP-${TEST_NOW.getTime()}-e2e-persistence-selection`)}&select=id,decision_packet_id`),
       audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`),
     };
 
@@ -117,6 +117,10 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const auditIntegrity = verifyAuditChain(persistedAudit);
 
     const idempotent =
+      first.runId === TEST_RUN_ID &&
+      second.runId === TEST_RUN_ID &&
+      first.packet.id === second.packet.id &&
+      first.ledgerEntry.id === second.ledgerEntry.id &&
       after.runs.length === 1 &&
       after.ledger.length === 1 &&
       after.audit.length === first.audit.length &&
@@ -151,6 +155,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
         returnedAuditChainValid: first.auditIntegrity.valid && second.auditIntegrity.valid,
         idempotency,
         observationalOnly: first.executionPolicy === 'OBSERVATIONAL_ONLY',
+        deterministicIdsStable: first.runId === second.runId && first.packet.id === second.packet.id && first.ledgerEntry.id === second.ledgerEntry.id,
         preExistingRows: {
           runs: before.runs.length,
           ledger: before.ledger.length,
