@@ -50,38 +50,65 @@ export class LiveSportsDataRepository implements SportsDataRepository {
   private cache = new Map<string, CanonicalDataset>();
   private readonly testFallback = import.meta.env.MODE === 'test';
   private readonly testRepository = new MockSportsDataRepository({ latencyMs: 0 });
+
   async loadCanonicalDataset(options: { date?: string; sport?: string; forceRefresh?: boolean } = {}): Promise<CanonicalDataset> {
     const date = options.date ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const sport = options.sport ?? 'all';
     const cacheKey = `${date}:${sport}`;
     if (this.testFallback) return this.testRepository.loadCanonicalDataset();
     if (!options.forceRefresh && this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
+
     try {
       const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
-      // Production UI lives on Vercel while the live odds service runs on Render.
-      // Prefer the explicit API base and otherwise call the live Render service directly.
-      const apiBase = configuredBase || '';
+      // Same-origin is the canonical deployment path. A split Render/API deployment
+      // remains supported through VITE_API_BASE_URL.
+      const endpoint = configuredBase ? `${configuredBase}/api/odds` : '/api/odds';
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 9000);
       let response: Response;
       try {
-        const endpoint = apiBase ? `${apiBase}/api/odds` : '/api/live-odds';
-        response = await fetch(`${endpoint}?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, { signal: controller.signal });
+        response = await fetch(`${endpoint}?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
       } finally {
         window.clearTimeout(timeout);
       }
+
       if (!response.ok) {
         let detail = `HTTP ${response.status}`;
-        try { const body = await response.json() as { error?: string; message?: string }; detail = body.message ?? body.error ?? detail; } catch { /* Ignore malformed provider error payload. */ }
+        try {
+          const body = await response.json() as { error?: string; message?: string };
+          detail = body.message ?? body.error ?? detail;
+        } catch { /* Keep HTTP status when provider response is not JSON. */ }
         throw new Error(`LIVE_ODDS_UNAVAILABLE: ${detail}`);
       }
+
       const data = await response.json() as CanonicalDataset;
+      if (!Array.isArray(data.events) || !Array.isArray(data.snapshots)) throw new Error('LIVE_ODDS_INVALID_PAYLOAD');
+
+      // Do not silently present deterministic fixtures as live data.
       if (!data.events.length) {
         const fallback = await this.testRepository.loadCanonicalDataset();
         const providerIssues = data.issues ?? [];
-        const degraded = { ...fallback, normalizedAt: new Date().toISOString(), requestedDate: date, provider: 'demo' as const, mode: 'DEMO' as const, availableSports: data.availableSports, quota: data.quota, issues: [{ code: 'live-provider-empty', severity: 'warning' as const, message: providerIssues[0]?.message ?? 'Live provider returned no events.' }, ...providerIssues, ...fallback.issues] };
-        this.cache.set(cacheKey, degraded); return degraded;
+        const degraded = {
+          ...fallback,
+          normalizedAt: new Date().toISOString(),
+          requestedDate: date,
+          provider: 'demo' as const,
+          mode: 'DEMO' as const,
+          availableSports: data.availableSports,
+          quota: data.quota,
+          issues: [
+            { code: 'live-provider-empty', severity: 'warning' as const, message: providerIssues[0]?.message ?? 'Live provider returned no events.' },
+            ...providerIssues,
+            ...fallback.issues,
+          ],
+        };
+        this.cache.set(cacheKey, degraded);
+        return degraded;
       }
+
       const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };
       normalized.providerHealth = data.providerHealth ?? deriveProviderHealth(normalized);
       this.cache.set(cacheKey, normalized);
@@ -89,10 +116,24 @@ export class LiveSportsDataRepository implements SportsDataRepository {
     } catch (error) {
       const fallback = await this.testRepository.loadCanonicalDataset();
       const detail = error instanceof Error ? error.message : 'Unknown provider failure';
-      const degraded = { ...fallback, normalizedAt: new Date().toISOString(), requestedDate: date, provider: 'demo' as const, mode: 'DEMO' as const, availableSports: undefined, quota: undefined, issues: [{ code: 'live-provider-fallback', severity: 'warning' as const, message: `Live odds unavailable (${detail}). Showing deterministic fallback data.` }, ...fallback.issues] };
-      this.cache.set(cacheKey, degraded); return degraded;
+      const degraded = {
+        ...fallback,
+        normalizedAt: new Date().toISOString(),
+        requestedDate: date,
+        provider: 'demo' as const,
+        mode: 'DEMO' as const,
+        availableSports: undefined,
+        quota: undefined,
+        issues: [
+          { code: 'live-provider-fallback', severity: 'warning' as const, message: `Live odds unavailable (${detail}). Showing deterministic fallback data.` },
+          ...fallback.issues,
+        ],
+      };
+      this.cache.set(cacheKey, degraded);
+      return degraded;
     }
   }
+
   async getEvent(eventId: string) { const data = await this.loadCanonicalDataset(); return data.events.find(e => e.id === eventId) ?? null; }
   async getSnapshots(eventId: string) { const data = await this.loadCanonicalDataset(); return data.snapshots.filter(s => s.eventId === eventId); }
 }
