@@ -1,5 +1,4 @@
 import { LiveSportsDataRepository, type SportsDataRepository } from '../domain/repositories';
-import { primaryMarketFor } from '../domain/services/movementService';
 import type { CorrelationContextEntry } from '../domain/services/riskService';
 import { MockAIAnalysisService } from '../ai/MockAIAnalysisService';
 import { QuantAwareAnalysisService } from '../ai/quantAwareAnalysisService';
@@ -26,7 +25,7 @@ export function createWorkspace(): Workspace {
   const dataRepository = new LiveSportsDataRepository();
   const coreEngine = new MockCoreEngineClient({ stepDelayMs: 320 });
   const decisionMemory = new InMemoryDecisionMemory();
-  let correlationCache: CorrelationContextEntry[] = [];
+  const correlationCache: CorrelationContextEntry[] = [];
   let failNext = false;
   const correlationContext = () => correlationCache;
 
