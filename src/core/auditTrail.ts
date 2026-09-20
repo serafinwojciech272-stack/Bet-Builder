@@ -5,7 +5,12 @@ export type AuditEventType =
   | 'PACKET_CREATED'
   | 'LEDGER_RECORDED'
   | 'SETTLEMENT_RECORDED'
-  | 'LEARNING_EVALUATED';
+  | 'LEARNING_EVALUATED'
+  | 'APPROVAL_RECORDED'
+  | 'EXECUTION_RECORDED'
+  | 'MEASUREMENT_RECORDED'
+  | 'COMPLETION_RECORDED'
+  | 'RECOVERY_VERIFIED';
 
 export interface AuditEvent {
   id: string;
