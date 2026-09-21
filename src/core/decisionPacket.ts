@@ -2,6 +2,9 @@ import type { OptimizationResult, DecisionGateInput } from './types.js';
 import type { DecisionCenterResult } from './decisionCenter.js';
 import type { EventResearch } from '../research/types.js';
 import type { ResearchEvidence } from './researchEvidenceEngine.js';
+import { buildEvidenceGraph } from '../decision/evidenceGraph.js';
+import { compileMission } from '../decision/missionCompiler.js';
+import type { ModelResponse } from '../decision/modelRouter.js';
 
 export interface DecisionPacketSelection { id:string; eventId:string; marketId?:string; odds:number; probability:number; confidence:number; risk:string; correlationGroup:string; }
 export interface DecisionPacket {
@@ -10,15 +13,15 @@ export interface DecisionPacket {
   selections:DecisionPacketSelection[]; coreOptimization:OptimizationResult|null; research:EventResearch|null; researchEvidence:ResearchEvidence|null; mission:{eligible:boolean;reason:string};
 }
 
-export function createDecisionPacket(decision:DecisionCenterResult,selections:DecisionPacketSelection[],optimization:OptimizationResult|null=null,now=new Date(),research:EventResearch|null=null,researchEvidence:ResearchEvidence|null=null):DecisionPacket{
+export function createDecisionPacket(decision:DecisionCenterResult,selections:DecisionPacketSelection[],optimization:OptimizationResult|null=null,now=new Date(),research:EventResearch|null=null,researchEvidence:ResearchEvidence|null=null,providerReasoning:ModelResponse|null=null):DecisionPacket{
   const status=decision.status, blockers=[...decision.blockers], warnings=[...decision.warnings], trace=[...decision.trace];
   if(optimization)trace.push('Core Engine optimization: '+optimization.selections.length+' selected, '+optimization.rejectedSelections.length+' rejected.');
   if(research){trace.push('Deep research: '+research.sources.length+' sources, '+research.findings.length+' findings, quality '+(research.researchQuality*100).toFixed(0)+'%.');trace.push('Research consensus: '+research.consensus.direction+'; lineup status: '+research.lineupStatus+'.');}
   if(researchEvidence){trace.push('Evidence Engine: '+(researchEvidence.quality*100).toFixed(0)+'% quality, '+researchEvidence.evidence.length+' evidence item(s), '+researchEvidence.conflicts.length+' conflict(s).');trace.push('Evidence digest: '+researchEvidence.digest+'.');}
   trace.push('Decision Packet status: '+status+'.');
   const evidenceGraph=buildEvidenceGraph(decision,researchEvidence);
-  const reasoning=deterministicReasoningAdapter;
-  const reasoningResult={provider:reasoning.provider,model:reasoning.model,text:status==='BLOCKED'?'Decision blocked by explicit gate conditions.':warnings.length?'Decision requires review; warnings remain in the evidence chain.':'Decision evidence is internally consistent; human approval remains mandatory.',confidence:status==='BLOCKED'?1:.78,degraded:false};
+  const reasoning=providerReasoning??deterministicReasoningAdapter;
+  const reasoningResult=providerReasoning??{provider:reasoning.provider,model:reasoning.model,text:status==='BLOCKED'?'Decision blocked by explicit gate conditions.':warnings.length?'Decision requires review; warnings remain in the evidence chain.':'Decision evidence is internally consistent; human approval remains mandatory.',confidence:status==='BLOCKED'?1:.78,degraded:false};
   const stance: 'constructive'|'neutral'|'cautious'|'avoid'=status==='BLOCKED'?'avoid':status==='CAUTION'?'cautious':'constructive';
   const missionPlan=compileMission(decision,evidenceGraph,{stance,synthesis:reasoningResult.text,factors:decision.strengths,uncertainties:[...warnings,...blockers],model:reasoningResult});
   return {
