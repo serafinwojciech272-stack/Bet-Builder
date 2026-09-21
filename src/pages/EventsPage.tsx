@@ -7,6 +7,7 @@ import { MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
 import type { SportKey } from '../domain/types';
 import { Chip, EmptyState, ErrorState, LoadingState, Panel, SectionHeading, Stat } from '../components/ui';
 import { dateTime, relativeTime } from '../lib/format';
+import { AICommandCenter } from '../components/AICommandCenter';
 
 type SortKey = 'start' | 'edge' | 'movement';
 
@@ -68,6 +69,8 @@ export function EventsPage() {
         <div className="bb-decision-node" data-tone="green"><small>04 · DECISION</small><strong>CONTROL GATE</strong><span>evidence przed akcją</span></div>
         <div className="bb-decision-node" data-tone="red"><small>05 · MISSION</small><strong>HUMAN APPROVAL</strong><span>execute → measure → learn</span></div>
       </section>
+
+      <AICommandCenter />
 
       <SectionHeading title="Wydarzenia sportowe" subtitle="Wybierz wydarzenie. Silnik przeprowadzi Cię od danych rynkowych przez analizę do decyzji." icon={<Eye size={18} className="text-ai" aria-hidden />} />
       <Panel className="p-4">
