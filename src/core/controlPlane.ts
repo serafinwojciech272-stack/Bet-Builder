@@ -13,8 +13,15 @@ export interface PortfolioControl {
 }
 const clamp=(n:number)=>Math.max(0,Math.min(1,n));
 
-export function evaluateControlPlane(selections:Selection[], decision:DecisionCenterResult=evaluateDecisionCenter(selections), research:EventResearch|null=null):PortfolioControl {
+export function evaluateControlPlane(selections:Selection[], decision:DecisionCenterResult=evaluateDecisionCenter(selections), research:EventResearch|null|Record<string,EventResearch>=null):PortfolioControl {
   const hardStops:string[]=[]; const reviewFlags:string[]=[];
+  const researchEntries:EventResearch[] = research ? ('eventId' in research ? [research as EventResearch] : Object.values(research as Record<string,EventResearch>)) : [];
+  const researchSourceCount = researchEntries.reduce((sum,r)=>sum+r.sources.length,0);
+  const researchFindingCount = researchEntries.reduce((sum,r)=>sum+r.findings.length,0);
+  const researchQuality = researchEntries.length ? researchEntries.reduce((sum,r)=>sum+r.researchQuality,0)/researchEntries.length : 0;
+  const researchWarnings = researchEntries.flatMap(r=>r.warnings.map(w=>`${r.eventId}: ${w}`));
+  const selectedEventIds = new Set(selections.map(s=>s.eventId));
+  const researchReady = researchEntries.length===selectedEventIds.size && researchEntries.every(r=>selectedEventIds.has(r.eventId)&&r.researchQuality>=.5&&r.sources.length>=3);
   if(!selections.length) hardStops.push('EMPTY_PORTFOLIO');
   if(decision.blockers.length) hardStops.push(...decision.blockers.map(b=>`DECISION_CENTER: ${b}`));
   if(decision.marketQuality.grade==='D') reviewFlags.push('MARKET_QUALITY_D');
@@ -24,10 +31,9 @@ export function evaluateControlPlane(selections:Selection[], decision:DecisionCe
   if(decision.ev<0) reviewFlags.push('NEGATIVE_MODEL_EV');
   if(decision.marketQuality.freshness<0.5) reviewFlags.push('STALE_PRICE_INPUT');
   if(decision.marketQuality.freshness<0.25) hardStops.push('PRICE_FEED_TOO_STALE');
-  const researchGate=research?{ready:research.researchQuality>=.5&&research.sources.length>=3,quality:research.researchQuality,findings:research.findings.length,sources:research.sources.length,warnings:research.warnings}: {ready:false,quality:0,findings:0,sources:0,warnings:['Deep research has not been completed.']};
+  const researchGate=researchEntries.length?{ready:researchReady,quality:researchQuality,findings:researchFindingCount,sources:researchSourceCount,warnings:researchWarnings}: {ready:false,quality:0,findings:0,sources:0,warnings:['Deep research has not been completed for the selected event set.']};
   if(selections.length && !researchGate.ready) reviewFlags.push('RESEARCH_GATE_NOT_READY');
-  if(research && research.lineupStatus==='unknown') reviewFlags.push('LINEUP_UNCERTAIN');
-  if(research && research.consensus.direction==='mixed') reviewFlags.push('RESEARCH_CONTRADICTION');
+  researchEntries.forEach(r=>{if(r.lineupStatus==='unknown') reviewFlags.push(`LINEUP_UNCERTAIN:${r.eventId}`);if(r.consensus.direction==='mixed') reviewFlags.push(`RESEARCH_CONTRADICTION:${r.eventId}`);});
 
   const opportunitySignals=selections.map(s=>{
     const edge=s.probability-s.impliedProbability, ev=s.probability*s.odds-1;
@@ -37,8 +43,9 @@ export function evaluateControlPlane(selections:Selection[], decision:DecisionCe
     if(ev>0) reasons.push('positive model EV');
     if(s.confidence>=.7) reasons.push('high model confidence');
     if(s.risk==='HIGH'||s.risk==='CRITICAL') reasons.push('elevated selection risk');
-    if(research?.consensus.direction==='supportive') reasons.push('research consensus supportive');
-    if(research?.consensus.direction==='adverse') reasons.push('research consensus adverse');
+    const eventResearch=researchEntries.find(r=>r.eventId===s.eventId);
+    if(eventResearch?.consensus.direction==='supportive') reasons.push('research consensus supportive');
+    if(eventResearch?.consensus.direction==='adverse') reasons.push('research consensus adverse');
     return {selectionId:s.id,eventId:s.eventId,edge,ev,confidence:s.confidence,quality:clamp(s.confidence-({LOW:0,MEDIUM:.12,HIGH:.25,CRITICAL:.4}[s.risk]??.15)+.25),signalScore,reasons};
   }).sort((a,b)=>b.signalScore-a.signalScore);
 
@@ -51,7 +58,7 @@ export function evaluateControlPlane(selections:Selection[], decision:DecisionCe
   const controlDecision:ControlDecision=hardStops.length?'BLOCK':reviewFlags.length?'REVIEW_REQUIRED':'PROCEED_TO_ANALYSIS';
   return {decision:controlDecision,hardStops,reviewFlags,opportunitySignals,counterfactual:{removeWorstSelectionId,evDelta,confidenceDelta,correlationDelta,interpretation},researchGate,auditTrail:[
     `Control Plane evaluated ${selections.length} selection(s).`,`Decision Center status: ${decision.status}.`,`Market quality: ${decision.marketQuality.grade}.`,
-    `Research gate: ${researchGate.ready?'READY':'REVIEW'} (${(researchGate.quality*100).toFixed(0)}%, ${researchGate.sources} sources).`,
+    `Research gate: ${researchGate.ready?'READY':'REVIEW'} (${(researchGate.quality*100).toFixed(0)}%, ${researchGate.sources} sources across ${researchEntries.length} event(s)).`,
     `Opportunity signals ranked: ${opportunitySignals.length}.`,removeWorstSelectionId?`Counterfactual removal tested: ${removeWorstSelectionId}.`:'Counterfactual removal skipped.',`Control decision: ${controlDecision}.`
   ]};
 }
