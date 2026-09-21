@@ -6,7 +6,7 @@ import type { AIAnalysisService } from '../ai/AIAnalysisService';
 import { InMemoryAnalysisRepository, type AnalysisRepository } from '../ai/AnalysisRepository';
 import { InMemoryMissionRepository, type MissionRepository } from '../missions/MissionRepository';
 import { MissionService } from '../missions/missionService';
-import { MockCoreEngineClient, type CoreEngineClient } from '../engine/CoreEngineClient';
+import { LiveCoreEngineClient, MockCoreEngineClient, type CoreEngineClient } from '../engine/CoreEngineClient';
 import { InMemoryDecisionMemory, type DecisionMemoryRepository } from '../analytics/decisionMemory';
 
 export interface Workspace {
@@ -23,7 +23,9 @@ export interface Workspace {
 
 export function createWorkspace(): Workspace {
   const dataRepository = new LiveSportsDataRepository();
-  const coreEngine = new MockCoreEngineClient({ stepDelayMs: 320 });
+  const coreEngine: CoreEngineClient = import.meta.env.MODE === 'test'
+    ? new MockCoreEngineClient({ stepDelayMs: 320 })
+    : new LiveCoreEngineClient();
   const decisionMemory = new InMemoryDecisionMemory();
   const correlationCache: CorrelationContextEntry[] = [];
   let failNext = false;
