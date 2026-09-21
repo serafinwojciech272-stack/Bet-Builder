@@ -63,7 +63,7 @@ export function IntelligenceProvider({ children }: { children: ReactNode }) {
     setAnalysisJobs((p) => ({ ...p, [eventId]: { status: 'loading' } }));
     try { const analysis = await workspace.analysisService.analyzeEvent({ eventId, market: options?.market, depth: options?.depth ?? 'standard', requestedBy: operator }); await workspace.analysisRepository.save(analysis); await syncStores(); setAnalysisJobs((p) => ({ ...p, [eventId]: { status: 'idle' } })); pushToast({ tone: 'success', title: 'Analysis complete', detail: `${analysis.context.eventLabel} · confidence ${(analysis.confidence.score.value * 100).toFixed(0)}%` }); return analysis; }
     catch (e) { const message = e instanceof Error ? e.message : 'Analysis failed'; setAnalysisJobs((p) => ({ ...p, [eventId]: { status: 'error', error: message, retryable: e instanceof AnalysisError ? e.retryable : true } })); pushToast({ tone: 'error', title: 'Analysis failed', detail: message }); return null; }
-  }, [workspace, syncStores, pushToast]);
+  }, [workspace, syncStores, pushToast, operator]);
   const optimizeBuilder = useCallback<IntelligenceValue['optimizeBuilder']>(async (request) => {
     try { return await workspace.coreEngine.optimizeBuilder(request); }
     catch (e) { pushToast({ tone: 'error', title: 'Core optimization failed', detail: e instanceof Error ? e.message : 'Unknown optimization error' }); return null; }
@@ -74,7 +74,7 @@ export function IntelligenceProvider({ children }: { children: ReactNode }) {
   const createMission = useCallback<IntelligenceValue['createMission']>(async (analysis, action, options) => {
     try { const mission = buildMissionFromAnalysis(analysis, action, { createdBy: operator, ...options }); await workspace.missionService.saveDraft(mission); await syncStores(); pushToast({ tone: 'success', title: 'Mission drafted', detail: `${mission.id} created in DRAFT — approval required before execution.` }); return mission; }
     catch (e) { pushToast({ tone: 'error', title: 'Could not draft mission', detail: e instanceof Error ? e.message : 'Unknown error' }); return null; }
-  }, [workspace, syncStores, pushToast]);
+  }, [workspace, syncStores, pushToast, operator]);
   const toggleCheck = useCallback<IntelligenceValue['toggleCheck']>(async (missionId, checkId) => { await withMissionBusy(missionId, async () => { await workspace.missionService.toggleChecklistItem(missionId, checkId, operator); }); }, [workspace, withMissionBusy]);
   const requestApproval = useCallback<IntelligenceValue['requestApproval']>(async (missionId) => withMissionBusy(missionId, async () => { await workspace.missionService.requestApproval(missionId, operator); pushToast({ tone: 'info', title: 'Sent to approval gate', detail: missionId }); }), [workspace, withMissionBusy, pushToast]);
   const approveMission = useCallback<IntelligenceValue['approveMission']>(async (missionId, note) => withMissionBusy(missionId, async () => { await workspace.missionService.approve(missionId, operator, note); pushToast({ tone: 'success', title: 'Mission approved', detail: `${missionId} may now execute.` }); }), [workspace, withMissionBusy, pushToast]);
