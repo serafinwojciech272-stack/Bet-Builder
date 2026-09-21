@@ -82,7 +82,8 @@ export class LiveCoreEngineClient implements CoreEngineClient {
     return { accepted: true, engineRef, acceptedAt: new Date().toISOString() };
   }
 
-  async executeMission(mission: Mission, _analysis: AnalysisResponse | null): Promise<ExecutionInfo> {
+  async executeMission(mission: Mission, analysis: AnalysisResponse | null): Promise<ExecutionInfo> {
+    void analysis;
     const ack = await this.submitMission(mission);
     const startedAt = new Date().toISOString();
     const result = await this.call('execute', { engineRef: ack.engineRef });
