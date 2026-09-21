@@ -14,7 +14,7 @@ const hash=(s:string)=>{let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=
 
 export function orchestrateDecision(selections:Selection[],research:EventResearch|null|Record<string,EventResearch>=null):DecisionOrchestratorResult{
   const decision=evaluateDecisionCenter(selections);
-  const researchByEventId:Record<string,EventResearch> = research ? ('eventId' in research ? {[research.eventId]:research as EventResearch} : research as Record<string,EventResearch>) : {};
+  const researchByEventId:Record<string,EventResearch> = research ? ('eventId' in research ? (()=>{const single=research as EventResearch;return {[single.eventId]:single};})() : research as Record<string,EventResearch>) : {};
   const evidenceByEventId:Record<string,ResearchEvidence> = Object.fromEntries(Object.entries(researchByEventId).map(([eventId,item])=>[eventId,buildResearchEvidence(item)]));
   const evidence=Object.values(evidenceByEventId)[0]??null;
   const control=evaluateControlPlane(selections,decision,researchByEventId);
