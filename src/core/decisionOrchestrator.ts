@@ -6,16 +6,18 @@ import { buildResearchEvidence, type ResearchEvidence } from './researchEvidence
 
 export type OrchestratorStage='INGESTED'|'RESEARCHED'|'CONTROLLED'|'ANALYZED'|'PACKET_READY'|'MISSION_READY'|'REVIEW_REQUIRED'|'BLOCKED';
 export interface DecisionOrchestratorResult {
-  version:'1.0'; stage:OrchestratorStage; selections:Selection[]; research:EventResearch|null; evidence:ResearchEvidence|null;
+  version:'1.0'; stage:OrchestratorStage; selections:Selection[]; research:EventResearch|null; researchByEventId:Record<string,EventResearch>; evidence:ResearchEvidence|null; evidenceByEventId:Record<string,ResearchEvidence>;
   control:PortfolioControl; decision:DecisionCenterResult; missionReady:boolean; packetEligible:boolean;
   recommendedAction:{kind:string;reason:string}|null; blockers:string[]; reviewFlags:string[]; auditTrail:string[]; fingerprint:string;
 }
 const hash=(s:string)=>{let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 
-export function orchestrateDecision(selections:Selection[],research:EventResearch|null=null):DecisionOrchestratorResult{
+export function orchestrateDecision(selections:Selection[],research:EventResearch|null|Record<string,EventResearch>=null):DecisionOrchestratorResult{
   const decision=evaluateDecisionCenter(selections);
-  const evidence=research?buildResearchEvidence(research):null;
-  const control=evaluateControlPlane(selections,decision,research);
+  const researchByEventId:Record<string,EventResearch> = research ? ('eventId' in research ? {[research.eventId]:research as EventResearch} : research as Record<string,EventResearch>) : {};
+  const evidenceByEventId:Record<string,ResearchEvidence> = Object.fromEntries(Object.entries(researchByEventId).map(([eventId,item])=>[eventId,buildResearchEvidence(item)]));
+  const evidence=Object.values(evidenceByEventId)[0]??null;
+  const control=evaluateControlPlane(selections,decision,researchByEventId);
   const blockers=[...control.hardStops];
   const reviewFlags=[...control.reviewFlags];
   const packetEligible=blockers.length===0&&control.researchGate.ready;
@@ -30,8 +32,8 @@ export function orchestrateDecision(selections:Selection[],research:EventResearc
   const recommendedAction=top?{kind:missionReady?(control.reviewFlags.includes('HIGH_DEPENDENCY')?'CORRELATION_GUARD':control.reviewFlags.includes('NEGATIVE_MODEL_EV')?'VALUE_CONFIRMATION':'REASSESS_ON_MOVEMENT'):'DATA_QUALITY_WATCH',reason:top.reasons.join('; ')||'Monitor the highest-ranked opportunity signal.'}:null;
   const auditTrail=[...control.auditTrail,...(evidence?.auditTrail??[])];
   auditTrail.push(`Orchestrator stage: ${stage}.`,`Packet eligibility: ${packetEligible?'YES':'NO'}; mission readiness: ${missionReady?'YES':'NO'}.`);
-  const fingerprint=hash(JSON.stringify({version:'1.0',selectionIds:selections.map(s=>s.id),researchDigest:research?.digest??null,decision:{status:decision.status,ev:decision.ev,confidence:decision.confidence,marketQuality:decision.marketQuality.score},control:control.decision}));
-  return {version:'1.0',stage,selections,research,evidence,control,decision,missionReady,packetEligible,recommendedAction,blockers,reviewFlags,auditTrail,fingerprint};
+  const fingerprint=hash(JSON.stringify({version:'1.0',selectionIds:selections.map(s=>s.id),researchDigests:Object.fromEntries(Object.entries(researchByEventId).map(([eventId,item])=>[eventId,item.digest])),decision:{status:decision.status,ev:decision.ev,confidence:decision.confidence,marketQuality:decision.marketQuality.score},control:control.decision}));
+  return {version:'1.0',stage,selections,research:Object.values(researchByEventId)[0]??null,researchByEventId,evidence,evidenceByEventId,control,decision,missionReady,packetEligible,recommendedAction,blockers,reviewFlags,auditTrail,fingerprint};
 }
 
 export function assertOrchestratorReady(result:DecisionOrchestratorResult):void{
