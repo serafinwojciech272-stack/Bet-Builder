@@ -20,6 +20,13 @@ type ReasoningRequest = {
   task?: 'reason';
 };
 
+type ReasoningProviderResponse = {
+  stance?: unknown;
+  synthesis?: unknown;
+  factors?: unknown;
+  uncertainties?: unknown;
+};
+
 const SYSTEM = [
   'You are the evidence-aware reasoning layer of a governed Decision Platform.',
   'You do not approve, execute, place, or recommend a bet.',
@@ -29,6 +36,12 @@ const SYSTEM = [
   'stance must be one of constructive, neutral, cautious, avoid.',
   'If status is BLOCKED, stance must be avoid and synthesis must preserve the blockers.',
 ].join(' ');
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const stringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 6) : [];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
@@ -70,14 +83,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const content = raw.choices?.[0]?.message?.content;
     if (!content) return res.status(502).json({ error: 'AI_EMPTY_RESPONSE', provider: 'openrouter' });
 
-    let parsed: any;
-    try { parsed = JSON.parse(content); } catch { return res.status(502).json({ error: 'AI_INVALID_JSON', provider: 'openrouter' }); }
-    const stance = ['constructive','neutral','cautious','avoid'].includes(parsed.stance) ? parsed.stance : 'neutral';
+    let parsed: ReasoningProviderResponse = {};
+    try {
+      const candidate: unknown = JSON.parse(content);
+      parsed = isRecord(candidate) ? candidate as ReasoningProviderResponse : {};
+    } catch {
+      return res.status(502).json({ error: 'AI_INVALID_JSON', provider: 'openrouter' });
+    }
+    const stance = ['constructive','neutral','cautious','avoid'].includes(String(parsed.stance))
+      ? String(parsed.stance)
+      : 'neutral';
     const decisionStatus = body.decision.status;
     const guardedStance = decisionStatus === 'BLOCKED' ? 'avoid' : stance;
     const synthesis = typeof parsed.synthesis === 'string' ? parsed.synthesis.slice(0, 1200) : 'Provider returned no usable synthesis.';
-    const factors = Array.isArray(parsed.factors) ? parsed.factors.filter((x:any)=>typeof x==='string').slice(0,6) : [];
-    const uncertainties = Array.isArray(parsed.uncertainties) ? parsed.uncertainties.filter((x:any)=>typeof x==='string').slice(0,6) : [];
+    const factors = stringArray(parsed.factors);
+    const uncertainties = stringArray(parsed.uncertainties);
     return res.status(200).json({ provider:'openrouter', model, stance:guardedStance, synthesis, factors, uncertainties, degraded:false, evidenceDigest:body.evidence.digest });
   } catch (error) {
     return res.status(502).json({ error: error instanceof Error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNAVAILABLE', provider:'openrouter' });
