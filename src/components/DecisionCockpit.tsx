@@ -1,6 +1,7 @@
 import { BrainCircuit, CheckCircle2, CircleAlert, GitBranch, Gauge, ShieldCheck, Sparkles } from 'lucide-react';
 import type { DecisionCenterResult } from '../core/decisionCenter';
 import type { OptimizationResult } from '../core/types';
+import { buildUniversalDecisionPacket } from '../decision/UniversalDecisionEngine';
 
 type Props = { result: DecisionCenterResult; optimization: OptimizationResult | null };
 
@@ -9,6 +10,7 @@ const tone = (status: DecisionCenterResult['status']) => status === 'READY' ? 'r
 
 export function DecisionCockpit({ result, optimization }: Props) {
   const t = tone(result.status);
+  const universal = buildUniversalDecisionPacket(result, optimization);
   const layers = [
     ['01', 'MARKET', result.marketQuality.grade, result.marketQuality.score],
     ['02', 'MODEL', pct(result.confidence), result.confidence],
@@ -29,6 +31,10 @@ export function DecisionCockpit({ result, optimization }: Props) {
       <div><GitBranch size={14}/><span>DEPENDENCY</span><strong>{result.dependencyMultiplier.toFixed(3)}×</strong></div>
       <div><Sparkles size={14}/><span>ADJUSTED PROB.</span><strong>{pct(result.adjustedProbability)}</strong></div>
       <div><ShieldCheck size={14}/><span>GATE</span><strong>{result.blockers.length ? 'BLOCKED' : result.warnings.length ? 'REVIEW' : 'CLEAR'}</strong></div>
+    </div>
+    <div className="bb-universal-strip" aria-label="Universal Decision Engine">
+      <div><small>UNIVERSAL DECISION ENGINE</small><strong>DATA → INTELLIGENCE → DECISION → HUMAN GATE → MISSION</strong></div>
+      <div className="bb-universal-state"><span>{universal.domain.toUpperCase()}</span><b>{universal.missionReady ? 'MISSION READY' : result.blockers.length ? 'GATE BLOCKED' : 'HUMAN REVIEW'}</b></div>
     </div>
     {(result.blockers.length || result.warnings.length) ? <div className="bb-cockpit-alerts">{result.blockers.slice(0,2).map(x=><div key={x}><CircleAlert size={13}/>{x}</div>)}{result.warnings.slice(0,2).map(x=><div key={x}><CircleAlert size={13}/>{x}</div>)}</div> : <div className="bb-cockpit-clear"><CheckCircle2 size={14}/> Evidence chain is internally consistent. Human approval remains required before execution.</div>}
   </section>;
