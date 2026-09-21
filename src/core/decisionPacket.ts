@@ -1,4 +1,5 @@
 import type { OptimizationResult, DecisionGateInput } from './types.js';
+import type { AnalysisResponse } from '../ai/contracts.js';
 import type { DecisionCenterResult } from './decisionCenter.js';
 import type { EventResearch } from '../research/types.js';
 import type { ResearchEvidence } from './researchEvidenceEngine.js';
