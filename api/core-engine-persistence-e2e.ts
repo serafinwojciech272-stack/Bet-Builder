@@ -114,7 +114,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const before = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
       ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(`LED-DP-${TEST_NOW.getTime()}-e2e-persistence-selection`)}&select=id,decision_packet_id`),
-      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`),
+      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`),
     };
 
     const first = await runCoreEngineV1([selection], null, store, TEST_NOW);
@@ -194,7 +194,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const recoveryStore = createSupabaseCoreEngineLedgerStoreFromEnv();
     if (!recoveryStore) throw new Error('CORE_ENGINE_PERSISTENCE_NOT_CONFIGURED');
     const recoveredLedger = (await recoveryStore.list()).find((entry) => entry.id === lifecycleLedger.id);
-    const recoveredAudit = await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`);
+    const recoveredAudit = await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`);
     const recoveredAuditEvents = recoveredAudit.map((row) => ({
       id: String(row.id),
       runId: String(row.run_id),
@@ -225,7 +225,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const after = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
       ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(first.ledgerEntry.id)}&select=id,decision_packet_id,status`),
-      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`),
+      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`),
     };
 
     const persistedAudit = after.audit.map((row) => ({
