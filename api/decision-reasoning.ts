@@ -1,5 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+type ReasoningResponse = {
+  stance?: unknown;
+  synthesis?: unknown;
+  factors?: unknown;
+  uncertainties?: unknown;
+};
+
+const isString = (value: unknown): value is string => typeof value === 'string';
+
 type ReasoningRequest = {
   decision: {
     status: 'READY'|'CAUTION'|'BLOCKED';
@@ -70,14 +79,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const content = raw.choices?.[0]?.message?.content;
     if (!content) return res.status(502).json({ error: 'AI_EMPTY_RESPONSE', provider: 'openrouter' });
 
-    let parsed: any;
+    let parsed: ReasoningResponse;
     try { parsed = JSON.parse(content); } catch { return res.status(502).json({ error: 'AI_INVALID_JSON', provider: 'openrouter' }); }
     const stance = ['constructive','neutral','cautious','avoid'].includes(parsed.stance) ? parsed.stance : 'neutral';
     const decisionStatus = body.decision.status;
     const guardedStance = decisionStatus === 'BLOCKED' ? 'avoid' : stance;
     const synthesis = typeof parsed.synthesis === 'string' ? parsed.synthesis.slice(0, 1200) : 'Provider returned no usable synthesis.';
-    const factors = Array.isArray(parsed.factors) ? parsed.factors.filter((x:any)=>typeof x==='string').slice(0,6) : [];
-    const uncertainties = Array.isArray(parsed.uncertainties) ? parsed.uncertainties.filter((x:any)=>typeof x==='string').slice(0,6) : [];
+    const factors = Array.isArray(parsed.factors) ? parsed.factors.filter(isString).slice(0,6) : [];
+    const uncertainties = Array.isArray(parsed.uncertainties) ? parsed.uncertainties.filter(isString).slice(0,6) : [];
     return res.status(200).json({ provider:'openrouter', model, stance:guardedStance, synthesis, factors, uncertainties, degraded:false, evidenceDigest:body.evidence.digest });
   } catch (error) {
     return res.status(502).json({ error: error instanceof Error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNAVAILABLE', provider:'openrouter' });
