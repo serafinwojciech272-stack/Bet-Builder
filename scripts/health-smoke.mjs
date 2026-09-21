@@ -4,6 +4,7 @@ const port = 10001;
 const child = spawn('npm', ['run', 'start'], {
   env: { ...process.env, PORT: String(port), PARLAY_API_KEY: '' },
   stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true,
 });
 
 let output = '';
@@ -35,6 +36,5 @@ try {
 
   console.log(`Health smoke PASS in ${Date.now() - startedAt}ms`);
 } finally {
-  child.kill('SIGTERM');
-  setTimeout(() => child.kill('SIGKILL'), 1000).unref();
+  try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
 }
