@@ -2,13 +2,15 @@ import { BrainCircuit, CheckCircle2, CircleAlert, GitBranch, Gauge, ShieldCheck,
 import type { DecisionCenterResult } from '../core/decisionCenter';
 import type { OptimizationResult } from '../core/types';
 import { buildUniversalDecisionPacket } from '../decision/UniversalDecisionEngine';
+import type { ModelResponse } from '../decision/modelRouter';
+import type { EvidenceGraph } from '../decision/evidenceGraph';
 
-type Props = { result: DecisionCenterResult; optimization: OptimizationResult | null };
+type Props = { result: DecisionCenterResult; optimization: OptimizationResult | null; providerReasoning?: ModelResponse | null; evidenceGraph?: EvidenceGraph };
 
 const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
 const tone = (status: DecisionCenterResult['status']) => status === 'READY' ? 'ready' : status === 'CAUTION' ? 'caution' : 'blocked';
 
-export function DecisionCockpit({ result, optimization }: Props) {
+export function DecisionCockpit({ result, optimization, providerReasoning, evidenceGraph }: Props) {
   const t = tone(result.status);
   const universal = buildUniversalDecisionPacket(result, optimization);
   const layers = [
@@ -25,6 +27,12 @@ export function DecisionCockpit({ result, optimization }: Props) {
     </div>
     <div className="bb-cockpit-layers">
       {layers.map(([n,label,value,score],i)=><div className="bb-cockpit-layer" key={label}><span>{n}</span><div><small>{label}</small><strong>{value}</strong></div><div className="bb-cockpit-bar"><i style={{width:`${Math.max(5,Math.min(100,score*100))}%`}} /></div>{i<layers.length-1?<b>→</b>:null}</div>)}
+    </div>
+    <div className="bb-cockpit-bottom">
+      <div><BrainCircuit size={14}/><span>MODEL</span><strong>{providerReasoning?.model ?? 'decision-rule-engine-1.0'}</strong></div>
+      <div><Sparkles size={14}/><span>PROVIDER</span><strong>{providerReasoning?.provider ?? 'deterministic'}</strong></div>
+      <div><GitBranch size={14}/><span>EVIDENCE GRAPH</span><strong>{evidenceGraph ? `${evidenceGraph.nodes.length}N · ${evidenceGraph.edges.length}E` : 'PENDING'}</strong></div>
+      <div><ShieldCheck size={14}/><span>GRAPH COVERAGE</span><strong>{evidenceGraph ? pct(evidenceGraph.coverage) : '—'}</strong></div>
     </div>
     <div className="bb-cockpit-bottom">
       <div><Gauge size={14}/><span>QUALITY</span><strong>{pct(result.quality)}</strong></div>
