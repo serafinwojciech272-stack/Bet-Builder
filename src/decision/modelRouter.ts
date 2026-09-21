@@ -25,25 +25,10 @@ export const deterministicReasoningAdapter:ModelAdapter={
 };
 
 
-export const deterministicReasoningAdapter:ModelAdapter={
- provider:'deterministic',model:'decision-rule-engine-1.0',async available(){return true},
- async run(request){
-  const blockers=Array.isArray(request.context.blockers)?request.context.blockers as string[]:[];
-  const warnings=Array.isArray(request.context.warnings)?request.context.warnings as string[]:[];
-  const text=blockers.length?'Decision blocked by '+blockers.length+' explicit gate condition(s).':warnings.length?'Decision requires review; '+warnings.length+' warning(s) remain in the evidence chain.':'Decision evidence is internally consistent; human approval remains mandatory.';
-  return {provider:'deterministic',model:'decision-rule-engine-1.0',text,confidence:blockers.length?1:.78,degraded:false};
- }
-};
-
 export const openRouterReasoningAdapter:ModelAdapter={
  provider:'openrouter',
  model:typeof import.meta!=='undefined' && typeof import.meta.env!=='undefined' && typeof import.meta.env.VITE_OPENROUTER_MODEL==='string' && import.meta.env.VITE_OPENROUTER_MODEL ? import.meta.env.VITE_OPENROUTER_MODEL : 'server-configured',
- async available(){
-  try{
-   const response=await fetch('/api/decision-reasoning',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({probe:true,decision:{status:'BLOCKED',ev:0,confidence:0,quality:0,blockers:['probe'],warnings:[],strengths:[],trace:[]},evidence:{digest:'probe',coverage:0,conflicts:0,nodes:[]}}});
-   return response.status!==503;
-  }catch{return false;}
- },
+ async available(){return true;},
  async run(request){
   const response=await fetch('/api/decision-reasoning',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'reason',decision:{status:request.context.status,ev:request.context.ev,confidence:request.context.confidence,quality:request.context.quality,blockers:request.context.blockers,warnings:request.context.warnings,strengths:request.context.strengths,trace:request.context.trace},evidence:request.context.evidence})});
   if(!response.ok) throw new Error('OPENROUTER_REASONING_'+response.status);
