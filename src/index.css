@@ -400,3 +400,45 @@ header.sticky nav a[aria-current="page"] svg{
 @media (prefers-reduced-motion:reduce){
   .club-backdrop main > .space-y-8 > section:first-child::before{animation:none}
 }
+
+
+/* FINAL MOTION + GRAPHICS POLISH v8 */
+@keyframes starDrift{
+  0%{transform:translate3d(0,0,0) scale(1);opacity:.45}
+  50%{transform:translate3d(12px,-8px,0) scale(1.015);opacity:.7}
+  100%{transform:translate3d(0,0,0) scale(1);opacity:.45}
+}
+@keyframes chartReveal{from{stroke-dashoffset:900;opacity:.15}to{stroke-dashoffset:0;opacity:1}}
+.club-backdrop::after{
+  background:
+    radial-gradient(circle at 14% 18%,rgba(255,255,255,.11) 0 1px,transparent 1.5px),
+    radial-gradient(circle at 32% 72%,rgba(240,203,122,.10) 0 1px,transparent 1.5px),
+    radial-gradient(circle at 68% 34%,rgba(155,140,255,.13) 0 1px,transparent 1.5px),
+    radial-gradient(circle at 86% 78%,rgba(74,207,255,.09) 0 1px,transparent 1.5px),
+    radial-gradient(circle at 54% 10%,rgba(255,255,255,.08) 0 1px,transparent 1.5px),
+    radial-gradient(circle at 78% 18%,rgba(240,203,122,.10),transparent 20%),
+    radial-gradient(circle at 18% 52%,rgba(155,140,255,.12),transparent 25%),
+    linear-gradient(90deg,rgba(4,5,11,.22),transparent 42%,rgba(4,5,11,.18));
+  background-size:auto,auto,auto,auto,auto,auto,auto,auto;
+  animation:starDrift 18s ease-in-out infinite;
+}
+.odds-chart path{
+  stroke-dasharray:900;
+  stroke-dashoffset:900;
+  animation:chartReveal 1.1s cubic-bezier(.2,.7,.2,1) forwards;
+  filter:drop-shadow(0 0 5px currentColor);
+}
+.odds-chart line{opacity:.65}
+.club-backdrop main article,
+.club-backdrop main .glass-strong,
+.club-backdrop main .club-interface-hero{
+  contain:layout paint;
+}
+.club-backdrop main article:focus-within{
+  border-color:rgba(155,140,255,.38);
+  box-shadow:0 0 0 1px rgba(155,140,255,.10),0 24px 70px rgba(0,0,0,.25);
+}
+@media (prefers-reduced-motion:reduce){
+  .club-backdrop::after,.odds-chart path{animation:none}
+  .odds-chart path{stroke-dashoffset:0}
+}
