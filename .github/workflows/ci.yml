@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - qa/full-flow-weight-regression
   pull_request:
     branches: [main]
 
