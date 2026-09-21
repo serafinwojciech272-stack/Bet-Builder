@@ -61,7 +61,7 @@ export const OddsMovementChart = memo(function OddsMovementChart({
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
-          className="h-full w-full"
+          className="odds-chart h-full w-full"
           role="img"
           aria-label={`Odds movement chart for ${series.map((s) => s.label).join(', ')}`}
         >
