@@ -113,7 +113,7 @@ export class LiveCoreEngineClient implements CoreEngineClient {
     const impliedAtAnalysis = estimate?.impliedProbability.value ?? outcome.before;
     const impliedAtClose = outcome.after;
     const closingLineValuePct = det(((impliedAtClose - impliedAtAnalysis) / Math.max(0.01, impliedAtAnalysis)) * 100, 'percent', 'measurement-service');
-    return { measuredAt: new Date().toISOString(), verdict: improved ? 'beat-close' : negative ? 'lost-to-close' : 'unresolved', closingLineValuePct, closingOdds: det(1 / impliedAtClose, 'decimal-odds', 'core-engine'), realizedMovementPct: det((impliedAtClose - impliedAtAnalysis) * 100, 'percent', 'movement-service'), calibrationDeltaPct: det((impliedAtClose - (estimate?.modelProbability.value ?? impliedAtAnalysis)) * 100, 'percent', 'probability-service'), brierScore: null, objectiveMet: improved, notes: [String(assessment?.reason || 'Core Engine recorded the measurement.')] };
+    return { measuredAt: new Date().toISOString(), verdict: improved ? 'beat-close' : negative ? 'lost-to-close' : 'unresolved', closingLineValuePct, closingOdds: det(1 / impliedAtClose, 'decimal-odds', 'measurement-service'), realizedMovementPct: det((impliedAtClose - impliedAtAnalysis) * 100, 'percent', 'movement-service'), calibrationDeltaPct: det((impliedAtClose - (estimate?.modelProbability.value ?? impliedAtAnalysis)) * 100, 'percent', 'probability-service'), brierScore: null, objectiveMet: improved, notes: [String(assessment?.reason || 'Core Engine recorded the measurement.')] };
   }
 
   async publishLearning(mission: Mission): Promise<{ accepted: boolean; lessons: string[] }> {
