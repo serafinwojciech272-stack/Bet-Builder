@@ -96,10 +96,26 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (requestedSport === 'all') {
     // ParlayAPI exposes sport keys through /sports; unlike the legacy feed it has no documented `upcoming` key.
     // Query a bounded cross-sport board to keep refreshes cheap while the full provider catalog remains visible.
-    const preferredGroups = ['soccer', 'basketball', 'tennis', 'volleyball', 'icehockey', 'baseball', 'americanfootball', 'golf', 'handball', 'rugby', 'tabletennis', 'darts', 'cricket', 'aussierules'];
+    // Prefer major competitions that are likely to have useful scheduled/live markets.
+    // The first catalog item for a group can be a seasonal competition (for example
+    // FIFA World Cup) with no fixtures today, so selecting by group alone creates
+    // avoidable empty/timeout-heavy refreshes.
+    const preferredKeys = [
+      'soccer_epl',
+      'soccer_italy_serie_a',
+      'soccer_spain_la_liga',
+      'soccer_germany_bundesliga',
+      'soccer_poland_ekstraklasa',
+      'basketball_nba',
+      'icehockey_nhl',
+      'tennis_atp',
+      'volleyball',
+      'baseball_mlb',
+      'americanfootball_nfl',
+    ];
     const selected: ApiSport[] = [];
-    for (const group of preferredGroups) {
-      const match = catalog.find((s) => s.active && s.group.toLowerCase() === group);
+    for (const key of preferredKeys) {
+      const match = catalog.find((s) => s.active && s.key === key);
       if (match) selected.push(match);
       if (selected.length >= 8) break;
     }
