@@ -50,6 +50,82 @@ function delay(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
 }
 
+export class LiveCoreEngineClient implements CoreEngineClient {
+  readonly engineId = 'core-engine';
+  readonly mode = 'live' as const;
+
+  private async call(action: string, payload: Record<string, unknown> = {}) {
+    const response = await fetch('/api/core-engine', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...payload }) });
+    const body = await response.json().catch(() => ({ error: 'CORE_ENGINE_INVALID_RESPONSE' })) as Record<string, unknown>;
+    if (!response.ok || body.ok === false) throw new CoreEngineError('ENGINE_UNAVAILABLE', String(body.error || 'Core Engine request failed.'));
+    return body;
+  }
+
+  async capabilities(): Promise<CoreEngineCapabilities> {
+    const response = await fetch('/api/core-engine', { cache: 'no-store' });
+    const body = await response.json().catch(() => ({ error: 'CORE_ENGINE_INVALID_RESPONSE' })) as Record<string, unknown>;
+    if (!response.ok || body.ok === false) throw new CoreEngineError('ENGINE_UNAVAILABLE', String(body.error || 'Core Engine unavailable.'));
+    const capabilities = Array.isArray(body.capabilities) ? body.capabilities : [];
+    return { engineId: 'core-engine', mode: 'live', version: String(body.version || 'unknown'), supportsExecution: capabilities.includes('execute'), supportsMeasurement: capabilities.includes('measure'), supportsLearning: capabilities.includes('learn'), supportsPortfolioOptimization: true, supportsMonetaryExecution: false, notes: 'Remote Core Engine governance is active; sports portfolio optimization remains domain-specific and deterministic.' };
+  }
+
+  async optimizeBuilder(request: OptimizationRequest): Promise<OptimizationResult> {
+    return createMockCoreEngine().optimize(request);
+  }
+
+  async submitMission(mission: Mission): Promise<CoreEngineAck> {
+    const submitted = await this.call('submit', { mission });
+    const remoteMission = submitted.mission as Record<string, unknown> | undefined;
+    const engineRef = String(remoteMission?.id || '');
+    if (!engineRef) throw new CoreEngineError('ENGINE_UNAVAILABLE', 'Core Engine did not return a mission reference.');
+    await this.call('approve', { engineRef });
+    return { accepted: true, engineRef, acceptedAt: new Date().toISOString() };
+  }
+
+  async executeMission(mission: Mission, _analysis: AnalysisResponse | null): Promise<ExecutionInfo> {
+    const ack = await this.submitMission(mission);
+    const startedAt = new Date().toISOString();
+    const result = await this.call('execute', { engineRef: ack.engineRef });
+    const remoteMission = result.mission as Record<string, unknown> | undefined;
+    const completedAt = new Date().toISOString();
+    return { startedAt, completedAt, engineRef: ack.engineRef, steps: [{ id: 'core-engine-execute', at: completedAt, actionId: 'core-engine-execute', label: 'Core Engine observational execution', status: remoteMission?.state === 'EXECUTING' ? 'ok' : 'warning', detail: 'Remote Core Engine mission ' + ack.engineRef + ' entered ' + String(remoteMission?.state || 'UNKNOWN') + ' state.' }], observationsCount: det(1, 'count', 'core-engine'), triggerFired: false, triggerFiredAt: null, failureReason: null };
+  }
+
+  private outcomeFromAnalysis(analysis: AnalysisResponse | null) {
+    const estimate = analysis?.probabilityEstimates[0];
+    const observation = analysis?.marketObservations[0];
+    const before = estimate?.impliedProbability.value ?? 0.5;
+    const drift = observation ? observation.changePct.value / 100 : 0;
+    const after = Math.max(0.01, Math.min(0.99, before * (1 - drift)));
+    return { before, after, direction: 'higher' as const };
+  }
+
+  async measureMission(mission: Mission, analysis: AnalysisResponse | null): Promise<MeasurementInfo> {
+    const engineRef = mission.execution?.engineRef;
+    if (!engineRef) throw new CoreEngineError('ENGINE_UNAVAILABLE', 'Core Engine mission reference is missing.');
+    const outcome = this.outcomeFromAnalysis(analysis);
+    const result = await this.call('measure', { engineRef, outcome });
+    const assessment = result.assessment as Record<string, unknown> | undefined;
+    const improved = assessment?.improved === true;
+    const negative = assessment?.quality === 'NEGATIVE';
+    const estimate = analysis?.probabilityEstimates[0];
+    const impliedAtAnalysis = estimate?.impliedProbability.value ?? outcome.before;
+    const impliedAtClose = outcome.after;
+    const closingLineValuePct = det(((impliedAtClose - impliedAtAnalysis) / Math.max(0.01, impliedAtAnalysis)) * 100, 'clv-percent', 'core-engine');
+    return { measuredAt: new Date().toISOString(), verdict: improved ? 'beat-close' : negative ? 'lost-to-close' : 'unresolved', closingLineValuePct, closingOdds: det(1 / impliedAtClose, 'decimal-odds', 'core-engine'), realizedMovementPct: det((impliedAtClose - impliedAtAnalysis) * 100, 'movement-percent', 'core-engine'), calibrationDeltaPct: det((impliedAtClose - (estimate?.modelProbability.value ?? impliedAtAnalysis)) * 100, 'calibration-delta-percent', 'core-engine'), brierScore: null, objectiveMet: improved, notes: [String(assessment?.reason || 'Core Engine recorded the measurement.')] };
+  }
+
+  async publishLearning(mission: Mission): Promise<{ accepted: boolean; lessons: string[] }> {
+    const engineRef = mission.execution?.engineRef;
+    if (!engineRef || !mission.measurement) throw new CoreEngineError('ENGINE_UNAVAILABLE', 'Core Engine learning requires a measured mission.');
+    const outcome = { before: 0, after: mission.measurement.closingLineValuePct.value, direction: 'higher' as const };
+    await this.call('complete', { engineRef, outcome });
+    const result = await this.call('learn', { engineRef, outcome });
+    const learning = result.learning as Record<string, unknown> | undefined;
+    const lesson = typeof learning?.lesson === 'string' ? learning.lesson : typeof learning?.reason === 'string' ? learning.reason : 'Core Engine learning recorded.';
+    return { accepted: true, lessons: [lesson] };
+  }
+}
 export class MockCoreEngineClient implements CoreEngineClient {
   readonly engineId = 'core-engine-mock';
   readonly mode = 'mock' as const;
