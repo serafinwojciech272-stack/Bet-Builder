@@ -11,7 +11,9 @@ export interface DecisionPacketSelection { id:string; eventId:string; marketId?:
 export interface DecisionPacket {
   id:string; version:'1.0'; createdAt:string; status:DecisionGateInput['status']; blockers:string[]; warnings:string[]; trace:string[];
   source:{selectionIds:string[];combinedOdds:number;baseProbability:number;adjustedProbability:number;ev:number;confidence:number;quality:number;marketQuality:DecisionCenterResult['marketQuality'];dependencyMultiplier:number;correlationRisk:number;concentrationRisk:number;};
-  selections:DecisionPacketSelection[]; coreOptimization:OptimizationResult|null; research:EventResearch|null; researchEvidence:ResearchEvidence|null; mission:{eligible:boolean;reason:string};
+  selections:DecisionPacketSelection[]; coreOptimization:OptimizationResult|null; research:EventResearch|null; researchEvidence:ResearchEvidence|null;
+  universal:{evidenceGraphDigest:string;evidenceCoverage:number;reasoning:{provider:string;model:string;stance:string;synthesis:string;degraded:boolean};missionPlan:ReturnType<typeof compileMission>};
+  mission:{eligible:boolean;reason:string};
 }
 
 export function createDecisionPacket(decision:DecisionCenterResult,selections:DecisionPacketSelection[],optimization:OptimizationResult|null=null,now=new Date(),research:EventResearch|null=null,researchEvidence:ResearchEvidence|null=null,providerReasoning:ModelResponse|null=null):DecisionPacket{
