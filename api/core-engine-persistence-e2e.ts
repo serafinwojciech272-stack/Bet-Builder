@@ -2,7 +2,7 @@ import { authenticateSupabaseUser, authorizedByInternalToken, bearerToken } from
 import type { Selection } from '../src/domain/types.js';
 import { runCoreEngineV1 } from '../src/core/coreEngineV1.js';
 import { settleLedgerEntry } from '../src/core/decisionLedger.js';
-import { verifyAuditChain, type AuditEvent } from '../src/core/auditTrail.js';
+import { appendAuditEvent, digestPayload, verifyAuditChain, type AuditEvent } from '../src/core/auditTrail.js';
 import { createSupabaseCoreEngineLedgerStoreFromEnv } from '../src/core/supabaseCoreEnginePersistence.js';
 
 interface E2ERequest {
