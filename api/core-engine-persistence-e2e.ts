@@ -123,7 +123,10 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
 
     // Full lifecycle: create -> persist -> approve -> execute(observational) -> measure -> complete -> learn -> audit -> restart/recovery.
     const lifecycleAudit = [...first.audit];
-    const lifecycleAt = (offsetMs: number) => new Date(TEST_NOW.getTime() + offsetMs).toISOString();
+    const lifecycleBase = first.audit.length > 0
+      ? new Date(first.audit.at(-1)!.at).getTime()
+      : TEST_NOW.getTime();
+    const lifecycleAt = (offsetMs: number) => new Date(lifecycleBase + offsetMs).toISOString();
 
     appendAuditEvent(lifecycleAudit, {
       runId: TEST_RUN_ID,
@@ -262,7 +265,8 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       after.audit.length === 13 &&
       after.runs[0]?.run_id === TEST_RUN_ID &&
       after.ledger[0]?.id === first.ledgerEntry.id &&
-      after.audit.every((row, index) => row.id === first.audit[index]?.id);
+      first.audit.every((event) => after.audit.some((row) => row.id === event.id)) &&
+      after.audit.every((row) => row.run_id === TEST_RUN_ID);
 
     const pass =
       first.executionPolicy === 'OBSERVATIONAL_ONLY' &&
