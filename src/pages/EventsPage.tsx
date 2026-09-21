@@ -61,6 +61,14 @@ export function EventsPage() {
         </div>
       </section>
 
+      <section className="bb-decision-ribbon rise" aria-label="Łańcuch inteligencji">
+        <div className="bb-decision-node" data-tone="ai"><small>01 · INGEST</small><strong>LIVE FEED</strong><span>kursy, eventy, snapshoty</span></div>
+        <div className="bb-decision-node" data-tone="ai"><small>02 · NORMALIZE</small><strong>ONE MODEL</strong><span>spójny kontrakt danych</span></div>
+        <div className="bb-decision-node" data-tone="gold"><small>03 · INTELLIGENCE</small><strong>EDGE ENGINE</strong><span>value · risk · movement</span></div>
+        <div className="bb-decision-node" data-tone="green"><small>04 · DECISION</small><strong>CONTROL GATE</strong><span>evidence przed akcją</span></div>
+        <div className="bb-decision-node" data-tone="red"><small>05 · MISSION</small><strong>HUMAN APPROVAL</strong><span>execute → measure → learn</span></div>
+      </section>
+
       <SectionHeading title="Wydarzenia sportowe" subtitle="Wybierz wydarzenie. Silnik przeprowadzi Cię od danych rynkowych przez analizę do decyzji." icon={<Eye size={18} className="text-ai" aria-hidden />} />
       <Panel className="p-4">
         <div className="flex flex-wrap items-end gap-3">
