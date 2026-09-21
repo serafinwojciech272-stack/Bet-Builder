@@ -18,7 +18,6 @@ export function createDecisionPacket(decision:DecisionCenterResult,selections:De
   trace.push('Decision Packet status: '+status+'.');
   const evidenceGraph=buildEvidenceGraph(decision,researchEvidence);
   const reasoning=deterministicReasoningAdapter;
-  const reasoningContext={status,blockers,warnings,confidence:decision.confidence,quality:decision.quality,graphDigest:evidenceGraph.digest,conflicts:evidenceGraph.conflicts};
   const reasoningResult={provider:reasoning.provider,model:reasoning.model,text:status==='BLOCKED'?'Decision blocked by explicit gate conditions.':warnings.length?'Decision requires review; warnings remain in the evidence chain.':'Decision evidence is internally consistent; human approval remains mandatory.',confidence:status==='BLOCKED'?1:.78,degraded:false};
   const stance: 'constructive'|'neutral'|'cautious'|'avoid'=status==='BLOCKED'?'avoid':status==='CAUTION'?'cautious':'constructive';
   const missionPlan=compileMission(decision,evidenceGraph,{stance,synthesis:reasoningResult.text,factors:decision.strengths,uncertainties:[...warnings,...blockers],model:reasoningResult});
