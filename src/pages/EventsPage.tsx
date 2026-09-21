@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Eye, Filter, Search, Swords, Trophy } from 'lucide-react';
+import { CalendarDays, Eye, Filter, Search, Swords, Trophy, Zap as ZapIcon } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
 import { MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
@@ -38,8 +38,30 @@ export function EventsPage() {
   if (phase === 'error') return <ErrorState title="Nie udało się pobrać wydarzeń" detail={error ?? undefined} onRetry={() => void refresh()} retryLabel="Spróbuj ponownie" />;
 
   return (
-    <div className="space-y-6">
-      <SectionHeading title="Wydarzenia sportowe" subtitle="Najpierw wybierz dzień i mecz. Szczegóły AI oraz statystyki są dostępne dopiero po wejściu w wydarzenie." icon={<Eye size={18} className="text-ai" aria-hidden />} />
+    <div className="space-y-7">
+      <section className="bb-command-hero rise">
+        <div className="bb-hero-grid" aria-hidden="true" />
+        <div className="bb-hero-orb" aria-hidden="true"><span /><span /><span /></div>
+        <div className="bb-hero-copy">
+          <div className="bb-eyebrow"><span className="club-spark" /> BET BUILDER · PRIVATE INTELLIGENCE CLUB <span className="bb-live-pill"><span className="live-dot" /> LIVE ENGINE</span></div>
+          <h1 className="bb-hero-title">Od kursu do decyzji.<br/><span>Bez chaosu. Z inteligencją.</span></h1>
+          <p className="bb-hero-lead">Jedna powierzchnia łączy live markets, deterministic intelligence, AI analysis i mission execution. Zbuduj kupon jak operator, nie jak przypadkowy gracz.</p>
+          <div className="bb-hero-actions">
+            <Link to="/builder" className="club-primary-cta"><ZapIcon /> Otwórz Bet Builder</Link>
+            <Link to="/analysis" className="club-secondary-cta"><Eye size={14} /> Intelligence Center</Link>
+          </div>
+          <div className="bb-proof-row">
+            <span><b>{filtered.length || '—'}</b> events monitored</span><i /> <span><b>{dataset?.snapshots.length ?? '—'}</b> market snapshots</span><i /> <span><b>{dataset?.mode === 'LIVE' ? 'LIVE' : 'DEMO'}</b> feed integrity</span>
+          </div>
+        </div>
+        <div className="bb-hero-console">
+          <div className="bb-console-top"><span><span className="club-signal-dot" /> CORE ENGINE</span><span>v1.0</span></div>
+          <div className="bb-console-ring"><div><strong>READY</strong><small>decision layer</small></div></div>
+          <div className="bb-console-lines"><span><b>01</b> INGEST <em>OK</em></span><span><b>02</b> NORMALIZE <em>OK</em></span><span><b>03</b> INTELLIGENCE <em>READY</em></span><span><b>04</b> EXECUTION <em>GATED</em></span></div>
+        </div>
+      </section>
+
+      <SectionHeading title="Wydarzenia sportowe" subtitle="Wybierz wydarzenie. Silnik przeprowadzi Cię od danych rynkowych przez analizę do decyzji." icon={<Eye size={18} className="text-ai" aria-hidden />} />
       <Panel className="p-4">
         <div className="flex flex-wrap items-end gap-3">
           <label className="min-w-[220px] flex-1 text-[11px] text-faint">Szukaj drużyny lub ligi
