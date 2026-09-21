@@ -95,6 +95,27 @@ describe('pipeline: normalization → snapshots → movement/quality → intelli
     expect(risk.factors.length).toBe(6);
   });
 
+
+
+  it('normalizes two-way provider selections for tennis without a synthetic draw', async () => {
+    const repo = new MockSportsDataRepository({ latencyMs: 0 });
+    const dataset = await repo.loadCanonicalDataset();
+    const event = dataset.events.find((e) => e.sportKey === 'tennis') ?? dataset.events[0]!;
+    const model = computeModelProbabilities(event, 'match-winner', ['provider-home', 'provider-away']);
+    expect(model.probabilities.map((p) => p.selectionId)).toEqual(['provider-home', 'provider-away']);
+    expect(model.probabilities.some((p) => p.label === 'Draw')).toBe(false);
+    expect(model.probabilities.reduce((sum, p) => sum + p.probability.value, 0)).toBeCloseTo(1, 6);
+  });
+
+  it('normalizes extra provider selections instead of producing an invalid probability sum', async () => {
+    const repo = new MockSportsDataRepository({ latencyMs: 0 });
+    const dataset = await repo.loadCanonicalDataset();
+    const event = dataset.events[0]!;
+    const model = computeModelProbabilities(event, 'match-winner', ['a', 'b', 'c', 'd']);
+    expect(model.probabilities.map((p) => p.selectionId)).toEqual(['a', 'c', 'b', 'd']);
+    expect(model.probabilities.reduce((sum, p) => sum + p.probability.value, 0)).toBeCloseTo(1, 6);
+  });
+
   it('flags a stale, thinly covered market', async () => {
     const repo = new MockSportsDataRepository({ latencyMs: 0 });
     const dataset = await repo.loadCanonicalDataset();
