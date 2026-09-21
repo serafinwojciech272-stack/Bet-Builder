@@ -53,10 +53,12 @@ try {
     httpStatus: response.status,
     status: body?.status ?? null,
     e2e: body?.e2e ?? null,
+    error: body?.error ?? null,
     checks: body?.checks ?? null,
   }, null, 2));
 
   if (!response.ok || body?.status !== 'PASS') {
+    if (body?.error) console.error(`PERSISTENCE_E2E_ERROR:${body.error}`);
     console.error('PERSISTENCE_E2E_FAILED');
     process.exit(1);
   }
