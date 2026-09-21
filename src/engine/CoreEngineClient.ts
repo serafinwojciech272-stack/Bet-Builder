@@ -55,14 +55,14 @@ export class LiveCoreEngineClient implements CoreEngineClient {
   readonly mode = 'live' as const;
 
   private async call(action: string, payload: Record<string, unknown> = {}) {
-    const response = await fetch('/api/core-engine', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...payload }) });
+    const response = await fetch(`${(import.meta.env.VITE_CORE_ENGINE_GATEWAY_URL as string | undefined)?.trim() || 'https://bet-builder-api-live.onrender.com'}/api/core-engine`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...payload }) });
     const body = await response.json().catch(() => ({ error: 'CORE_ENGINE_INVALID_RESPONSE' })) as Record<string, unknown>;
     if (!response.ok || body.ok === false) throw new CoreEngineError('ENGINE_UNAVAILABLE', String(body.error || 'Core Engine request failed.'));
     return body;
   }
 
   async capabilities(): Promise<CoreEngineCapabilities> {
-    const response = await fetch('/api/core-engine', { cache: 'no-store' });
+    const response = await fetch(`${(import.meta.env.VITE_CORE_ENGINE_GATEWAY_URL as string | undefined)?.trim() || 'https://bet-builder-api-live.onrender.com'}/api/core-engine`, { cache: 'no-store' });
     const body = await response.json().catch(() => ({ error: 'CORE_ENGINE_INVALID_RESPONSE' })) as Record<string, unknown>;
     if (!response.ok || body.ok === false) throw new CoreEngineError('ENGINE_UNAVAILABLE', String(body.error || 'Core Engine unavailable.'));
     const capabilities = Array.isArray(body.capabilities) ? body.capabilities : [];
