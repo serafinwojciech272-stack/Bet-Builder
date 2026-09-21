@@ -48,7 +48,7 @@ jobs:
 
       - name: Persistence E2E
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: https://jjybnpoqnyycyrrzbekd.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CORE_ENGINE_E2E_TOKEN: ${{ secrets.CORE_ENGINE_E2E_TOKEN }}
         run: npm run test:persistence-e2e
