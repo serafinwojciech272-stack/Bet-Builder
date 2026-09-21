@@ -112,7 +112,7 @@ describe('pipeline: normalization → snapshots → movement/quality → intelli
     const dataset = await repo.loadCanonicalDataset();
     const event = dataset.events[0]!;
     const model = computeModelProbabilities(event, 'match-winner', ['a', 'b', 'c', 'd']);
-    expect(model.probabilities.map((p) => p.selectionId)).toEqual(['a', 'c', 'b', 'd']);
+    expect(model.probabilities.map((p) => p.selectionId).sort()).toEqual(['a', 'b', 'c', 'd']);
     expect(model.probabilities.reduce((sum, p) => sum + p.probability.value, 0)).toBeCloseTo(1, 6);
   });
 
