@@ -52,3 +52,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CORE_ENGINE_E2E_TOKEN: ${{ secrets.CORE_ENGINE_E2E_TOKEN }}
         run: npm run test:persistence-e2e
+
+# QA persistence E2E gate: push-triggered verification.
