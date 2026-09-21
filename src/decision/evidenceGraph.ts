@@ -23,7 +23,7 @@ export function buildEvidenceGraph(decision:DecisionCenterResult,researchEvidenc
  if(researchEvidence){
   nodes.push({id:'research',kind:'source',label:'Research evidence',value:researchEvidence.quality,confidence:researchEvidence.quality,source:'research'});
   edges.push({from:'research',to:'model',relation:'informs',weight:researchEvidence.quality});
-  researchEvidence.conflicts.forEach((conflict,index)=>{const id='conflict-'+index;nodes.push({id,kind:'risk',label:conflict,confidence:0,source:'research'});edges.push({from:id,to:'decision',relation:'constrains',weight:1});});
+  researchEvidence.conflicts.forEach((conflict,index)=>{const id='conflict-'+index;nodes.push({id,kind:'risk',label:conflict.category+': '+conflict.adverse.slice(0,2).join(' | '),confidence:0,source:'research'});edges.push({from:id,to:'decision',relation:'constrains',weight:1});});
  }
  const conflicts=researchEvidence?.conflicts.length??0;
  const coverage=clamp(nodes.filter(n=>(n.confidence??n.value??0)>0).length/Math.max(1,nodes.length));
