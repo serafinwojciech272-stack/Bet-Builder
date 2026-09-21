@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
 import { authenticateSupabaseUser, authorizedByInternalToken, bearerToken } from './auth.js';
 import type { Selection } from '../src/domain/types.js';
 import { runCoreEngineV1 } from '../src/core/coreEngineV1.js';
@@ -45,11 +44,6 @@ function json(res: E2EResponse, status: number, body: unknown) {
     .setHeader('Cache-Control', 'no-store')
     .setHeader('X-Robots-Tag', 'noindex, nofollow');
   res.end(JSON.stringify(body));
-}
-
-function header(req: E2ERequest, name: string): string {
-  const value = req.headers?.[name.toLowerCase()] ?? req.headers?.[name];
-  return Array.isArray(value) ? value[0] ?? '' : value ?? '';
 }
 
 async function authorized(req: E2ERequest, url: string, serviceRoleKey: string): Promise<{ ok: boolean; authMode: 'INTERNAL_E2E' | 'SUPABASE_USER' | 'NONE'; userId?: string }> {
