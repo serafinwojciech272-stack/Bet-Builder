@@ -105,16 +105,28 @@ export function computeModelProbabilities(
   ];
 
   if (market === 'match-winner') {
-    const drawBase = 0.245 - Math.abs(eloDiff) / 4200;
-    const pDraw = Math.max(0.08, drawBase);
-    const rest = 1 - pDraw;
-    push('home', `${event.homeTeam.name} win`, rest * pHomeTwoWay, sharedDrivers);
-    push('draw', 'Draw', pDraw, [
-      { label: 'Rating symmetry', contribution: 1 - Math.abs(eloDiff) / 400 },
-      { label: 'League draw base rate', contribution: drawBase },
-    ]);
-    push('away', `${event.awayTeam.name} win`, rest * (1 - pHomeTwoWay), sharedDrivers);
-  } else if (market === 'moneyline') {
+    // Provider selection ids are canonical/opaque. A match-winner market is
+    // three-way for soccer, but two-way for sports such as tennis, where a
+    // synthetic draw would corrupt probability normalization and the analysis
+    // contract. Bind model probabilities directly to observed selection ids.
+    const isSoccerThreeWay = event.sportKey === 'soccer' && selectionIds.length >= 3;
+    const homeId = selectionIds[0] ?? 'home';
+    const awayId = isSoccerThreeWay ? selectionIds[2] : (selectionIds[1] ?? 'away');
+
+    if (isSoccerThreeWay) {
+      const drawBase = 0.245 - Math.abs(eloDiff) / 4200;
+      const pDraw = Math.max(0.08, drawBase);
+      const rest = 1 - pDraw;
+      push(homeId, `${event.homeTeam.name} win`, rest * pHomeTwoWay, sharedDrivers);
+      push(selectionIds[1], 'Draw', pDraw, [
+        { label: 'Rating symmetry', contribution: 1 - Math.abs(eloDiff) / 400 },
+        { label: 'League draw base rate', contribution: drawBase },
+      ]);
+      push(awayId, `${event.awayTeam.name} win`, rest * (1 - pHomeTwoWay), sharedDrivers);
+    } else {
+      push(homeId, `${event.homeTeam.name} win`, pHomeTwoWay, sharedDrivers);
+      push(awayId, `${event.awayTeam.name} win`, 1 - pHomeTwoWay, sharedDrivers);
+    }  } else if (market === 'moneyline') {
     push('home', `${event.homeTeam.name} win`, pHomeTwoWay, sharedDrivers);
     push('away', `${event.awayTeam.name} win`, 1 - pHomeTwoWay, sharedDrivers);
   } else if (market === 'spread') {
