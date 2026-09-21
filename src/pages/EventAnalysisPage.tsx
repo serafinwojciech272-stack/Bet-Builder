@@ -296,7 +296,7 @@ export function EventAnalysisPage() {
                   <li key={s.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-2 px-2.5 py-1.5 font-mono text-[10px]">
                     <span className="truncate text-muted">{s.id}</span>
                     <span className="shrink-0 text-faint">
-                      {BOOKMAKERS[s.bookmaker].name} · {relativeTime(s.capturedAt, nowTick)}
+                      {BOOKMAKERS[s.bookmaker]?.name ?? s.bookmaker} · {relativeTime(s.capturedAt, nowTick)}
                     </span>
                   </li>
                 ))}
