@@ -62,7 +62,7 @@ async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
   return value;
 }
 
-export default async function handler(req: QueryRequest, res: JsonResponse) {
+async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const origin = req.headers?.origin;
   const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app').split(',').map((value) => value.trim()).filter(Boolean));
   if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
@@ -178,4 +178,13 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
   const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota, providerHealth: { provider: 'parlay-api', state: failedSports.length ? (successfulSports.length ? 'DEGRADED' : 'OFFLINE') : (snapshots.length && freshestFeedLatencyMs > STALE_AFTER_MS ? 'STALE' : 'HEALTHY'), fetchedAt: new Date().toISOString(), ageSeconds, staleAfterSeconds: 600, catalogCount: availableSports.length, queriedSports: sports.length, successfulSports: successfulSports.length, failedSports: failedSports.length, eventCount: events.size, snapshotCount: snapshots.length, bookmakerCount: bookmakerNames.size, warnings: issues.filter((i) => i.severity !== 'info').map((i) => i.message).slice(0, 6) } };
   return json(res, 200, body);
+}
+
+
+export default async function handler(req: QueryRequest, res: JsonResponse) {
+  try {
+    return await oddsHandler(req, res);
+  } catch {
+    return json(res, 500, { error: 'ODDS_INTERNAL_ERROR' });
+  }
 }
