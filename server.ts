@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-type AdapterRequest = { method?: string; query: Record<string, string>; headers?: Record<string, string | undefined> };
+type AdapterRequest = { method?: string; query: Record<string, string>; headers?: Record<string, string | undefined>; body?: unknown };
 type AdapterResponse = {
   status: (code: number) => AdapterResponse;
   setHeader: (name: string, value: string) => AdapterResponse;
@@ -9,11 +9,26 @@ type AdapterResponse = {
 };
 type Handler = (req: AdapterRequest, res: AdapterResponse) => Promise<unknown> | unknown;
 
-function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse) {
+async function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const query: Record<string, string> = {};
   for (const [key, value] of url.searchParams.entries()) query[key] = value;
-  const request = { method: req.method ?? 'GET', query, headers: { origin: req.headers.origin, authorization: req.headers.authorization, 'x-core-engine-e2e-token': req.headers['x-core-engine-e2e-token'] } };
+  let body: unknown;
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of req) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.length;
+      if (size > 1024 * 1024) throw new Error('REQUEST_BODY_TOO_LARGE');
+      chunks.push(buffer);
+    }
+    const raw = Buffer.concat(chunks).toString('utf8');
+    if (raw) {
+      body = String(req.headers['content-type'] ?? '').includes('application/json') ? JSON.parse(raw) : raw;
+    }
+  }
+  const request = { method: req.method ?? 'GET', query, body, headers: { origin: req.headers.origin, authorization: req.headers.authorization, 'x-core-engine-e2e-token': req.headers['x-core-engine-e2e-token'] } };
   const response = {
     status(code: number) { res.statusCode = code; return response; },
     setHeader(name: string, value: string) { res.setHeader(name, value); return response; },
