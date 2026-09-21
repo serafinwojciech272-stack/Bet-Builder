@@ -43,3 +43,11 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: Persistence E2E (when credentials are configured)
+        if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.CORE_ENGINE_E2E_TOKEN != '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CORE_ENGINE_E2E_TOKEN: ${{ secrets.CORE_ENGINE_E2E_TOKEN }}
+        run: npm run test:persistence-e2e
