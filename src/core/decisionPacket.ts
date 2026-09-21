@@ -5,6 +5,7 @@ import type { ResearchEvidence } from './researchEvidenceEngine.js';
 import { buildEvidenceGraph } from '../decision/evidenceGraph.js';
 import { compileMission } from '../decision/missionCompiler.js';
 import type { ModelResponse } from '../decision/modelRouter.js';
+import { deterministicReasoningAdapter } from '../decision/modelRouter.js';
 
 export interface DecisionPacketSelection { id:string; eventId:string; marketId?:string; odds:number; probability:number; confidence:number; risk:string; correlationGroup:string; }
 export interface DecisionPacket {
