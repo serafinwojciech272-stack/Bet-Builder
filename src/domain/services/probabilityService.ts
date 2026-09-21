@@ -168,6 +168,23 @@ export function computeModelProbabilities(
     }
   }
 
+  // Provider payloads can contain extra selections for exotic markets. The
+  // analysis contract requires a normalized probability distribution across
+  // every observed selection, so normalize once after binding/fallback mapping.
+  // This prevents contract rejection when a provider sends more selections
+  // than the sport-specific model natively understands.
+  const totalProbability = probabilities.reduce((sum, item) => sum + item.probability.value, 0);
+  if (totalProbability > 0 && Math.abs(totalProbability - 1) > 1e-9) {
+    probabilities.forEach((item, index) => {
+      const normalized = item.probability.value / totalProbability;
+      probabilities[index] = {
+        ...item,
+        probability: det(normalized, 'probability', SERVICE_ID),
+        fairOdds: det(1 / normalized, 'decimal-odds', SERVICE_ID),
+      };
+    });
+  }
+
   return {
     eventId: event.id,
     market,
