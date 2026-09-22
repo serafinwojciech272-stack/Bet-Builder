@@ -76,7 +76,7 @@ jobs:
           console.log('SELECTION STATE', JSON.stringify(selectedState));
           if (!selectedState.some(x => x.pressed === 'true')) fail('Selection did not enter builder state: ' + JSON.stringify(selectedState));
           await page.getByRole('button', {name:'Deep Analyze'}).click();
-          await page.getByRole('status').last().waitFor({timeout:60000});
+          await page.locator('[role="status"]').filter({hasText:'ANALYZE ALL'}).first().waitFor({timeout:60000});
           await page.waitForFunction(() => {
             const el = document.querySelector('[role="status"]');
             const text = el?.textContent || '';
