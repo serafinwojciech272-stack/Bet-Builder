@@ -72,7 +72,7 @@ jobs:
           const firstSelection = eventButtons.first();
           await firstSelection.scrollIntoViewIfNeeded();
           await firstSelection.click();
-          await firstSelection.waitForFunction(element => element.getAttribute('aria-pressed') === 'true', {timeout:10000});
+          await page.waitForFunction(() => document.querySelector('section[aria-label="Events"] button[aria-pressed="true"]') !== null, {timeout:10000});
           await page.getByRole('button', {name:'Deep Analyze'}).click();
           await page.getByText('EVIDENCE GRAPH', {exact:true}).waitFor({timeout:60000});
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
