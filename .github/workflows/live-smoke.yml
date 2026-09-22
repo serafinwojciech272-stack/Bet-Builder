@@ -75,6 +75,8 @@ jobs:
           await page.waitForFunction(() => document.querySelector('section[aria-label="Events"] button[aria-pressed="true"]') !== null, {timeout:10000});
           await page.getByRole('button', {name:'Deep Analyze'}).click();
           await page.getByText('EVIDENCE GRAPH', {exact:true}).waitFor({timeout:60000});
+          const pipelineStatus = await page.getByRole('status').last().innerText();
+          if (!/ANALYZE ALL 1\\/1/.test(pipelineStatus) || !/DEEP RESEARCH ALL 1\\/1/.test(pipelineStatus) || !/EVIDENCE GRAPH 1\\/1/.test(pipelineStatus)) fail('Full analysis pipeline incomplete: ' + pipelineStatus);
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
           await page.getByRole('heading', {name:'Portfolio Decision Packet'}).first().waitFor({timeout:10000});
           await page.getByRole('button', {name:'Optimize', exact:true}).click();
