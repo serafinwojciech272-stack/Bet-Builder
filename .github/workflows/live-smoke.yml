@@ -72,7 +72,7 @@ jobs:
           await eventButtons.first().click();
           await page.getByText('1 TYPÓW').waitFor({timeout:10000});
           await page.getByRole('button', {name:'Deep Analyze'}).click();
-          await page.getByText(/EVIDENCE GRAPH/).waitFor({timeout:60000});
+          await page.getByText('EVIDENCE GRAPH', {exact:true}).waitFor({timeout:60000});
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
           await page.getByText('Portfolio Decision Packet').waitFor({timeout:10000});
           console.log('BROWSER E2E PASS — events → analysis → builder → selection → deep analyze → evidence → decision center');
