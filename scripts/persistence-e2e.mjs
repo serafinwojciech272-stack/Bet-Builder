@@ -36,6 +36,8 @@ try {
 
   if (!ready) throw new Error(`LOCAL_SERVER_NOT_READY:${output.slice(-2000)}`);
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
   const response = await fetch(`${baseUrl}/api/core-engine-persistence-e2e`, {
     method: 'POST',
     headers: {
@@ -43,7 +45,9 @@ try {
       'X-Core-Engine-E2E-Token': process.env.CORE_ENGINE_E2E_TOKEN,
     },
     body: '{}',
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   const raw = await response.text();
   let body;
@@ -83,6 +87,7 @@ try {
   }
 
   console.log('PERSISTENCE_E2E_PASS');
+  process.exit(0);
 } finally {
   child.kill('SIGTERM');
 }
