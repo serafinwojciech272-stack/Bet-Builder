@@ -54,6 +54,20 @@ async function authorized(req: E2ERequest, url: string, serviceRoleKey: string):
   return { ok: false, authMode: 'NONE' };
 }
 
+async function supabaseDelete(url: string, key: string, table: string, query: string): Promise<void> {
+  const response = await fetch(
+    `${url.replace(/\/$/, '')}/rest/v1/${table}?${query}`,
+    {
+      method: 'DELETE',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+    },
+  );
+  if (!response.ok) throw new Error(`E2E_DELETE_FAILED:${table}:${response.status}`);
+}
+
 async function supabaseRows(url: string, key: string, table: string, query: string): Promise<Record<string, unknown>[]> {
   const response = await fetch(
     `${url.replace(/\/$/, '')}/rest/v1/${table}?${query}`,
@@ -110,6 +124,12 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
   try {
     const store = createSupabaseCoreEngineLedgerStoreFromEnv();
     if (!store) return json(res, 503, { error: 'CORE_ENGINE_PERSISTENCE_NOT_CONFIGURED' });
+
+    // Reset only the deterministic synthetic E2E fixture. This prevents stale
+    // rows from a previous CI run from poisoning the audit-chain test.
+    await supabaseDelete(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}`);
+    await supabaseDelete(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(`LED-DP-${TEST_NOW.getTime()}-e2e-persistence-selection`)}`);
+    await supabaseDelete(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}`);
 
     const before = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
