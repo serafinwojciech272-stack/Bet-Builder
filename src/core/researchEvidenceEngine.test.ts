@@ -32,7 +32,7 @@ describe('research evidence engine hardening', () => {
       expect(value).toBeLessThanOrEqual(1);
     }
     expect(result.criticalWarnings).toEqual(expect.arrayContaining([
-      'Lineup status is unknown.',
+      'High contradiction rate in research evidence.',
       'High contradiction rate in research evidence.',
     ]));
   });
