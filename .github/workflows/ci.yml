@@ -43,6 +43,9 @@ jobs:
       - name: Backend health smoke
         run: npm run test:health
 
+      - name: API contract smoke
+        run: npm run test:api-contract
+
       - name: Production build
         run: npm run build
 
