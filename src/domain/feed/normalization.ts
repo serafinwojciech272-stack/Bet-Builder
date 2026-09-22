@@ -66,6 +66,26 @@ export const MARKET_LABELS: Record<MarketKey, string> = {
   outrights: 'Outrights / Tournament Winner',
 };
 
+
+export function canonicalSportKey(key: string, group = '', title = ''): SportKey | undefined {
+  const value = `${key} ${group} ${title}`.toLowerCase();
+  if (value.includes('americanfootball') || value.includes('american football') || value.includes('nfl')) return 'americanfootball';
+  if (value.includes('icehockey') || value.includes('ice hockey') || value.includes('nhl')) return 'icehockey';
+  if (value.includes('basketball') || value.includes('nba')) return 'basketball';
+  if (value.includes('baseball') || value.includes('mlb')) return 'baseball';
+  if (value.includes('tennis')) return 'tennis';
+  if (value.includes('volleyball')) return 'volleyball';
+  if (value.includes('golf')) return 'golf';
+  if (value.includes('handball')) return 'handball';
+  if (value.includes('rugby')) return 'rugby';
+  if (value.includes('tabletennis') || value.includes('table tennis')) return 'tabletennis';
+  if (value.includes('darts')) return 'darts';
+  if (value.includes('cricket')) return 'cricket';
+  if (value.includes('aussierules') || value.includes('aussie rules')) return 'aussierules';
+  if (value.includes('soccer') || value.includes('football')) return 'soccer';
+  return undefined;
+}
+
 export const SPORT_LABELS: Record<SportKey, string> = {
   soccer: 'Soccer',
   basketball: 'Basketball',
