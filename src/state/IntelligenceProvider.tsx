@@ -25,7 +25,7 @@ interface IntelligenceValue {
   toggleCheck: (missionId: string, checkId: string) => Promise<void>; requestApproval: (missionId: string) => Promise<void>;
   approveMission: (missionId: string, note: string) => Promise<void>; rejectMission: (missionId: string, note: string) => Promise<void>;
   cancelMission: (missionId: string, reason: string) => Promise<void>; executeMission: (missionId: string) => Promise<void>;
-  simulateEngineFailure: () => void; dismissToast: (id: string) => void;
+  simulateEngineFailure: () => void; dismissToast: (id: string) => void; getAnalysisError: (eventId: string) => string;
 }
 const IntelligenceContext = createContext<IntelligenceValue | null>(null);
 function localDate() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
