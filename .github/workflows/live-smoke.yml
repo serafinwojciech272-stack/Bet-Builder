@@ -76,7 +76,10 @@ jobs:
           await page.getByRole('button', {name:'Deep Analyze'}).click();
           await page.getByText('EVIDENCE GRAPH', {exact:true}).waitFor({timeout:60000});
           const pipelineStatus = await page.getByRole('status').last().innerText();
-          if (!pipelineStatus.includes('ANALYZE ALL 1/1') || !pipelineStatus.includes('DEEP RESEARCH ALL 1/1') || !pipelineStatus.includes('EVIDENCE GRAPH 1/1')) fail('Full analysis pipeline incomplete: ' + pipelineStatus);
+          if (!pipelineStatus.includes('ANALYZE ALL 1/1') || !pipelineStatus.includes('DEEP RESEARCH ALL 1/1') || !pipelineStatus.includes('EVIDENCE GRAPH 1/1')) {
+            const errors = await page.locator('[aria-live="polite"] p').allInnerTexts().catch(() => []);
+            fail('Full analysis pipeline incomplete: ' + pipelineStatus + ' | toasts: ' + errors.join(' || '));
+          }
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
           await page.getByRole('heading', {name:'Portfolio Decision Packet'}).first().waitFor({timeout:10000});
           await page.getByRole('button', {name:'Optimize', exact:true}).click();
