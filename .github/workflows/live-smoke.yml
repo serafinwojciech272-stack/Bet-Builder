@@ -41,5 +41,41 @@ jobs:
           test "$status" = "200"
           node -e 'const b=require("/tmp/research.json"); if(!b.researchId || !Array.isArray(b.queries) || !Array.isArray(b.sources) || !Array.isArray(b.findings) || !b.consensus) process.exit(1); console.log(JSON.stringify({queries:b.queries.length,sources:b.sources.length,findings:b.findings.length,quality:b.researchQuality}))'
 
+
+      - name: Browser E2E smoke
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({headless:true});
+          const page = await browser.newPage({viewport:{width:1440,height:1100}});
+          const base = 'https://bet-builder-live.onrender.com';
+          const fail = (m) => { throw new Error(m); };
+          await page.goto(base + '/#/events', {waitUntil:'networkidle', timeout:60000});
+          await page.getByText('Wydarzenia sportowe').waitFor({timeout:20000});
+          if (!(await page.getByText('LIVE ENGINE').count())) fail('LIVE ENGINE badge missing');
+          const sports = await page.locator('select').filter({has: page.locator('option')}).first().locator('option').count();
+          if (sports < 4) fail('Expected multiple sport filters');
+          const analyzeLinks = page.getByRole('link', {name:'Analyze event →'});
+          if (!(await analyzeLinks.count())) fail('No live event analysis links rendered');
+          await analyzeLinks.first().click();
+          await page.waitForURL('**/#/analysis/**', {timeout:20000});
+          await page.getByText('Event overview').waitFor({timeout:20000});
+          await page.goto(base + '/#/builder', {waitUntil:'networkidle', timeout:60000});
+          await page.getByText('Kupon jest pusty').waitFor({timeout:20000});
+          const eventButtons = page.locator('section[aria-label="Events"] button');
+          if (!(await eventButtons.count())) fail('No builder market selections rendered');
+          await eventButtons.first().click();
+          await page.getByText('1 TYPÓW').waitFor({timeout:10000});
+          await page.getByRole('button', {name:'Deep Analyze'}).click();
+          await page.getByText(/EVIDENCE GRAPH/).waitFor({timeout:60000});
+          await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
+          await page.getByText('Portfolio Decision Packet').waitFor({timeout:10000});
+          console.log('BROWSER E2E PASS — events → analysis → builder → selection → deep analyze → evidence → decision center');
+          await browser.close();
+          NODE
+
       - name: Result
         run: echo "LIVE SMOKE PASS — frontend + health + live odds + research"
