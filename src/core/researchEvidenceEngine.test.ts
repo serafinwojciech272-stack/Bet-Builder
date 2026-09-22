@@ -33,7 +33,6 @@ describe('research evidence engine hardening', () => {
     }
     expect(result.criticalWarnings).toEqual(expect.arrayContaining([
       'High contradiction rate in research evidence.',
-      'High contradiction rate in research evidence.',
     ]));
   });
 
