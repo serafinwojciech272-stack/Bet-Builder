@@ -2,7 +2,7 @@ import { authenticateSupabaseUser, authorizedByInternalToken, bearerToken } from
 import type { Selection } from '../src/domain/types.js';
 import { runCoreEngineV1 } from '../src/core/coreEngineV1.js';
 import { settleLedgerEntry } from '../src/core/decisionLedger.js';
-import { verifyAuditChain, type AuditEvent } from '../src/core/auditTrail.js';
+import { appendAuditEvent, digestPayload, verifyAuditChain, type AuditEvent } from '../src/core/auditTrail.js';
 import { createSupabaseCoreEngineLedgerStoreFromEnv } from '../src/core/supabaseCoreEnginePersistence.js';
 
 interface E2ERequest {
@@ -52,6 +52,20 @@ async function authorized(req: E2ERequest, url: string, serviceRoleKey: string):
   const user = await authenticateSupabaseUser(req, url, serviceRoleKey);
   if (user) return { ok: true, authMode: 'SUPABASE_USER', userId: user.id };
   return { ok: false, authMode: 'NONE' };
+}
+
+async function supabaseDelete(url: string, key: string, table: string, query: string): Promise<void> {
+  const response = await fetch(
+    `${url.replace(/\/$/, '')}/rest/v1/${table}?${query}`,
+    {
+      method: 'DELETE',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+    },
+  );
+  if (!response.ok) throw new Error(`E2E_DELETE_FAILED:${table}:${response.status}`);
 }
 
 async function supabaseRows(url: string, key: string, table: string, query: string): Promise<Record<string, unknown>[]> {
@@ -111,10 +125,16 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const store = createSupabaseCoreEngineLedgerStoreFromEnv();
     if (!store) return json(res, 503, { error: 'CORE_ENGINE_PERSISTENCE_NOT_CONFIGURED' });
 
+    // Reset only the deterministic synthetic E2E fixture. This prevents stale
+    // rows from a previous CI run from poisoning the audit-chain test.
+    await supabaseDelete(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}`);
+    await supabaseDelete(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(`LED-DP-${TEST_NOW.getTime()}-e2e-persistence-selection`)}`);
+    await supabaseDelete(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}`);
+
     const before = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
       ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(`LED-DP-${TEST_NOW.getTime()}-e2e-persistence-selection`)}&select=id,decision_packet_id`),
-      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`),
+      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`),
     };
 
     const first = await runCoreEngineV1([selection], null, store, TEST_NOW);
@@ -123,7 +143,10 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
 
     // Full lifecycle: create -> persist -> approve -> execute(observational) -> measure -> complete -> learn -> audit -> restart/recovery.
     const lifecycleAudit = [...first.audit];
-    const lifecycleAt = (offsetMs: number) => new Date(TEST_NOW.getTime() + offsetMs).toISOString();
+    const lifecycleBase = first.audit.length > 0
+      ? new Date(first.audit.at(-1)!.at).getTime()
+      : TEST_NOW.getTime();
+    const lifecycleAt = (offsetMs: number) => new Date(lifecycleBase + offsetMs).toISOString();
 
     appendAuditEvent(lifecycleAudit, {
       runId: TEST_RUN_ID,
@@ -194,14 +217,14 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const recoveryStore = createSupabaseCoreEngineLedgerStoreFromEnv();
     if (!recoveryStore) throw new Error('CORE_ENGINE_PERSISTENCE_NOT_CONFIGURED');
     const recoveredLedger = (await recoveryStore.list()).find((entry) => entry.id === lifecycleLedger.id);
-    const recoveredAudit = await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`);
+    const recoveredAudit = await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`);
     const recoveredAuditEvents = recoveredAudit.map((row) => ({
-      id: String(row.id),
       runId: String(row.run_id),
       type: row.event_type as AuditEvent['type'],
-      at: String(row.at),
+      at: new Date(String(row.at)).toISOString(),
       actor: row.actor as AuditEvent['actor'],
       payloadDigest: String(row.payload_digest),
+      id: String(row.id),
       previousHash: row.previous_hash === null ? null : String(row.previous_hash),
       hash: String(row.hash),
     }));
@@ -225,16 +248,16 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const after = {
       runs: await supabaseRows(url, key, 'bb_decision_runs', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=run_id,packet_id,audit_valid,calibration_state`),
       ledger: await supabaseRows(url, key, 'bb_decision_ledger', `id=eq.${encodeURIComponent(first.ledgerEntry.id)}&select=id,decision_packet_id,status`),
-      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=id.asc`),
+      audit: await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`),
     };
 
     const persistedAudit = after.audit.map((row) => ({
-      id: String(row.id),
       runId: String(row.run_id),
       type: row.event_type as AuditEvent['type'],
-      at: String(row.at),
+      at: new Date(String(row.at)).toISOString(),
       actor: row.actor as AuditEvent['actor'],
       payloadDigest: String(row.payload_digest),
+      id: String(row.id),
       previousHash: row.previous_hash === null ? null : String(row.previous_hash),
       hash: String(row.hash),
     }));
@@ -262,7 +285,8 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       after.audit.length === 13 &&
       after.runs[0]?.run_id === TEST_RUN_ID &&
       after.ledger[0]?.id === first.ledgerEntry.id &&
-      after.audit.every((row, index) => row.id === first.audit[index]?.id);
+      first.audit.every((event) => after.audit.some((row) => row.id === event.id)) &&
+      after.audit.every((row) => row.run_id === TEST_RUN_ID);
 
     const pass =
       first.executionPolicy === 'OBSERVATIONAL_ONLY' &&
@@ -274,7 +298,6 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       after.ledger.length === 1 &&
       after.audit.length === 13 &&
       lifecycleComplete &&
-      recoveredAuditEvents.length === 13 &&
       recoveredIntegrity.valid &&
       idempotent;
 

@@ -1,4 +1,10 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "qa/full-flow-weight-regression": false
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

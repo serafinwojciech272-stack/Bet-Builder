@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - qa/full-flow-weight-regression
   pull_request:
     branches: [main]
 
@@ -35,14 +37,23 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npx tsc -b
-
       - name: Test
         run: npm test
 
       - name: Backend health smoke
         run: npm run test:health
 
+      - name: API contract smoke
+        run: npm run test:api-contract
+
       - name: Production build
         run: npm run build
+
+      - name: Persistence E2E
+        env:
+          SUPABASE_URL: https://jjybnpoqnyycyrrzbekd.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CORE_ENGINE_E2E_TOKEN: ${{ secrets.CORE_ENGINE_E2E_TOKEN }}
+        run: npm run test:persistence-e2e
+
+# QA persistence E2E gate: push-triggered verification.

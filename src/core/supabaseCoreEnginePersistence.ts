@@ -9,10 +9,11 @@ export interface SupabaseRestConfig {
 
 type SupabaseRow = Record<string, unknown>;
 
-const endpoint = (url: string, table: string) => `${url.replace(/\/$/, '')}/rest/v1/${table}`;
+const endpoint = (url: string, table: string, onConflict?: string) =>
+  `${url.replace(/\/$/, '')}/rest/v1/${table}${onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : ''}`;
 
-async function request(config: SupabaseRestConfig, table: string, init: RequestInit) {
-  const response = await fetch(endpoint(config.url, table), {
+async function request(config: SupabaseRestConfig, table: string, init: RequestInit, onConflict?: string) {
+  const response = await fetch(endpoint(config.url, table, onConflict), {
     ...init,
     headers: {
       apikey: config.serviceRoleKey,
@@ -75,12 +76,12 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
     await request(this.config, 'bb_decision_ledger', {
       method: 'POST',
       body: JSON.stringify(ledgerRow(entry)),
-    });
+    }, 'id');
   }
 
   async list() {
     const response = await fetch(
-      `${endpoint(this.config.url, 'bb_decision_ledger')}?select=*&order=recorded_at.desc`,
+      endpoint(this.config.url, 'bb_decision_ledger') + '?select=*&order=recorded_at.desc',
       {
         headers: {
           apikey: this.config.serviceRoleKey,
@@ -108,7 +109,7 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
         audit_valid: run.auditIntegrity.valid,
         calibration_state: run.calibration.state,
       }),
-    });
+    }, 'run_id');
   }
 
   async persistAudit(events: AuditEvent[]) {
@@ -125,7 +126,7 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
         previous_hash: event.previousHash,
         hash: event.hash,
       }))),
-    });
+    }, 'id');
   }
 }
 
