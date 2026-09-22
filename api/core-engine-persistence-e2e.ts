@@ -219,12 +219,12 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     const recoveredLedger = (await recoveryStore.list()).find((entry) => entry.id === lifecycleLedger.id);
     const recoveredAudit = await supabaseRows(url, key, 'bb_audit_events', `run_id=eq.${encodeURIComponent(TEST_RUN_ID)}&select=id,run_id,event_type,at,actor,payload_digest,previous_hash,hash&order=at.asc,id.asc`);
     const recoveredAuditEvents = recoveredAudit.map((row) => ({
-      id: String(row.id),
       runId: String(row.run_id),
       type: row.event_type as AuditEvent['type'],
       at: new Date(String(row.at)).toISOString(),
       actor: row.actor as AuditEvent['actor'],
       payloadDigest: String(row.payload_digest),
+      id: String(row.id),
       previousHash: row.previous_hash === null ? null : String(row.previous_hash),
       hash: String(row.hash),
     }));
@@ -252,12 +252,12 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
     };
 
     const persistedAudit = after.audit.map((row) => ({
-      id: String(row.id),
       runId: String(row.run_id),
       type: row.event_type as AuditEvent['type'],
-      at: String(row.at),
+      at: new Date(String(row.at)).toISOString(),
       actor: row.actor as AuditEvent['actor'],
       payloadDigest: String(row.payload_digest),
+      id: String(row.id),
       previousHash: row.previous_hash === null ? null : String(row.previous_hash),
       hash: String(row.hash),
     }));
