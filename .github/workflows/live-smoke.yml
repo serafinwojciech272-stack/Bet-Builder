@@ -71,7 +71,10 @@ jobs:
           const firstSelection = eventButtons.first();
           await firstSelection.scrollIntoViewIfNeeded();
           await firstSelection.click();
-          await page.waitForFunction(() => document.querySelector('section[aria-label="Events"] button[aria-pressed="true"]') !== null, {timeout:10000});
+          await page.waitForTimeout(1500);
+          const selectedState = await page.locator('section[aria-label="Events"] button').evaluateAll(btns => btns.slice(0,8).map(b => ({text:b.textContent?.trim(), pressed:b.getAttribute('aria-pressed')})));
+          console.log('SELECTION STATE', JSON.stringify(selectedState));
+          if (!selectedState.some(x => x.pressed === 'true')) fail('Selection did not enter builder state: ' + JSON.stringify(selectedState));
           await page.getByRole('button', {name:'Deep Analyze'}).click();
           await page.getByRole('status').last().waitFor({timeout:60000});
           await page.waitForFunction(() => {
