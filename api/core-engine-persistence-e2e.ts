@@ -222,7 +222,7 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       id: String(row.id),
       runId: String(row.run_id),
       type: row.event_type as AuditEvent['type'],
-      at: String(row.at),
+      at: new Date(String(row.at)).toISOString(),
       actor: row.actor as AuditEvent['actor'],
       payloadDigest: String(row.payload_digest),
       previousHash: row.previous_hash === null ? null : String(row.previous_hash),
