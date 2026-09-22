@@ -66,7 +66,7 @@ jobs:
           if (!analysisHref || !analysisHref.includes('/analysis/')) fail('Analysis route link missing');
           await page.goto(base + '/?smoke=99593a67135c0eb2dd4416831b4ce5b458a4e109#/builder', {waitUntil:'networkidle', timeout:60000});
           await page.getByRole('complementary').getByText('Kupon jest pusty').first().waitFor({timeout:20000});
-          const eventButtons = page.locator('section[aria-label="Events"] button');
+          const eventButtons = page.locator('section[aria-label="Events"] button[aria-pressed="false"]');
           if (!(await eventButtons.count())) fail('No builder market selections rendered');
           const firstSelection = eventButtons.first();
           await firstSelection.scrollIntoViewIfNeeded();
