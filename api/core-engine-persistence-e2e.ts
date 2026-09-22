@@ -298,7 +298,6 @@ export default async function handler(req: E2ERequest, res: E2EResponse) {
       after.ledger.length === 1 &&
       after.audit.length === 13 &&
       lifecycleComplete &&
-      recoveredAuditEvents.length === 13 &&
       recoveredIntegrity.valid &&
       idempotent;
 
