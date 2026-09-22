@@ -69,8 +69,10 @@ jobs:
           await page.getByRole('complementary').getByText('Kupon jest pusty').first().waitFor({timeout:20000});
           const eventButtons = page.locator('section[aria-label="Events"] button');
           if (!(await eventButtons.count())) fail('No builder market selections rendered');
-          await eventButtons.first().click();
-          await page.getByText('1 TYPÓW').waitFor({timeout:10000});
+          const firstSelection = eventButtons.first();
+          await firstSelection.scrollIntoViewIfNeeded();
+          await firstSelection.click();
+          await firstSelection.waitForFunction(element => element.getAttribute('aria-pressed') === 'true', {timeout:10000});
           await page.getByRole('button', {name:'Deep Analyze'}).click();
           await page.getByText('EVIDENCE GRAPH', {exact:true}).waitFor({timeout:60000});
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
