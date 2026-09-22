@@ -56,8 +56,10 @@ jobs:
           await page.goto(base + '/#/events', {waitUntil:'networkidle', timeout:60000});
           await page.getByText('Wydarzenia sportowe').waitFor({timeout:20000});
           if (!(await page.getByText('LIVE ENGINE').count())) fail('LIVE ENGINE badge missing');
-          const sports = await page.locator('select').filter({has: page.locator('option')}).first().locator('option').count();
-          if (sports < 4) fail('Expected multiple sport filters');
+          const sportSelect = page.locator('select').filter({hasText:'Wszystkie dyscypliny'}).first();
+          await sportSelect.waitFor({timeout:10000});
+          const sportOptions = await sportSelect.locator('option').allTextContents();
+          if (sportOptions.length < 4 || !sportOptions.includes('Piłka nożna')) fail('Expected provider sport catalog in UI: ' + sportOptions.join(' | '));
           const analyzeLinks = page.getByRole('link', {name:'Analyze event →'});
           if (!(await analyzeLinks.count())) fail('No live event analysis links rendered');
           await analyzeLinks.first().click();
