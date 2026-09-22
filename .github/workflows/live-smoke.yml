@@ -78,7 +78,9 @@ jobs:
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
           await page.getByRole('heading', {name:'Portfolio Decision Packet'}).first().waitFor({timeout:10000});
           await page.getByRole('button', {name:'Optimize', exact:true}).click();
-          await page.getByText('Core Optimizer:', {exact:false}).waitFor({timeout:20000});
+          await page.waitForTimeout(1500);
+          const optimizeStatus = await page.getByRole('status').last().innerText().catch(() => 'NO_STATUS');
+          if (!optimizeStatus.includes('Core Optimizer:')) fail('Optimize did not complete: ' + optimizeStatus);
           await page.getByRole('button', {name:'Przekaż do Approval Gate', exact:true}).click();
           await page.waitForURL('**/#/missions/**', {timeout:20000});
           await page.getByRole('heading', {name:'Approval gate'}).waitFor({timeout:20000});
