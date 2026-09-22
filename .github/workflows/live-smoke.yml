@@ -76,9 +76,9 @@ jobs:
           console.log('SELECTION STATE', JSON.stringify(selectedState));
           if (!selectedState.some(x => x.pressed === 'true')) fail('Selection did not enter builder state: ' + JSON.stringify(selectedState));
           await page.getByRole('button', {name:'Deep Analyze'}).click();
-          await page.getByText('EVIDENCE GRAPH', {exact:true}).waitFor({timeout:60000});
-          const evidenceCount = await page.getByText('EVIDENCE GRAPH', {exact:true}).count();
-          if (!evidenceCount) fail('Evidence graph did not render after Deep Analyze');
+          await page.locator('[role="status"]').filter({hasText:'EVIDENCE GRAPH 1/1'}).first().waitFor({timeout:60000});
+          const pipelineStatus = await page.locator('[role="status"]').filter({hasText:'EVIDENCE GRAPH 1/1'}).first().innerText();
+          if (!pipelineStatus.includes('ANALYZE ALL 1/1') || !pipelineStatus.includes('DEEP RESEARCH ALL 1/1')) fail('Full pipeline incomplete: ' + pipelineStatus);
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
           await page.getByRole('heading', {name:'Portfolio Decision Packet'}).first().waitFor({timeout:10000});
           await page.getByRole('button', {name:'Optimize', exact:true}).click();
