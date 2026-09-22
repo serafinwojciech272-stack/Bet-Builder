@@ -73,7 +73,7 @@ jobs:
           await firstSelection.click();
           await page.waitForFunction(() => document.querySelector('section[aria-label="Events"] button[aria-pressed="true"]') !== null, {timeout:10000});
           await page.getByRole('button', {name:'Deep Analyze'}).click();
-await page.getByRole('status').last().waitFor({timeout:60000});
+          await page.getByRole('status').last().waitFor({timeout:60000});
           await page.waitForFunction(() => {
             const el = document.querySelector('[role="status"]');
             const text = el?.textContent || '';
