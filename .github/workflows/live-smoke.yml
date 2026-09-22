@@ -53,7 +53,7 @@ jobs:
           const page = await browser.newPage({viewport:{width:1440,height:1100}});
           const base = 'https://bet-builder-live.onrender.com';
           const fail = (m) => { throw new Error(m); };
-          await page.goto(base + '/#/events', {waitUntil:'networkidle', timeout:60000});
+          await page.goto(base + '/?smoke=99593a67135c0eb2dd4416831b4ce5b458a4e109#/events', {waitUntil:'networkidle', timeout:60000});
           await page.getByText('Wydarzenia sportowe').waitFor({timeout:20000});
           if (!(await page.getByText('LIVE ENGINE').count())) fail('LIVE ENGINE badge missing');
           const sportSelect = page.locator('select').filter({hasText:'Wszystkie dyscypliny'}).first();
@@ -65,7 +65,7 @@ jobs:
           await analyzeLinks.first().click();
           await page.waitForURL('**/#/analysis/**', {timeout:20000});
           await page.getByRole('heading', {name:'Event overview'}).waitFor({timeout:20000});
-          await page.goto(base + '/#/builder', {waitUntil:'networkidle', timeout:60000});
+          await page.goto(base + '/?smoke=99593a67135c0eb2dd4416831b4ce5b458a4e109#/builder', {waitUntil:'networkidle', timeout:60000});
           await page.getByRole('complementary').getByText('Kupon jest pusty').first().waitFor({timeout:20000});
           const eventButtons = page.locator('section[aria-label="Events"] button');
           if (!(await eventButtons.count())) fail('No builder market selections rendered');
