@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, Eye, Filter, Search, Swords, Trophy, Zap as ZapIcon } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
-import { MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
+import { canonicalSportKey, MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
 import type { SportKey } from '../domain/types';
 import { Chip, EmptyState, ErrorState, LoadingState, Panel, SectionHeading, Stat } from '../components/ui';
 import { dateTime, relativeTime } from '../lib/format';
@@ -33,7 +33,14 @@ export function EventsPage() {
     const bestEdge = (x: typeof rows[number]) => Math.max(...x.value.signals.map((s) => s.edgePct.value), -99);
     return rows.sort((a, b) => sort === 'edge' ? bestEdge(b) - bestEdge(a) : sort === 'movement' ? (b.movement?.maxAbsChangePct.value ?? 0) - (a.movement?.maxAbsChangePct.value ?? 0) : a.event.startTime.localeCompare(b.event.startTime));
   }, [intel, query, sport, monitoredOnly, sort]);
-  const sports = useMemo(() => [...new Set(intel.map((i) => i.event.sportKey))], [intel]);
+  const sports = useMemo(() => {
+    const fromCatalog = (dataset?.availableSports ?? [])
+      .map((s) => canonicalSportKey(s.key, s.group, s.title))
+      .filter((s): s is SportKey => Boolean(s));
+    return [...new Set(fromCatalog.length ? fromCatalog : intel.map((i) => i.event.sportKey))];
+  }, [dataset?.availableSports, intel]);
+  const sportLabel = (key: SportKey) => ({ soccer: 'Piłka nożna', basketball: 'Koszykówka', americanfootball: 'Futbol amerykański', icehockey: 'Hokej', baseball: 'Baseball', tennis: 'Tenis', volleyball: 'Siatkówka', golf: 'Golf', handball: 'Piłka ręczna', rugby: 'Rugby', tabletennis: 'Tenis stołowy', darts: 'Dart', cricket: 'Krykiet', aussierules: 'Aussie Rules' } satisfies Record<SportKey,string>)[key];
+  const onSportChange = (next: SportKey | 'all') => { setSport(next); void refresh(selectedDate, true, next); };
 
   if (phase === 'loading' || phase === 'idle') return <LoadingState label="Ładowanie wydarzeń…" rows={5} />;
   if (phase === 'error') return <ErrorState title="Nie udało się pobrać wydarzeń" detail={error ?? undefined} onRetry={() => void refresh()} retryLabel="Spróbuj ponownie" />;
@@ -87,8 +94,8 @@ export function EventsPage() {
           </label>
           <button type="button" onClick={() => void refresh(localDateValue(), true)} className="rounded-lg border border-ai/30 bg-ai/10 px-3 py-2 text-[11px] font-medium text-ai">Dzisiaj</button>
           <label className="text-[11px] text-faint">Dyscyplina
-            <select value={sport} onChange={(e) => setSport(e.target.value as SportKey | 'all')} className="mt-1 block rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs text-foreground">
-              <option value="all">Wszystkie</option>{sports.map((s) => <option key={s} value={s}>{SPORT_LABELS[s]}</option>)}
+            <select value={sport} onChange={(e) => onSportChange(e.target.value as SportKey | 'all')} className="mt-1 block rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs text-foreground">
+              <option value="all">Wszystkie dyscypliny</option>{sports.map((s) => <option key={s} value={s}>{sportLabel(s)}</option>)}
             </select>
           </label>
           <label className="text-[11px] text-faint">Sortuj
