@@ -146,29 +146,57 @@ async function fetchSportScoreFallback(requestedDate: string, requestedSport: st
   const sports = [...new Set((requestedSport === 'all' ? ['football','basketball','tennis','cricket'] : [requestedSport.toLowerCase() === 'soccer' ? 'football' : requestedSport.toLowerCase()]).filter(s => ['football','basketball','tennis','cricket'].includes(s)))];
   const labels: Record<string,string> = {football:'Football',basketball:'Basketball',tennis:'Tennis',cricket:'Cricket'};
   const results = await Promise.all(sports.map(async sport => {
-    try {
-      const url = new URL('https://sportscore.com/api/widget/matches/');
-      url.searchParams.set('sport', sport); url.searchParams.set('limit','50'); url.searchParams.set('src','bet-builder');
-      const response = await fetchWithTimeout(url,{headers:{Accept:'application/json','User-Agent':'Bet-Builder/1.0'}},8000);
-      const raw = await response.text();
-      if (!response.ok) throw new Error(`SportScore HTTP ${response.status}: ${raw.slice(0,160)}`);
-      const payload = JSON.parse(raw) as {matches?:Array<Record<string,unknown>>};
-      return {sport,matches:Array.isArray(payload.matches)?payload.matches:[]};
-    } catch(error) {
-      issues.push({code:'sportscore-error',severity:'warning',message:error instanceof Error?error.message:'SportScore request failed.',reference:sport});
-      return {sport,matches:[]};
+    const attempts = [
+      { src: 'bet-builder', headers: { Accept: 'application/json', 'User-Agent': 'Bet-Builder/1.0', Referer: 'https://sportscore.com/' } },
+      { src: undefined, headers: { Accept: 'application/json', 'User-Agent': 'Bet-Builder/1.0', Referer: 'https://sportscore.com/' } },
+      { src: undefined, headers: { Accept: 'application/json' } },
+    ];
+    let lastError = 'SportScore request failed.';
+    for (let attempt = 0; attempt < attempts.length; attempt += 1) {
+      try {
+        const url = new URL('https://sportscore.com/api/widget/matches/');
+        url.searchParams.set('sport', sport);
+        url.searchParams.set('limit', '50');
+        if (attempts[attempt].src) url.searchParams.set('src', attempts[attempt].src);
+        const response = await fetchWithTimeout(url, { headers: attempts[attempt].headers }, 8000);
+        const raw = await response.text();
+        if (response.ok) {
+          const payload = JSON.parse(raw) as { matches?: Array<Record<string, unknown>> };
+          return { sport, matches: Array.isArray(payload.matches) ? payload.matches : [] };
+        }
+        lastError = `SportScore HTTP ${response.status}: ${raw.slice(0, 160)}`;
+        if (![403, 429, 500, 502, 503, 504].includes(response.status)) break;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : 'SportScore request failed.';
+      }
     }
+    issues.push({ code: 'sportscore-error', severity: 'warning', message: lastError, reference: sport });
+    return { sport, matches: [] };
   }));
   const events: SportEvent[] = [];
   for (const r of results) for (const m of r.matches) {
-    const home=String(m.home??m.home_team??m.homeTeam??'').trim(), away=String(m.away??m.away_team??m.awayTeam??'').trim();
-    const t=String(m.time??m.start_time??m.startTime??m.commence_time??'').trim();
-    if(!home||!away||!t) continue; const d=new Date(t); if(!Number.isFinite(d.getTime())||polishDate(d.toISOString())!==requestedDate) continue;
-    const competition=String(m.competition??m.league??m.tournament??labels[r.sport]).trim();
-    const status=String(m.status??m.state??'').toLowerCase();
-    events.push({id:`sportscore:${r.sport}:${String(m.id??m.match_id??slug(home+'-'+away+'-'+t))}`,sportKey:canonicalSport(r.sport),league:{id:slug(competition),name:competition,sportKey:canonicalSport(r.sport),country:'International'},homeTeam:team(home),awayTeam:team(away),startTime:d.toISOString(),status:status.includes('live')||status.includes('progress')?'live':status.includes('finish')||status.includes('ended')?'final':'scheduled',venue:'',monitored:true,liquidity:0.5});
+    const home = String(m.home ?? m.home_team ?? m.homeTeam ?? '').trim();
+    const away = String(m.away ?? m.away_team ?? m.awayTeam ?? '').trim();
+    const t = String(m.time ?? m.start_time ?? m.startTime ?? m.commence_time ?? '').trim();
+    if (!home || !away || !t) continue;
+    const d = new Date(t);
+    if (!Number.isFinite(d.getTime()) || polishDate(d.toISOString()) !== requestedDate) continue;
+    const competition = String(m.competition ?? m.league ?? m.tournament ?? labels[r.sport]).trim();
+    const status = String(m.status ?? m.state ?? '').toLowerCase();
+    events.push({
+      id: `sportscore:${r.sport}:${String(m.id ?? m.match_id ?? slug(home + '-' + away + '-' + t))}`,
+      sportKey: canonicalSport(r.sport),
+      league: { id: slug(competition), name: competition, sportKey: canonicalSport(r.sport), country: 'International' },
+      homeTeam: team(home),
+      awayTeam: team(away),
+      startTime: d.toISOString(),
+      status: status.includes('live') || status.includes('progress') ? 'live' : status.includes('finish') || status.includes('ended') ? 'final' : 'scheduled',
+      venue: '',
+      monitored: true,
+      liquidity: 0.5,
+    });
   }
-  return {events:events.sort((a,b)=>a.startTime.localeCompare(b.startTime)),sports,availableSports:sports.map(key=>({key:canonicalSport(key),title:labels[key],group:labels[key]}))};
+  return { events: events.sort((a, b) => a.startTime.localeCompare(b.startTime)), sports, availableSports: sports.map(key => ({ key: canonicalSport(key), title: labels[key], group: labels[key] })) };
 }
 
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
@@ -181,7 +209,6 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   if (req.method === 'OPTIONS') return json(res, 204, '');
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
   const apiKey = process.env.PARLAY_API_KEY?.trim();
-  if (!apiKey) return json(res, 503, { error: 'ODDS_PROVIDER_NOT_CONFIGURED' });
   const requestedDate = queryValue(req, 'date', polishDate(new Date().toISOString()));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
   const requestedSport = queryValue(req, 'sport', 'all');
@@ -190,6 +217,44 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const regions = queryValue(req, 'regions', 'eu');
   const { from, to } = dateBoundsUtc(requestedDate);
   const issues: DatasetResponse['issues'] = [];
+
+  // SportScore is a documented no-key provider. Keep the endpoint usable when
+  // the paid/credentialed ParlayAPI feed is unavailable or not configured.
+  if (!apiKey) {
+    const fallback = await fetchSportScoreFallback(requestedDate, requestedSport, issues);
+    if (fallback.events.length) {
+      return json(res, 200, {
+        events: fallback.events,
+        snapshots: [],
+        issues,
+        droppedRecords: 0,
+        normalizedAt: new Date().toISOString(),
+        provider: 'sportscore',
+        mode: 'LIVE_DATA_NO_ODDS',
+        requestedDate,
+        sportsQueried: fallback.sports,
+        bookmakers: [],
+        availableSports: fallback.availableSports,
+        providerHealth: {
+          provider: 'sportscore',
+          state: 'HEALTHY',
+          fetchedAt: new Date().toISOString(),
+          ageSeconds: 0,
+          staleAfterSeconds: 600,
+          catalogCount: fallback.availableSports.length,
+          queriedSports: fallback.sports.length,
+          successfulSports: fallback.sports.length,
+          failedSports: 0,
+          eventCount: fallback.events.length,
+          snapshotCount: 0,
+          bookmakerCount: 0,
+          warnings: ['REAL EVENTS AVAILABLE', 'NO BOOKMAKER ODDS'],
+        },
+      });
+    }
+    return json(res, 503, { error: 'NO_SPORTS_PROVIDER_AVAILABLE', issues });
+  }
+
   let sports: string[];
   let catalog: ApiSport[] = [];
   try { catalog = await getActiveSports(apiKey); }
