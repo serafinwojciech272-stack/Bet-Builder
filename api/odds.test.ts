@@ -30,7 +30,7 @@ describe('odds API contract', () => {
     await handler({ method: 'GET', query: {} }, res);
     expect(res.statusCode).toBe(503);
     expect(res.body).toMatchObject({ error: 'NO_SPORTS_PROVIDER_AVAILABLE' });
-    expect(res.body.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'no-sportscore-events' })]));
+    expect(bodyOf(res).issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'no-sportscore-events' })]));
   });
 
   it('rejects malformed dates before provider calls', async () => {
