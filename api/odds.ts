@@ -97,7 +97,7 @@ async function fetchSportScoreFallback(requestedDate: string, requestedSport: st
   const normalizedEvents = events.sort((a,b)=>a.startTime.localeCompare(b.startTime)); if (!normalizedEvents.length) issues.push({ code:'no-sportscore-events', severity:'info', message:`SportScore returned no usable events for ${requestedDate}.` }); return { events:normalizedEvents, sports, availableSports:sports.map(key=>({key:canonicalSport(key),title:labels[key],group:labels[key]})) };
 }
 
-async function sportScoreSmoke(requestedDate: string, requestedSport: string) {
+export async function sportScoreSmoke(requestedDate: string, requestedSport: string) {
   const startedAt = Date.now(); const issues: DatasetResponse['issues'] = []; const result = await fetchSportScoreFallback(requestedDate, requestedSport, issues);
   const providerErrors = issues.filter((issue) => issue.code === 'sportscore-error');
   return { smoke:'sportscore', ok:providerErrors.length === 0 && result.events.length > 0, provider:'sportscore', requestedDate, requestedSport, latencyMs:Date.now()-startedAt, eventCount:result.events.length, sportsQueried:result.sports, availableSports:result.availableSports, errors:providerErrors, issues, sampleEvents:result.events.slice(0,5).map(event=>({id:event.id,sport:event.sportKey,home:event.homeTeam.name,away:event.awayTeam.name,startTime:event.startTime,status:event.status})) };
