@@ -23,6 +23,86 @@ export interface SportsDataRepository {
   getSnapshots(eventId: string): Promise<OddsSnapshot[]>;
 }
 function delay(ms: number) { return new Promise<void>(resolve => setTimeout(resolve, ms)); }
+function sportScoreKey(sport: string): import('./types').SportKey {
+  if (sport === 'basketball') return 'basketball';
+  if (sport === 'tennis') return 'tennis';
+  if (sport === 'cricket') return 'cricket';
+  return 'soccer';
+}
+function sportScoreSlug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+async function loadSportScoreDirect(date: string, sport: string): Promise<CanonicalDataset> {
+  const sports = sport === 'all' ? ['football', 'basketball', 'tennis', 'cricket'] : [sport === 'soccer' ? 'football' : sport];
+  const events: SportEvent[] = [];
+  const issues: NormalizationIssue[] = [];
+  for (const currentSport of sports) {
+    if (!['football', 'basketball', 'tennis', 'cricket'].includes(currentSport)) continue;
+    const url = new URL('https://sportscore.com/api/widget/matches/');
+    url.searchParams.set('sport', currentSport);
+    url.searchParams.set('limit', '50');
+    url.searchParams.set('src', 'bet-builder-live');
+    const response = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`SPORTSCORE_BROWSER_HTTP_${response.status}`);
+    const payload = await response.json() as { matches?: Array<Record<string, unknown>> };
+    for (const match of payload.matches ?? []) {
+      const home = String(match.home ?? match.home_team ?? match.homeTeam ?? '').trim();
+      const away = String(match.away ?? match.away_team ?? match.awayTeam ?? '').trim();
+      const rawTime = String(match.time ?? match.start_time ?? match.startTime ?? match.commence_time ?? '').trim();
+      const start = new Date(rawTime);
+      if (!home || !away || !Number.isFinite(start.getTime())) continue;
+      const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(start);
+      if (localDate !== date) continue;
+      const competition = String(match.competition ?? match.league ?? match.tournament ?? currentSport).trim();
+      const statusText = String(match.status ?? match.state ?? '').toLowerCase();
+      const status = statusText.includes('live') || statusText.includes('progress') ? 'live' : statusText.includes('finish') || statusText.includes('ended') ? 'final' : 'scheduled';
+      events.push({
+        id: `sportscore:${currentSport}:${String(match.id ?? match.match_id ?? sportScoreSlug(home + '-' + away + '-' + rawTime))}`,
+        sportKey: sportScoreKey(currentSport),
+        league: { id: sportScoreSlug(competition), name: competition, sportKey: sportScoreKey(currentSport), country: 'International' },
+        homeTeam: { id: sportScoreSlug(home), name: home, shortName: home.slice(0, 18), rating: 0.5, form: [], injuriesOut: 0 },
+        awayTeam: { id: sportScoreSlug(away), name: away, shortName: away.slice(0, 18), rating: 0.5, form: [], injuriesOut: 0 },
+        startTime: start.toISOString(),
+        status,
+        venue: '',
+        monitored: true,
+        liquidity: 0.5,
+      });
+    }
+  }
+  if (!events.length) issues.push({ code: 'sportscore-browser-empty', severity: 'info', message: `SportScore returned no usable events for ${date}.` });
+  return {
+    events: events.sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    snapshots: [],
+    issues,
+    droppedRecords: 0,
+    normalizedAt: new Date().toISOString(),
+    provider: 'sportscore',
+    mode: 'LIVE_DATA_NO_ODDS',
+    requestedDate: date,
+    sportsQueried: sports,
+    bookmakers: [],
+    availableSports: sports.filter(s => ['football','basketball','tennis','cricket'].includes(s)).map(s => ({ key: sportScoreKey(s), title: s, group: s })),
+    providerHealth: {
+      provider: 'sportscore',
+      state: events.length ? 'HEALTHY' : 'OFFLINE',
+      fetchedAt: new Date().toISOString(),
+      ageSeconds: 0,
+      staleAfterSeconds: 600,
+      catalogCount: sports.length,
+      queriedSports: sports.length,
+      successfulSports: sports.length,
+      failedSports: 0,
+      eventCount: events.length,
+      snapshotCount: 0,
+      bookmakerCount: 0,
+      warnings: ['REAL EVENTS AVAILABLE', 'NO BOOKMAKER ODDS'],
+    },
+  };
+}
+
 function deriveProviderHealth(data: CanonicalDataset): ProviderHealth {
   const fetchedAt = data.normalizedAt;
   const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(fetchedAt).getTime()) / 1000));
@@ -76,6 +156,15 @@ export class LiveSportsDataRepository implements SportsDataRepository {
       }
 
       if (!response.ok) {
+        if (response.status >= 500 || response.status === 403 || response.status === 429 || response.status === 404) {
+          try {
+            const direct = await loadSportScoreDirect(date, sport);
+            if (direct.events.length) {
+              this.cache.set(cacheKey, direct);
+              return direct;
+            }
+          } catch { /* Backend provider remains the authoritative path when browser fallback is unavailable. */ }
+        }
         let detail = `HTTP ${response.status}`;
         try {
           const body = await response.json() as { error?: string; message?: string };
