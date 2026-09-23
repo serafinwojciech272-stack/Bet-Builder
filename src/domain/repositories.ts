@@ -8,8 +8,8 @@ export interface CanonicalDataset {
   issues: NormalizationIssue[];
   droppedRecords: number;
   normalizedAt: string;
-  provider?: 'demo' | 'parlay-api';
-  mode?: 'DEMO' | 'LIVE';
+  provider?: 'demo' | 'parlay-api' | 'sportscore';
+  mode?: 'DEMO' | 'LIVE' | 'LIVE_DATA_NO_ODDS';
   requestedDate?: string;
   sportsQueried?: string[];
   bookmakers?: string[];
@@ -100,7 +100,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
           availableSports: data.availableSports,
           quota: data.quota,
           issues: [
-            { code: 'live-provider-empty', severity: 'warning' as const, message: providerIssues[0]?.message ?? 'Live provider returned no events.' },
+            { code: 'live-provider-empty', severity: 'warning' as const, message: providerIssues[0]?.message ?? 'Live providers returned no events.' },
             ...providerIssues,
             ...fallback.issues,
           ],
@@ -109,7 +109,12 @@ export class LiveSportsDataRepository implements SportsDataRepository {
         return degraded;
       }
 
-      const normalized: CanonicalDataset = { ...data, provider: 'parlay-api', mode: 'LIVE', requestedDate: date };
+      const normalized: CanonicalDataset = {
+        ...data,
+        provider: data.provider === 'sportscore' ? 'sportscore' : 'parlay-api',
+        mode: data.mode === 'LIVE_DATA_NO_ODDS' ? 'LIVE_DATA_NO_ODDS' : 'LIVE',
+        requestedDate: date,
+      };
       normalized.providerHealth = data.providerHealth ?? deriveProviderHealth(normalized);
       this.cache.set(cacheKey, normalized);
       return normalized;
