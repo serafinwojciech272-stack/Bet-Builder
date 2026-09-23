@@ -37,7 +37,7 @@ function dateBoundsUtc(date: string) {
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function team(name: string) { return { id: slug(name), name, shortName: name.length > 18 ? name.slice(0, 18) : name, rating: 0.5, form: [] as Array<'W' | 'D' | 'L'>, injuriesOut: 0 }; }
 function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; if (key.startsWith('tennis_')) return 'tennis'; if (key.startsWith('volleyball_')) return 'volleyball'; if (key.startsWith('golf_')) return 'golf'; if (key.startsWith('handball_')) return 'handball'; if (key.startsWith('rugby')) return 'rugby'; if (key.startsWith('tabletennis_')) return 'tabletennis'; if (key.startsWith('darts_')) return 'darts'; if (key.startsWith('cricket_')) return 'cricket'; if (key.startsWith('aussierules_')) return 'aussierules'; return 'soccer'; }
-async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeoutMs = 7000): Promise<Response> {
+async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeoutMs = 12000): Promise<Response> {
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs);
   try { return await fetch(url, { ...init, signal: controller.signal }); } finally { clearTimeout(timer); }
 }
@@ -83,8 +83,9 @@ async function fetchSportScoreFallback(requestedDate: string, requestedSport: st
   const labels: Record<string,string> = { football:'Football', basketball:'Basketball', tennis:'Tennis', cricket:'Cricket' };
   const results = await Promise.all(sports.map(async sport => {
     const attempts = [
-      { src: 'bet-builder', headers: { Accept: 'application/json', 'User-Agent': 'Bet-Builder/1.0', Referer: 'https://sportscore.com/' } },
-      { src: undefined, headers: { Accept: 'application/json', 'User-Agent': 'Bet-Builder/1.0', Referer: 'https://sportscore.com/' } },
+      { src: 'bet-builder', headers: { Accept: 'application/json', 'Accept-Language': 'en-US,en;q=0.9', 'Cache-Control': 'no-cache', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', Referer: 'https://sportscore.com/', Origin: 'https://sportscore.com' } },
+      { src: 'bet-builder-live', headers: { Accept: 'application/json', 'Accept-Language': 'en-US,en;q=0.9', 'Cache-Control': 'no-cache', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', Referer: 'https://sportscore.com/', Origin: 'https://sportscore.com' } },
+      { src: undefined, headers: { Accept: 'application/json', 'Accept-Language': 'en-US,en;q=0.9', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36', Origin: 'https://sportscore.com' } },
       { src: undefined, headers: { Accept: 'application/json' } },
     ]; let lastError = 'SportScore request failed.';
     for (let attempt = 0; attempt < attempts.length; attempt += 1) {
