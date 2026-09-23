@@ -45,6 +45,8 @@ const healthModule = await import('./api/health.ts');
 const decisionReasoningModule = await import('./api/decision-reasoning.ts');
 const coreEngineModule = await import('./api/core-engine.ts');
 const oddsHandler = oddsModule.default as Handler;
+const sportScoreSmokeModule = await import('./api/sportscore-smoke.ts');
+const sportScoreSmokeHandler = sportScoreSmokeModule.default as Handler;
 const researchHandler = researchModule.default as Handler;
 const coreEngineE2EHandler = coreEngineE2EModule.default as Handler;
 const healthHandler = healthModule.default as Handler;
@@ -63,6 +65,7 @@ const server = createServer(async (req, res) => {
 
   try {
     if (url.pathname === '/api/odds') return await adapt(oddsHandler, req, res);
+    if (url.pathname === '/api/sportscore-smoke') return await adapt(sportScoreSmokeHandler, req, res);
     if (url.pathname === '/api/research') return await adapt(researchHandler, req, res);
     if (url.pathname === '/api/core-engine-persistence-e2e') return await adapt(coreEngineE2EHandler, req, res);
     if (url.pathname === '/health') return await adapt(healthHandler, req, res);
