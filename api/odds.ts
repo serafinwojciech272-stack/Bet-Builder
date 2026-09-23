@@ -196,7 +196,11 @@ async function fetchSportScoreFallback(requestedDate: string, requestedSport: st
       liquidity: 0.5,
     });
   }
-  return { events: events.sort((a, b) => a.startTime.localeCompare(b.startTime)), sports, availableSports: sports.map(key => ({ key: canonicalSport(key), title: labels[key], group: labels[key] })) };
+  const normalizedEvents = events.sort((a, b) => a.startTime.localeCompare(b.startTime));
+  if (!normalizedEvents.length) {
+    issues.push({ code: 'no-sportscore-events', severity: 'info', message: `SportScore returned no usable events for ${requestedDate}.` });
+  }
+  return { events: normalizedEvents, sports, availableSports: sports.map(key => ({ key: canonicalSport(key), title: labels[key], group: labels[key] })) };
 }
 
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
