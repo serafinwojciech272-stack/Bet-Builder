@@ -12,13 +12,13 @@ interface Props {
   onOptimize: () => void;
   onSaveMission: () => void;
   onGenerateSmart: () => void;
-  feedMode?: 'LIVE' | 'DEMO' | 'UNKNOWN';
+  feedMode?: 'LIVE' | 'LIVE_DATA_NO_ODDS' | 'DEMO' | 'UNKNOWN';
 }
 
 export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemove, onAnalyze, onOptimize, onSaveMission, onGenerateSmart, feedMode = 'UNKNOWN' }: Props) {
   const stats = useBuilderStats(selections, stake);
   const empty = selections.length === 0;
-  const modeLabel = feedMode === 'LIVE' ? 'Prawdziwe kursy · ParlayAPI' : feedMode === 'DEMO' ? 'Tryb demonstracyjny' : 'Źródło kursów niedostępne';
+  const modeLabel = feedMode === 'LIVE' ? 'Prawdziwe kursy · ParlayAPI' : feedMode === 'LIVE_DATA_NO_ODDS' ? 'Prawdziwe mecze · bez kursów' : feedMode === 'DEMO' ? 'Tryb demonstracyjny' : 'Źródło kursów niedostępne';
 
   return (
     <aside className="glass-strong glow-ai flex h-full flex-col overflow-hidden rounded-2xl">
@@ -40,7 +40,7 @@ export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemo
             <div className="text-sm font-semibold text-slate-200">Kupon jest pusty</div>
             <div className="mt-1 max-w-[230px] text-xs leading-relaxed text-slate-500">Wybierz konkretne rynki z tablicy meczów. Każdy typ trafia tutaj jako osobna noga kuponu.</div>
           </div>
-          <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.16em] ${feedMode === 'LIVE' ? 'border-emerald-400/20 bg-emerald-400/[.06] text-emerald-300' : feedMode === 'DEMO' ? 'border-amber-400/20 bg-amber-400/[.06] text-amber-300' : 'border-slate-400/20 bg-slate-400/[.06] text-slate-400'}`}>{modeLabel}</span>
+          <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[.16em] ${feedMode === 'LIVE' || feedMode === 'LIVE_DATA_NO_ODDS' ? 'border-emerald-400/20 bg-emerald-400/[.06] text-emerald-300' : feedMode === 'DEMO' ? 'border-amber-400/20 bg-amber-400/[.06] text-amber-300' : 'border-slate-400/20 bg-slate-400/[.06] text-slate-400'}`}>{modeLabel}</span>
         </div>
       ) : (
         <>
@@ -102,7 +102,7 @@ export function BuilderPanel({ selections, stake, onUpdateStake, onClear, onRemo
             </div>
             <button type="button" onClick={onSaveMission} className="w-full rounded-xl border border-emerald-400/20 bg-emerald-400/[.06] px-3 py-2.5 text-xs font-bold text-emerald-200 transition hover:border-emerald-300/40 hover:bg-emerald-400/[.12]">Przekaż do Approval Gate</button>
             <button type="button" onClick={onClear} className="w-full rounded-xl border border-red-400/15 bg-red-400/[.035] px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-red-300/80 transition hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-200">Wyczyść kupon</button>
-            <div className="flex items-center justify-center gap-1.5 pt-1"><span className={`live-dot h-1.5 w-1.5 rounded-full ${feedMode === 'LIVE' ? 'bg-emerald-400' : 'bg-amber-400'}`} aria-hidden /><span className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-600">{modeLabel}</span></div>
+            <div className="flex items-center justify-center gap-1.5 pt-1"><span className={`live-dot h-1.5 w-1.5 rounded-full ${feedMode === 'LIVE' || feedMode === 'LIVE_DATA_NO_ODDS' ? 'bg-emerald-400' : 'bg-amber-400'}`} aria-hidden /><span className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-600">{modeLabel}</span></div>
           </div>
         </>
       )}
