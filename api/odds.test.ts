@@ -23,12 +23,14 @@ describe('odds API contract', () => {
     vi.useRealTimers();
   });
 
-  it('rejects missing provider configuration', async () => {
+  it('uses keyless SportScore fallback when ParlayAPI is not configured', async () => {
     vi.stubEnv('PARLAY_API_KEY', '');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ matches: [] }), { status: 200 })));
     const res = response();
     await handler({ method: 'GET', query: {} }, res);
     expect(res.statusCode).toBe(503);
-    expect(res.body).toMatchObject({ error: 'ODDS_PROVIDER_NOT_CONFIGURED' });
+    expect(res.body).toMatchObject({ error: 'NO_SPORTS_PROVIDER_AVAILABLE' });
+    expect(res.body.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'no-sportscore-events' })]));
   });
 
   it('rejects malformed dates before provider calls', async () => {
