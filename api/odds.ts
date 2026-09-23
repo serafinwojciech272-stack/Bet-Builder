@@ -11,7 +11,7 @@ interface ApiOutcome { name: string; price: number; point?: number; }
 interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; }
 interface ApiBookmaker { key: string; title: string; last_update: string; markets: ApiMarket[]; }
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
-interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api' | 'sportscore'; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
+interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api' | 'the-odds-api'; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; headers?: Record<string, string | undefined>; }
 let sportsCatalogCache: { apiKey: string; expiresAt: number; value: ApiSport[] } | null = null;
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
@@ -63,76 +63,83 @@ async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
 }
 
 
-async function fetchSportScoreFallback(
+async function fetchOddsApiFallback(
   requestedDate: string,
   requestedSport: string,
   issues: DatasetResponse['issues'],
-): Promise<{ events: SportEvent[]; availableSports: Array<{ key: string; title: string; group: string }>; queriedSports: string[] }> {
-  const sportMap: Record<string, string> = { soccer: 'football', football: 'football', basketball: 'basketball', tennis: 'tennis', cricket: 'cricket' };
-  const requested = requestedSport === 'all' ? ['football', 'basketball', 'tennis', 'cricket'] : [sportMap[requestedSport.toLowerCase()] ?? requestedSport.toLowerCase()];
-  const uniqueSports = [...new Set(requested)].filter((sport) => ['football', 'basketball', 'tennis', 'cricket'].includes(sport));
-  const results = await Promise.all(uniqueSports.map(async (sport) => {
+): Promise<{ events: SportEvent[]; snapshots: OddsSnapshot[]; availableSports: Array<{ key: string; title: string; group: string }>; queriedSports: string[]; bookmakers: string[]; quota?: DatasetResponse['quota'] }> {
+  const apiKey = process.env.ODDS_API_KEY?.trim();
+  if (!apiKey) return { events: [], snapshots: [], availableSports: [], queriedSports: [], bookmakers: [] };
+  const requested = requestedSport === 'all'
+    ? ['soccer_epl','soccer_italy_serie_a','soccer_spain_la_liga','soccer_germany_bundesliga','soccer_poland_ekstraklasa','basketball_nba','icehockey_nhl','tennis_atp','baseball_mlb','americanfootball_nfl']
+    : [requestedSport];
+  const sports: string[] = [];
+  const availableSports: Array<{ key: string; title: string; group: string }> = [];
+  try {
+    const catalogResponse = await fetchWithTimeout(`https://api.the-odds-api.com/v4/sports?apiKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' } }, 7000);
+    if (!catalogResponse.ok) throw new Error(`The Odds API sports ${catalogResponse.status}`);
+    const catalog = await catalogResponse.json() as ApiSport[];
+    for (const s of catalog.filter((x) => x.active)) availableSports.push({ key: s.key, title: s.title, group: s.group });
+    for (const wanted of requested) {
+      const match = catalog.find((s) => s.active && (s.key === wanted || s.group.toLowerCase() === wanted.toLowerCase()));
+      if (match && !sports.includes(match.key)) sports.push(match.key);
+    }
+  } catch (error) {
+    issues.push({ code: 'odds-api-catalog-error', severity: 'warning', message: error instanceof Error ? error.message : 'The Odds API catalog failed.' });
+    return { events: [], snapshots: [], availableSports, queriedSports: sports, bookmakers: [] };
+  }
+
+  const { from, to } = dateBoundsUtc(requestedDate);
+  const events = new Map<string, SportEvent>();
+  const snapshots: OddsSnapshot[] = [];
+  const bookmakers = new Map<string, string>();
+  let quota: DatasetResponse['quota'];
+  const results = await Promise.all(sports.slice(0, 10).map(async (sportKey) => {
     try {
-      const url = new URL('https://sportscore.com/api/widget/matches/');
-      url.searchParams.set('sport', sport);
-      url.searchParams.set('limit', '50');
-      url.searchParams.set('src', 'bet-builder');
+      const url = new URL(`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sportKey)}/odds`);
+      url.searchParams.set('apiKey', apiKey);
+      url.searchParams.set('regions', 'eu');
+      url.searchParams.set('markets', 'h2h');
+      url.searchParams.set('oddsFormat', 'decimal');
+      url.searchParams.set('dateFormat', 'iso');
+      url.searchParams.set('commenceTimeFrom', from);
+      url.searchParams.set('commenceTimeTo', to);
       const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 7000);
-      if (!response.ok) throw new Error(`SportScore ${response.status}`);
-      const payload = await response.json() as {
-        sport?: string;
-        matches?: Array<{
-          home?: string; away?: string; home_score?: number | null; away_score?: number | null;
-          status?: string; competition?: string; time?: string; id?: string | number;
-        }>;
-      };
-      return { sport, matches: Array.isArray(payload.matches) ? payload.matches : [] };
+      const remaining = Number(response.headers.get('x-requests-remaining'));
+      const used = Number(response.headers.get('x-requests-used'));
+      const lastCost = Number(response.headers.get('x-requests-last'));
+      const q = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
+      if (!response.ok) return { sportKey, error: `The Odds API ${response.status}: ${(await response.text()).slice(0, 180)}`, quota: q };
+      return { sportKey, rawEvents: await response.json() as ApiEvent[], quota: q };
     } catch (error) {
-      issues.push({ code: 'sportscore-error', severity: 'warning', message: error instanceof Error ? error.message : 'SportScore request failed.', reference: sport });
-      return { sport, matches: [] };
+      return { sportKey, error: error instanceof Error ? error.message : 'request failed', quota: null };
     }
   }));
-
-  const events: SportEvent[] = [];
-  const labels: Record<string, string> = {
-    football: 'Football', basketball: 'Basketball', tennis: 'Tennis', cricket: 'Cricket',
-  };
   for (const result of results) {
-    for (const match of result.matches) {
-      if (!match.home || !match.away || !match.time) continue;
-      const startTime = new Date(match.time);
-      if (!Number.isFinite(startTime.getTime()) || polishDate(startTime.toISOString()) !== requestedDate) continue;
-      const status = String(match.status ?? '').toLowerCase();
-      const eventId = `sportscore:${result.sport}:${match.id ?? slug(`${match.home}-${match.away}-${match.time}`)}`;
-      events.push({
-        id: eventId,
-        sportKey: canonicalSport(result.sport),
-        league: {
-          id: slug(match.competition ?? labels[result.sport]),
-          name: match.competition ?? labels[result.sport],
-          sportKey: canonicalSport(result.sport),
-          country: 'International',
-        },
-        homeTeam: team(match.home),
-        awayTeam: team(match.away),
-        startTime: startTime.toISOString(),
-        status: status.includes('live') || status === 'in_progress' ? 'live' : status.includes('finished') || status === 'ended' ? 'final' : 'scheduled',
-        venue: '',
-        monitored: true,
-        liquidity: 0.5,
-      });
+    if (result.quota) quota = result.quota;
+    if ('error' in result) {
+      issues.push({ code: 'odds-api-error', severity: 'warning', message: `${result.error} for ${result.sportKey}`, reference: result.sportKey });
+      continue;
+    }
+    for (const raw of result.rawEvents) {
+      if (polishDate(raw.commence_time) !== requestedDate) continue;
+      const sport = canonicalSport(raw.sport_key);
+      events.set(raw.id, { id: `oddsapi:${raw.id}`, sportKey: sport, league: { id: slug(raw.sport_key), name: raw.sport_title, sportKey: sport, country: 'International' }, homeTeam: team(raw.home_team), awayTeam: team(raw.away_team), startTime: raw.commence_time, status: new Date(raw.commence_time).getTime() <= Date.now() ? 'live' : 'scheduled', venue: '', monitored: true, liquidity: 0.8 });
+      for (const bookmaker of raw.bookmakers ?? []) {
+        bookmakers.set(bookmaker.key, bookmaker.title);
+        for (const market of bookmaker.markets ?? []) {
+          const canonicalMarket = MARKET_MAP[market.key];
+          if (!canonicalMarket) continue;
+          const quotes: OddsQuote[] = market.outcomes.filter((o) => Number.isFinite(o.price) && o.price >= 1.01 && o.price <= 1000).map((o) => ({ selectionId: `oddsapi:${raw.id}:${market.key}:${slug(o.name)}`, label: o.name, decimalOdds: Number(o.price.toFixed(3)) }));
+          if (!quotes.length) continue;
+          const capturedAt = market.last_update || bookmaker.last_update;
+          snapshots.push({ id: `oddsapi:${raw.id}:${bookmaker.key}:${market.key}:${capturedAt}`, eventId: `oddsapi:${raw.id}`, market: canonicalMarket, bookmaker: bookmaker.key, capturedAt, quotes, feedLatencyMs: Math.max(0, Date.now() - new Date(capturedAt).getTime()), provider: 'the-odds-api' });
+        }
+      }
     }
   }
-  if (events.length) issues.push({
-    code: 'sportscore-fallback',
-    severity: 'info',
-    message: 'Real match feed supplied by SportScore because the primary odds provider returned no usable events/odds.',
-  });
-  return {
-    events: events.sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    queriedSports: uniqueSports,
-    availableSports: uniqueSports.map((key) => ({ key: canonicalSport(key), title: labels[key], group: labels[key] })),
-  };
+  if (events.size) issues.push({ code: 'odds-api-fallback', severity: 'info', message: 'Real events and bookmaker odds supplied by The Odds API fallback.' });
+  return { events: [...events.values()], snapshots, availableSports, queriedSports: sports, bookmakers: [...bookmakers.values()].sort(), quota };
 }
 
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
@@ -251,20 +258,20 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
 
   if (!events.size) {
-    const fallback = await fetchSportScoreFallback(requestedDate, requestedSport, issues);
+    const fallback = await fetchOddsApiFallback(requestedDate, requestedSport, issues);
     for (const event of fallback.events) events.set(event.id, event);
     if (fallback.events.length) {
       const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = {
         events: fallback.events,
-        snapshots: [],
+        snapshots: fallback.snapshots,
         issues,
         droppedRecords,
         normalizedAt: new Date().toISOString(),
-        provider: 'sportscore',
-        mode: 'LIVE_DATA_NO_ODDS',
+        provider: 'the-odds-api',
+        mode: 'LIVE',
         requestedDate,
         sportsQueried: fallback.queriedSports,
-        bookmakers: [],
+        bookmakers: fallback.bookmakers,
         availableSports: fallback.availableSports,
         quota: lastQuota,
         providerHealth: {
@@ -278,9 +285,9 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
           successfulSports: fallback.availableSports.length,
           failedSports: 0,
           eventCount: fallback.events.length,
-          snapshotCount: 0,
-          bookmakerCount: 0,
-          warnings: ['REAL EVENTS AVAILABLE', 'ODDS NOT AVAILABLE FROM SPORTCORE FALLBACK'],
+          snapshotCount: fallback.snapshots.length,
+          bookmakerCount: fallback.bookmakers.length,
+          warnings: ['REAL EVENTS + ODDS AVAILABLE FROM THE ODDS API FALLBACK'],
         },
       };
       return json(res, 200, body);
