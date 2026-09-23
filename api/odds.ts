@@ -142,6 +142,35 @@ async function fetchOddsApiFallback(
   return { events: [...events.values()], snapshots, availableSports, queriedSports: sports, bookmakers: [...bookmakers.values()].sort(), quota };
 }
 
+async function fetchSportScoreFallback(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
+  const sports = [...new Set((requestedSport === 'all' ? ['football','basketball','tennis','cricket'] : [requestedSport.toLowerCase() === 'soccer' ? 'football' : requestedSport.toLowerCase()]).filter(s => ['football','basketball','tennis','cricket'].includes(s)))];
+  const labels: Record<string,string> = {football:'Football',basketball:'Basketball',tennis:'Tennis',cricket:'Cricket'};
+  const results = await Promise.all(sports.map(async sport => {
+    try {
+      const url = new URL('https://sportscore.com/api/widget/matches/');
+      url.searchParams.set('sport', sport); url.searchParams.set('limit','50'); url.searchParams.set('src','bet-builder');
+      const response = await fetchWithTimeout(url,{headers:{Accept:'application/json','User-Agent':'Bet-Builder/1.0'}},8000);
+      const raw = await response.text();
+      if (!response.ok) throw new Error(`SportScore HTTP ${response.status}: ${raw.slice(0,160)}`);
+      const payload = JSON.parse(raw) as {matches?:Array<Record<string,unknown>>};
+      return {sport,matches:Array.isArray(payload.matches)?payload.matches:[]};
+    } catch(error) {
+      issues.push({code:'sportscore-error',severity:'warning',message:error instanceof Error?error.message:'SportScore request failed.',reference:sport});
+      return {sport,matches:[]};
+    }
+  }));
+  const events: SportEvent[] = [];
+  for (const r of results) for (const m of r.matches) {
+    const home=String(m.home??m.home_team??m.homeTeam??'').trim(), away=String(m.away??m.away_team??m.awayTeam??'').trim();
+    const t=String(m.time??m.start_time??m.startTime??m.commence_time??'').trim();
+    if(!home||!away||!t) continue; const d=new Date(t); if(!Number.isFinite(d.getTime())||polishDate(d.toISOString())!==requestedDate) continue;
+    const competition=String(m.competition??m.league??m.tournament??labels[r.sport]).trim();
+    const status=String(m.status??m.state??'').toLowerCase();
+    events.push({id:`sportscore:${r.sport}:${String(m.id??m.match_id??slug(home+'-'+away+'-'+t))}`,sportKey:canonicalSport(r.sport),league:{id:slug(competition),name:competition,sportKey:canonicalSport(r.sport),country:'International'},homeTeam:team(home),awayTeam:team(away),startTime:d.toISOString(),status:status.includes('live')||status.includes('progress')?'live':status.includes('finish')||status.includes('ended')?'final':'scheduled',venue:'',monitored:true,liquidity:0.5});
+  }
+  return {events:events.sort((a,b)=>a.startTime.localeCompare(b.startTime)),sports,availableSports:sports.map(key=>({key:canonicalSport(key),title:labels[key],group:labels[key]}))};
+}
+
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const origin = req.headers?.origin;
   const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app,https://bet-builder-live.onrender.com').split(',').map((value) => value.trim()).filter(Boolean));
@@ -261,7 +290,12 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
     const fallback = await fetchOddsApiFallback(requestedDate, requestedSport, issues);
     for (const event of fallback.events) events.set(event.id, event);
     if (fallback.events.length) {
-      const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = {
+      if (!events.size) {
+    const fallback = await fetchSportScoreFallback(requestedDate, requestedSport, issues);
+    if (fallback.events.length) return json(res,200,{events:fallback.events,snapshots:[],issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:fallback.sports,bookmakers:[],availableSports:fallback.availableSports,quota:lastQuota,providerHealth:{provider:'sportscore',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:0,staleAfterSeconds:600,catalogCount:fallback.availableSports.length,queriedSports:fallback.sports.length,successfulSports:fallback.sports.length,failedSports:0,eventCount:fallback.events.length,snapshotCount:0,bookmakerCount:0,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']}});
+  }
+
+  const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = {
         events: fallback.events,
         snapshots: fallback.snapshots,
         issues,
