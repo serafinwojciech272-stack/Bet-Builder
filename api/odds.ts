@@ -11,7 +11,7 @@ interface ApiOutcome { name: string; price: number; point?: number; }
 interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; }
 interface ApiBookmaker { key: string; title: string; last_update: string; markets: ApiMarket[]; }
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
-interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api'; mode: 'LIVE'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
+interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api' | 'sportscore'; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; headers?: Record<string, string | undefined>; }
 let sportsCatalogCache: { apiKey: string; expiresAt: number; value: ApiSport[] } | null = null;
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
@@ -19,7 +19,7 @@ function json(res: JsonResponse, status: number, body: unknown) {
   res.status(status)
     .setHeader('Content-Type', 'application/json; charset=utf-8')
     .setHeader('Cache-Control', 'no-store')
-    .setHeader('X-BadBuilder-Provider', 'parlay-api');
+    .setHeader('X-BadBuilder-Provider', 'multi-provider');
   res.end(JSON.stringify(body));
 }
 function queryValue(req: QueryRequest, key: string, fallback: string): string { const value = req.query?.[key]; return typeof value === 'string' ? value : fallback; }
@@ -60,6 +60,79 @@ async function getActiveSports(apiKey: string): Promise<ApiSport[]> {
   const value = await response.json() as ApiSport[];
   sportsCatalogCache = { apiKey, expiresAt: Date.now() + 5 * 60 * 1000, value };
   return value;
+}
+
+
+async function fetchSportScoreFallback(
+  requestedDate: string,
+  requestedSport: string,
+  issues: DatasetResponse['issues'],
+): Promise<{ events: SportEvent[]; availableSports: Array<{ key: string; title: string; group: string }>; queriedSports: string[] }> {
+  const sportMap: Record<string, string> = { soccer: 'football', football: 'football', basketball: 'basketball', tennis: 'tennis', cricket: 'cricket' };
+  const requested = requestedSport === 'all' ? ['football', 'basketball', 'tennis', 'cricket'] : [sportMap[requestedSport.toLowerCase()] ?? requestedSport.toLowerCase()];
+  const uniqueSports = [...new Set(requested)].filter((sport) => ['football', 'basketball', 'tennis', 'cricket'].includes(sport));
+  const results = await Promise.all(uniqueSports.map(async (sport) => {
+    try {
+      const url = new URL('https://sportscore.com/api/widget/matches/');
+      url.searchParams.set('sport', sport);
+      url.searchParams.set('limit', '50');
+      url.searchParams.set('src', 'bet-builder');
+      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 7000);
+      if (!response.ok) throw new Error(`SportScore ${response.status}`);
+      const payload = await response.json() as {
+        sport?: string;
+        matches?: Array<{
+          home?: string; away?: string; home_score?: number | null; away_score?: number | null;
+          status?: string; competition?: string; time?: string; id?: string | number;
+        }>;
+      };
+      return { sport, matches: Array.isArray(payload.matches) ? payload.matches : [] };
+    } catch (error) {
+      issues.push({ code: 'sportscore-error', severity: 'warning', message: error instanceof Error ? error.message : 'SportScore request failed.', reference: sport });
+      return { sport, matches: [] };
+    }
+  }));
+
+  const events: SportEvent[] = [];
+  const labels: Record<string, string> = {
+    football: 'Football', basketball: 'Basketball', tennis: 'Tennis', cricket: 'Cricket',
+  };
+  for (const result of results) {
+    for (const match of result.matches) {
+      if (!match.home || !match.away || !match.time) continue;
+      const startTime = new Date(match.time);
+      if (!Number.isFinite(startTime.getTime()) || polishDate(startTime.toISOString()) !== requestedDate) continue;
+      const status = String(match.status ?? '').toLowerCase();
+      const eventId = `sportscore:${result.sport}:${match.id ?? slug(`${match.home}-${match.away}-${match.time}`)}`;
+      events.push({
+        id: eventId,
+        sportKey: canonicalSport(result.sport),
+        league: {
+          id: slug(match.competition ?? labels[result.sport]),
+          name: match.competition ?? labels[result.sport],
+          sportKey: canonicalSport(result.sport),
+          country: 'International',
+        },
+        homeTeam: team(match.home),
+        awayTeam: team(match.away),
+        startTime: startTime.toISOString(),
+        status: status.includes('live') || status === 'in_progress' ? 'live' : status.includes('finished') || status === 'ended' ? 'final' : 'scheduled',
+        venue: '',
+        monitored: true,
+        liquidity: 0.5,
+      });
+    }
+  }
+  if (events.length) issues.push({
+    code: 'sportscore-fallback',
+    severity: 'info',
+    message: 'Real match feed supplied by SportScore because the primary odds provider returned no usable events/odds.',
+  });
+  return {
+    events: events.sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    queriedSports: uniqueSports,
+    availableSports: uniqueSports.map((key) => ({ key: canonicalSport(key), title: labels[key], group: labels[key] })),
+  };
 }
 
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
@@ -176,6 +249,44 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const ageSeconds = Math.floor(freshestFeedLatencyMs / 1000);
   if (snapshots.length && freshestFeedLatencyMs > STALE_AFTER_MS) issues.push({ code: 'stale-odds', severity: 'warning', message: `Latest normalized odds feed is stale by approximately ${ageSeconds}s.` });
   if (!events.size) issues.push({ code: 'no-events', severity: 'info', message: `No live provider events found for ${requestedDate}.` });
+
+  if (!events.size) {
+    const fallback = await fetchSportScoreFallback(requestedDate, requestedSport, issues);
+    for (const event of fallback.events) events.set(event.id, event);
+    if (fallback.events.length) {
+      const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = {
+        events: fallback.events,
+        snapshots: [],
+        issues,
+        droppedRecords,
+        normalizedAt: new Date().toISOString(),
+        provider: 'sportscore',
+        mode: 'LIVE_DATA_NO_ODDS',
+        requestedDate,
+        sportsQueried: fallback.queriedSports,
+        bookmakers: [],
+        availableSports: fallback.availableSports,
+        quota: lastQuota,
+        providerHealth: {
+          provider: 'sportscore',
+          state: 'HEALTHY',
+          fetchedAt: new Date().toISOString(),
+          ageSeconds: 0,
+          staleAfterSeconds: 600,
+          catalogCount: fallback.availableSports.length,
+          queriedSports: fallback.queriedSports.length,
+          successfulSports: fallback.availableSports.length,
+          failedSports: 0,
+          eventCount: fallback.events.length,
+          snapshotCount: 0,
+          bookmakerCount: 0,
+          warnings: ['REAL EVENTS AVAILABLE', 'ODDS NOT AVAILABLE FROM SPORTCORE FALLBACK'],
+        },
+      };
+      return json(res, 200, body);
+    }
+  }
+
   const body: DatasetResponse & { providerHealth: import('../src/domain/types.js').ProviderHealth } = { events: [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)), issues, droppedRecords, normalizedAt: new Date().toISOString(), provider: 'parlay-api', mode: 'LIVE', requestedDate, sportsQueried: sports, bookmakers: [...bookmakerNames.values()].sort(), availableSports, quota: lastQuota, providerHealth: { provider: 'parlay-api', state: failedSports.length ? (successfulSports.length ? 'DEGRADED' : 'OFFLINE') : (snapshots.length && freshestFeedLatencyMs > STALE_AFTER_MS ? 'STALE' : 'HEALTHY'), fetchedAt: new Date().toISOString(), ageSeconds, staleAfterSeconds: 600, catalogCount: availableSports.length, queriedSports: sports.length, successfulSports: successfulSports.length, failedSports: failedSports.length, eventCount: events.size, snapshotCount: snapshots.length, bookmakerCount: bookmakerNames.size, warnings: issues.filter((i) => i.severity !== 'info').map((i) => i.message).slice(0, 6) } };
   return json(res, 200, body);
 }
