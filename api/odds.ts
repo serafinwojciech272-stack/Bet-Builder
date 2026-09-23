@@ -275,7 +275,7 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
         availableSports: fallback.availableSports,
         quota: lastQuota,
         providerHealth: {
-          provider: 'sportscore',
+          provider: 'the-odds-api',
           state: 'HEALTHY',
           fetchedAt: new Date().toISOString(),
           ageSeconds: 0,
