@@ -42,11 +42,13 @@ const oddsModule = await import('./api/odds.ts');
 const researchModule = await import('./api/research.ts');
 const coreEngineE2EModule = await import('./api/core-engine-persistence-e2e.ts');
 const healthModule = await import('./api/health.ts');
+const decisionReasoningModule = await import('./api/decision-reasoning.ts');
 const coreEngineModule = await import('./api/core-engine.ts');
 const oddsHandler = oddsModule.default as Handler;
 const researchHandler = researchModule.default as Handler;
 const coreEngineE2EHandler = coreEngineE2EModule.default as Handler;
 const healthHandler = healthModule.default as Handler;
+const decisionReasoningHandler = decisionReasoningModule.default as Handler;
 const coreEngineHandler = coreEngineModule.default as Handler;
 
 const server = createServer(async (req, res) => {
@@ -65,6 +67,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/core-engine-persistence-e2e') return await adapt(coreEngineE2EHandler, req, res);
     if (url.pathname === '/health') return await adapt(healthHandler, req, res);
     if (url.pathname === '/api/core-engine') return await adapt(coreEngineHandler, req, res);
+    if (url.pathname === '/api/decision-reasoning') return await adapt(decisionReasoningHandler, req, res);
     res.statusCode = 404;
     res.setHeader('Content-Type','application/json; charset=utf-8');
     res.end(JSON.stringify({ error:'NOT_FOUND' }));
