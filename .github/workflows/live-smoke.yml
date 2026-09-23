@@ -30,7 +30,7 @@ jobs:
           status="$(curl --silent --show-error --max-time 30 -o /tmp/odds.json -w '%{http_code}' "https://bet-builder-api-live.onrender.com/api/odds?date=$date&sport=all")"
           cat /tmp/odds.json
           test "$status" = "200"
-          node -e 'const b=require("/tmp/odds.json"); if(b.provider!=="parlay-api" || b.mode!=="LIVE" || !Array.isArray(b.events) || !Array.isArray(b.snapshots) || !b.providerHealth) process.exit(1); console.log(JSON.stringify({events:b.events.length,snapshots:b.snapshots.length,sports:b.sportsQueried.length,state:b.providerHealth.state}))'
+          node -e 'const b=require("/tmp/odds.json"); if(b.provider!=="parlay-api" || b.mode!=="LIVE" || !Array.isArray(b.events) || !Array.isArray(b.snapshots) || !b.providerHealth) process.exit(1); if(b.events.length<1 || b.snapshots.length<1 || b.providerHealth.state!=="LIVE" || b.providerHealth.successfulSports<1) { console.error("LIVE PROVIDER CONTRACT FAILED", JSON.stringify({events:b.events.length,snapshots:b.snapshots.length,state:b.providerHealth.state,successfulSports:b.providerHealth.successfulSports})); process.exit(2); } console.log(JSON.stringify({events:b.events.length,snapshots:b.snapshots.length,sports:b.sportsQueried.length,state:b.providerHealth.state,successfulSports:b.providerHealth.successfulSports}))'
 
       - name: Research smoke
         run: |
@@ -76,9 +76,12 @@ jobs:
           console.log('SELECTION STATE', JSON.stringify(selectedState));
           if (!selectedState.some(x => x.pressed === 'true')) fail('Selection did not enter builder state: ' + JSON.stringify(selectedState));
           await page.getByRole('button', {name:'Deep Analyze'}).click();
+          await page.locator('[role="status"]').filter({hasText:'ANALYZE ALL 1/1'}).first().waitFor({timeout:30000});
           await page.locator('[role="status"]').filter({hasText:'EVIDENCE GRAPH 1/1'}).first().waitFor({timeout:60000});
           const pipelineStatus = await page.locator('[role="status"]').filter({hasText:'EVIDENCE GRAPH 1/1'}).first().innerText();
           if (!pipelineStatus.includes('ANALYZE ALL 1/1') || !pipelineStatus.includes('DEEP RESEARCH ALL 1/1')) fail('Full pipeline incomplete: ' + pipelineStatus);
+          const reasoningResponse = await page.request.post(base + '/api/decision-reasoning', {data:{decision:{status:'CAUTION',ev:0.05,confidence:0.72,quality:0.8,blockers:[],warnings:['smoke'],strengths:['live odds'],trace:['smoke']},evidence:{digest:'smoke',coverage:1,conflicts:0,nodes:[{id:'smoke',kind:'market',label:'live event',value:1,confidence:0.8}]},task:'reason'}});
+          if (![200,503].includes(reasoningResponse.status())) fail('Unexpected reasoning endpoint status: '+reasoningResponse.status());
           await page.getByRole('button', {name:'Pokaż szczegóły AI, ryzyka i Decision Center'}).click();
           await page.getByRole('heading', {name:'Portfolio Decision Packet'}).first().waitFor({timeout:10000});
           await page.getByRole('button', {name:'Optimize', exact:true}).click();
