@@ -359,7 +359,8 @@ export class MockAIAnalysisService implements AIAnalysisService {
         label: `${risk.level === 'HIGH' ? 'High' : 'Elevated'} risk profile`,
         detail: risk.factors
           .slice()
-          .sort((a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value)[0].note,
+          .sort((a, b) => (b?.score?.value ?? 0) * (b?.weight?.value ?? 0) - (a?.score?.value ?? 0) * (a?.weight?.value ?? 0))[0]?.note
+          ?? 'Risk factors unavailable in this snapshot.',
         strength: risk.score,
         origin: 'ai-inference',
       });
@@ -531,7 +532,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       topValue
         ? `Against model ${model.modelVersion}, ${topValue.label} shows a ${topValue.edgePct.formatted} divergence versus the best available price of ${topValue.bestPrice.formatted}${topValue.bestBookmaker ? ` at ${bookmakerName(topValue.bestBookmaker) ?? topValue.bestBookmaker}` : ''}.`
         : 'No value signal could be constructed from the available prices.',
-      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. ${risk.factors.slice().sort((a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value)[0].note}.`,
+      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. ${risk.factors.slice().sort((a, b) => (b?.score?.value ?? 0) * (b?.weight?.value ?? 0) - (a?.score?.value ?? 0) * (a?.weight?.value ?? 0))[0]?.note ?? 'Risk factors unavailable in this snapshot.'}.`,
       `Recommended posture: ${recommendedActions[0].title.toLowerCase()}. Every figure above is produced by the deterministic domain services (movement, data-quality, probability, value, risk, correlation); this layer supplies interpretation only.`,
     ];
 
