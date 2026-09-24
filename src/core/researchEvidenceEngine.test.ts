@@ -46,6 +46,39 @@ describe('research evidence engine hardening', () => {
     expect(research.findings).toHaveLength(2);
   });
 
+  it('keeps evidence confidence finite when source freshness or counts are non-finite', () => {
+    const research = baseResearch({
+      findings: [
+        { id: 'F1', category: 'form', statement: 'Non-finite inputs', polarity: 'supportive', confidence: 0.5, sourceIds: ['u1'], freshnessHours: NaN, independentSourceCount: NaN },
+      ],
+    });
+    const result = buildResearchEvidence(research);
+    const item = result.evidence[0];
+    expect(Number.isFinite(item.confidence)).toBe(true);
+    expect(Number.isFinite(item.freshnessHours)).toBe(true);
+    expect(item.freshnessHours).toBe(168);
+    expect(Number.isFinite(item.independentSources)).toBe(true);
+    for (const value of [result.quality, result.coverageScore, result.decisionImpact.net, result.decisionImpact.confidence]) {
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('does not invent confidence when a finding cites an unresolved source', () => {
+    const research = baseResearch({
+      sources: [],
+      findings: [
+        { id: 'F1', category: 'form', statement: 'Unsourced', polarity: 'supportive', confidence: 0.5, sourceIds: ['DOES-NOT-EXIST'], freshnessHours: 2, independentSourceCount: 1 },
+      ],
+    });
+    const result = buildResearchEvidence(research);
+    expect(result.evidence[0].sourceTitles).toEqual([]);
+    expect(result.evidence[0].reliabilityScore).toBe(0);
+    expect(Number.isFinite(result.evidence[0].confidence)).toBe(true);
+    expect(result.evidence[0].confidence).toBeLessThanOrEqual(1);
+  });
+
   it('does not create false conflicts from purely supportive evidence', () => {
     const research = baseResearch({
       findings: [{ id: 'F1', category: 'form', statement: 'Strong form', polarity: 'supportive', confidence: 0.9, sourceIds: ['u1'], freshnessHours: 2, independentSourceCount: 2 }],

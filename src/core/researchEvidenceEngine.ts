@@ -13,7 +13,7 @@ export interface ResearchEvidence {
   auditTrail:string[];
 }
 
-const clamp=(n:number)=>Math.max(0,Math.min(1,n));
+const clamp=(n:number)=>Number.isFinite(n)?Math.max(0,Math.min(1,n)):0;
 const hash=(s:string)=>{let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return(h>>>0).toString(16);};
 const reliability=(s:ResearchSource)=>({A:1,B:.82,C:.58,D:.35}[s.reliability]??.5);
 
@@ -25,7 +25,7 @@ export function buildResearchEvidence(research:EventResearch):ResearchEvidence{
     const freshness=clamp(1-f.freshnessHours/168);
     const independence=clamp(f.independentSourceCount/4);
     const confidence=clamp(f.confidence*.45+rel*.25+freshness*.15+independence*.15);
-    return {id:f.id,category:f.category,statement:f.statement,polarity:f.polarity,confidence,freshnessHours:f.freshnessHours,independentSources:f.independentSourceCount,reliabilityScore:rel,sourceIds:f.sourceIds,sourceTitles:sources.map(s=>s.title),sourcePublishers:sources.map(s=>s.publisher),languages:sources.map(s=>s.language)};
+    return {id:f.id,category:f.category,statement:f.statement,polarity:f.polarity,confidence,freshnessHours:Number.isFinite(f.freshnessHours)?f.freshnessHours:168,independentSources:Number.isFinite(f.independentSourceCount)?f.independentSourceCount:0,reliabilityScore:rel,sourceIds:f.sourceIds,sourceTitles:sources.map(s=>s.title),sourcePublishers:sources.map(s=>s.publisher),languages:sources.map(s=>s.language)};
   });
   const conflicts:EvidenceConflict[]=research.findings
     .filter(f=>f.polarity==='neutral' || f.category==='contradiction')
