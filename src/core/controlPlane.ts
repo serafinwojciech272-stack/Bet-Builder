@@ -11,14 +11,14 @@ export interface PortfolioControl {
   researchGate:{ready:boolean;quality:number;findings:number;sources:number;warnings:string[]};
   auditTrail:string[];
 }
-const clamp=(n:number)=>Math.max(0,Math.min(1,n));
+const clamp=(n:number)=>Number.isFinite(n)?Math.max(0,Math.min(1,n)):0;
 
 export function evaluateControlPlane(selections:Selection[], decision:DecisionCenterResult=evaluateDecisionCenter(selections), research:EventResearch|null|Record<string,EventResearch>=null):PortfolioControl {
   const hardStops:string[]=[]; const reviewFlags:string[]=[];
   const researchEntries:EventResearch[] = research ? ('eventId' in research ? [research as EventResearch] : Object.values(research as Record<string,EventResearch>)) : [];
   const researchSourceCount = researchEntries.reduce((sum,r)=>sum+r.sources.length,0);
   const researchFindingCount = researchEntries.reduce((sum,r)=>sum+r.findings.length,0);
-  const researchQuality = researchEntries.length ? researchEntries.reduce((sum,r)=>sum+r.researchQuality,0)/researchEntries.length : 0;
+  const researchQuality = researchEntries.length ? researchEntries.reduce((sum,r)=>sum+(Number.isFinite(r.researchQuality)?r.researchQuality:0),0)/researchEntries.length : 0;
   const researchWarnings = researchEntries.flatMap(r=>r.warnings.map(w=>`${r.eventId}: ${w}`));
   const selectedEventIds = new Set(selections.map(s=>s.eventId));
   const researchReady = researchEntries.length===selectedEventIds.size && researchEntries.every(r=>selectedEventIds.has(r.eventId)&&r.researchQuality>=.5&&r.sources.length>=3);
@@ -37,7 +37,7 @@ export function evaluateControlPlane(selections:Selection[], decision:DecisionCe
 
   const opportunitySignals=selections.map(s=>{
     const edge=s.probability-s.impliedProbability, ev=s.probability*s.odds-1;
-    const signalScore=clamp(edge*1.5+Math.max(0,ev)*.75+s.confidence*.35+s.value*.25);
+    const signalScore=clamp(edge*1.5+Math.max(0,ev)*.75+s.confidence*.35+(s.value??0)*.25);
     const reasons:string[]=[];
     if(edge>.03) reasons.push('positive model-to-implied probability gap');
     if(ev>0) reasons.push('positive model EV');

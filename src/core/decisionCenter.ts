@@ -33,7 +33,7 @@ export interface DecisionCenterResult {
   trace: string[];
 }
 
-const clamp = (v: number, min = 0, max = 1) => Math.min(max, Math.max(min, v));
+const clamp = (v: number, min = 0, max = 1) => (Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : min);
 
 function qualityOf(s: Selection) {
   const confidence = clamp(s.confidence ?? 0.5);
