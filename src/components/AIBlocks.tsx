@@ -240,7 +240,7 @@ export const RiskCard = memo(function RiskCard({
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-muted">{f.label}</span>
               <span className="font-mono text-faint">
-                w{f.weight.value.toFixed(2)} · {(f.score.value * 100).toFixed(0)}
+                w{(f.weight?.value ?? 0).toFixed(2)} · {((f.score?.value ?? 0) * 100).toFixed(0)}
               </span>
             </div>
             <Meter value={f.score.value} tone="warn" ariaLabel={f.label} />
@@ -350,6 +350,13 @@ export const MarketMovementCard = memo(function MarketMovementCard({
             </tr>
           </thead>
           <tbody className="font-mono text-xs">
+            {analysis.marketObservations.length === 0 ? (
+              <tr className="border-t border-line-soft">
+                <td colSpan={5} className="py-3 font-sans text-[11px] leading-relaxed text-muted">
+                  No odds movement to chart: the provider published no price history for this event.
+                </td>
+              </tr>
+            ) : null}
             {analysis.marketObservations.map((o) => (
               <tr key={o.selectionId} className="border-t border-line-soft">
                 <td className="py-1.5 pr-2 font-sans text-foreground">
@@ -400,6 +407,12 @@ export const ModelVsMarketCard = memo(function ModelVsMarketCard({
         </span>
       </div>
       <ul className="space-y-3">
+        {analysis.probabilityEstimates.length === 0 ? (
+          <li className="rounded-lg border border-warn/25 bg-warn/[.04] p-3 text-[11px] leading-relaxed text-muted">
+            No model-vs-market comparison is available: the provider published no bookmaker odds for
+            this event, so there is no implied probability to compare against.
+          </li>
+        ) : null}
         {analysis.probabilityEstimates.map((p) => {
           const value = analysis.valueSignals.find((v) => v.selectionId === p.selectionId);
           return (
@@ -496,7 +509,7 @@ export const KeyFactorsCard = memo(function KeyFactorsCard({
             <p className="mt-1 text-[11px] leading-relaxed text-muted">{f.detail}</p>
             <div className="mt-1.5">
               <Meter
-                value={f.weight.value}
+                value={f.weight?.value ?? 0}
                 tone={f.polarity === 'adverse' ? 'negative' : 'ai'}
                 ariaLabel={`${f.label} weight`}
               />

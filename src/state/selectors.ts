@@ -1,14 +1,21 @@
 import type { CanonicalDataset } from '../domain/repositories';
 import type { MarketKey, SportEvent } from '../domain/types';
+import { MARKET_LABELS } from '../domain/feed/normalization';
 import { computeMarketMovement, primaryMarketFor, type MarketMovement } from '../domain/services/movementService';
 import { assessDataQuality, type DataQualityReport } from '../domain/services/dataQualityService';
 import { computeModelProbabilities, type ModelProbabilitySet } from '../domain/services/probabilityService';
 import { computeValue, type ValueAnalysis } from '../domain/services/valueService';
 import { computeRisk, type RiskAssessmentCalc } from '../domain/services/riskService';
 
+/** Label shown for a real event that the provider serves without bookmaker odds. */
+export const NO_ODDS_MARKET_LABEL = 'No bookmaker market';
+
 export interface EventIntel {
   event: SportEvent;
-  market: MarketKey;
+  /** Primary bookmaker market, or null when the provider publishes no odds. */
+  market: MarketKey | null;
+  /** Always-safe display label for `market` (never empty). */
+  marketLabel: string;
   movement: MarketMovement | null;
   quality: DataQualityReport;
   model: ModelProbabilitySet;
@@ -19,19 +26,33 @@ export interface EventIntel {
 /**
  * Deterministic pre-compute used by the dashboard/explorer.
  * Identical services as the intelligence layer — one source of numbers.
+ *
+ * Every normalized event is retained, including real events the provider serves
+ * without bookmaker odds (`LIVE_DATA_NO_ODDS`). Those carry `market: null`, no
+ * movement and no value signals, so callers must tolerate the absence rather than
+ * filter the event out of existence.
  */
 export function buildEventIntel(dataset: CanonicalDataset, now: Date = new Date()): EventIntel[] {
   const out: EventIntel[] = [];
   for (const event of dataset.events) {
     const market = primaryMarketFor(event.id, dataset.snapshots);
-    if (!market) continue;
-    const movement = computeMarketMovement(event.id, market, dataset.snapshots);
-    const quality = assessDataQuality(event.id, market, dataset.snapshots, dataset.issues, now);
+    const scoped: MarketKey = market ?? 'match-winner';
+    const movement = computeMarketMovement(event.id, scoped, dataset.snapshots);
+    const quality = assessDataQuality(event.id, scoped, dataset.snapshots, dataset.issues, now);
     const selectionIds = movement ? movement.selections.map((s) => s.selectionId) : [];
-    const model = computeModelProbabilities(event, market, selectionIds, now);
-    const value = computeValue(event.id, market, dataset.snapshots, model, quality, now);
+    const model = computeModelProbabilities(event, scoped, selectionIds, now);
+    const value = computeValue(event.id, scoped, dataset.snapshots, model, quality, now);
     const risk = computeRisk(event, movement, quality, value, now);
-    out.push({ event, market, movement, quality, model, value, risk });
+    out.push({
+      event,
+      market,
+      marketLabel: market ? MARKET_LABELS[market] : NO_ODDS_MARKET_LABEL,
+      movement,
+      quality,
+      model,
+      value,
+      risk,
+    });
   }
   return out;
 }

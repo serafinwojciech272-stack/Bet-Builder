@@ -123,8 +123,28 @@ export function computeRisk(
   };
 }
 
-export type CorrelationLevel = 'ISOLATED' | 'LOW' | 'MODERATE' | 'HIGH';
+/**
+ * The historical `undefined.weight` failure mode came from sorting/aggregating
+ * risk factors whose optional `weight`/`score` fields were absent. These
+ * accessors make a missing factor a defined, non-crashing value while keeping a
+ * valid factor exact.
+ */
+export function factorWeight(factor: { weight?: DeterministicNumber } | null | undefined): number {
+  const value = factor?.weight?.value;
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
 
+export function factorScore(factor: { score?: DeterministicNumber } | null | undefined): number {
+  const value = factor?.score?.value;
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/** Weighted impact of a factor, safe against missing weight/score objects. */
+export function factorImpact(factor: { weight?: DeterministicNumber; score?: DeterministicNumber } | null | undefined): number {
+  return factorWeight(factor) * factorScore(factor);
+}
+
+export type CorrelationLevel = 'ISOLATED' | 'LOW' | 'MODERATE' | 'HIGH';
 export interface CorrelationCluster {
   id: string;
   label: string;

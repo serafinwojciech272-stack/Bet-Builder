@@ -77,7 +77,7 @@ export function buildMissionFromAnalysis(
     eventId: analysis.eventId,
     eventLabel: analysis.context.eventLabel,
     leagueName: analysis.context.leagueName,
-    market: analysis.context.market,
+    market: analysis.context.market ?? 'match-winner',
     marketLabel: analysis.context.marketLabel,
     selectionId: focusSelectionId,
     selectionLabel: focus?.label ?? observation?.label ?? null,
@@ -266,7 +266,7 @@ export function buildMissionFromAnalysis(
       version: 1,
       tags: [
         analysis.context.sportLabel.toLowerCase(),
-        analysis.context.market,
+        analysis.context.market ?? 'no-bookmaker-market',
         type.toLowerCase(),
         `stance:${analysis.summary.stance}`,
       ],

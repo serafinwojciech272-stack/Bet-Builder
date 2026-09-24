@@ -18,7 +18,7 @@ import {
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
 import { latestQuotesBySelection } from '../domain/services/oddsMath';
-import { BOOKMAKERS, MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
+import { BOOKMAKERS, SPORT_LABELS } from '../domain/feed/normalization';
 import {
   AISummaryBlock,
   AssumptionsCard,
@@ -118,9 +118,10 @@ export function EventAnalysisPage() {
     );
   }
 
-  const { event, market, movement, quality, model, value, risk } = eventIntel;
+  const { event, market, marketLabel, movement, quality, model, value, risk } = eventIntel;
   const analysis = record?.analysis ?? null;
   const snapshots = dataset?.snapshots.filter((s) => s.eventId === event.id && s.market === market) ?? [];
+  const oddsAvailable = analysis ? analysis.meta.oddsAvailable : market !== null;
   const selectionIds = movement?.selections.map((s) => s.selectionId) ?? [];
 
   return (
@@ -222,10 +223,25 @@ export function EventAnalysisPage() {
         <SectionHeading
           index="02"
           title="Market intelligence"
-          subtitle={`Latest quote per bookmaker on ${MARKET_LABELS[market]}, with reliability-weighted consensus.`}
+          subtitle={oddsAvailable ? `Latest quote per bookmaker on ${marketLabel}, with reliability-weighted consensus.` : 'No bookmaker odds are published for this event by the active provider.'}
           icon={<Database size={17} className="text-market" aria-hidden />}
           action={<OriginTag origin="deterministic" label="odds-math" />}
         />
+        {!oddsAvailable ? (
+          <Panel tone="market" className="border-warn/35 bg-warn/[.05] p-5">
+            <div className="flex items-start gap-3">
+              <Database size={17} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">No bookmaker market available</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  The provider returned this real event with teams, competition, sport and start time,
+                  but published no odds snapshot for it. Prices, edge, EV and value signals are therefore
+                  not produced — the system reports the absence instead of inventing a price.
+                </p>
+              </div>
+            </div>
+          </Panel>
+        ) : (
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel tone="market" className="p-5 lg:col-span-2">
             <div className="overflow-x-auto">
@@ -303,6 +319,7 @@ export function EventAnalysisPage() {
             </ul>
           </Panel>
         </div>
+        )}
       </section>
 
       {analysis ? (
@@ -381,6 +398,14 @@ export function EventAnalysisPage() {
                   </tr>
                 </thead>
                 <tbody className="font-mono text-xs">
+                  {analysis.valueSignals.length === 0 ? (
+                    <tr className="border-t border-line-soft">
+                      <td colSpan={10} className="py-3 font-sans text-[11px] leading-relaxed text-muted">
+                        No value signals: edge is modelled against bookmaker prices, and this event has
+                        none. The system does not fabricate an implied probability to fill the table.
+                      </td>
+                    </tr>
+                  ) : null}
                   {analysis.valueSignals.map((s) => (
                     <tr key={s.selectionId} className="border-t border-line-soft">
                       <td className="py-2 pr-2 font-sans text-foreground">{s.label}</td>

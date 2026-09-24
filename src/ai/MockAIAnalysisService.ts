@@ -9,6 +9,7 @@ import { computeValue } from '../domain/services/valueService';
 import {
   computeCorrelation,
   computeRisk,
+  factorImpact,
   type CorrelationContextEntry,
 } from '../domain/services/riskService';
 import { ANALYSIS_CONTRACT_VERSION } from './contracts';
@@ -99,11 +100,37 @@ export class MockAIAnalysisService implements AIAnalysisService {
 
     const dataset = await this.repo.loadCanonicalDataset();
     const snapshots = dataset.snapshots.filter((s) => s.eventId === event.id);
-    const market: MarketKey | null = request.market ?? primaryMarketFor(event.id, snapshots);
-    if (!market || !snapshots.length) {
+    const requestedMarket: MarketKey | null = request.market ?? null;
+
+    // Real event data without bookmaker odds (the LIVE_DATA_NO_ODDS provider
+    // contract) is a legitimate input state. Produce an explicit
+    // INSUFFICIENT_ODDS_DATA analysis instead of failing the event, but never
+    // invent prices to fill the gap.
+    if (!snapshots.length) {
+      const degraded = this.composeInsufficientOdds(
+        event,
+        requestedMarket,
+        dataset.issues,
+        new Date(),
+        started,
+      );
+      const validation = validateAnalysisResponse(degraded);
+      if (!validation.valid) {
+        throw new AnalysisError({
+          code: 'CONTRACT_INVALID',
+          message: 'Insufficient-odds analysis failed contract validation and was rejected.',
+          retryable: false,
+          validation,
+        });
+      }
+      return degraded;
+    }
+
+    const market: MarketKey | null = requestedMarket ?? primaryMarketFor(event.id, snapshots);
+    if (!market) {
       throw new AnalysisError({
         code: 'NO_MARKET_DATA',
-        message: `No odds snapshots available for ${event.id}`,
+        message: `No market could be resolved for ${event.id} despite ${snapshots.length} snapshot(s)`,
         retryable: true,
       });
     }
@@ -357,9 +384,9 @@ export class MockAIAnalysisService implements AIAnalysisService {
       negativeSignals.push({
         id: 'ns-risk',
         label: `${risk.level === 'HIGH' ? 'High' : 'Elevated'} risk profile`,
-        detail: risk.factors
-          .slice()
-          .sort((a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value)[0].note,
+        detail:
+          risk.factors.slice().sort((a, b) => factorImpact(b) - factorImpact(a))[0]?.note ??
+          'Risk factors unavailable in this snapshot.',
         strength: risk.score,
         origin: 'ai-inference',
       });
@@ -531,7 +558,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
       topValue
         ? `Against model ${model.modelVersion}, ${topValue.label} shows a ${topValue.edgePct.formatted} divergence versus the best available price of ${topValue.bestPrice.formatted}${topValue.bestBookmaker ? ` at ${bookmakerName(topValue.bestBookmaker) ?? topValue.bestBookmaker}` : ''}.`
         : 'No value signal could be constructed from the available prices.',
-      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. ${risk.factors.slice().sort((a, b) => b.score.value * b.weight.value - a.score.value * a.weight.value)[0].note}.`,
+      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. ${risk.factors.slice().sort((a, b) => factorImpact(b) - factorImpact(a))[0]?.note ?? 'Risk factors unavailable in this snapshot.'}.`,
       `Recommended posture: ${recommendedActions[0].title.toLowerCase()}. Every figure above is produced by the deterministic domain services (movement, data-quality, probability, value, risk, correlation); this layer supplies interpretation only.`,
     ];
 
@@ -676,7 +703,341 @@ export class MockAIAnalysisService implements AIAnalysisService {
         deterministicInputsDigest: model.inputsDigest,
         partial: degradedReasons.length > 0,
         degradedReasons,
+        dataStatus: 'ODDS_AVAILABLE',
+        oddsAvailable: true,
       },
     };
   }
+
+  /**
+   * Event-level analysis for real provider events that carry no bookmaker odds.
+   *
+   * This path is deliberately narrow: it reuses the same deterministic services,
+   * but every market-derived collection stays empty rather than being filled with
+   * fabricated prices. `dataStatus` and `meta.oddsAvailable` make the missing
+   * bookmaker market explicit, and no recommended action is mission-eligible.
+   */
+  private composeInsufficientOdds(
+    event: SportEvent,
+    requestedMarket: MarketKey | null,
+    normalizationIssues: readonly NormalizationIssue[],
+    now: Date,
+    started: number,
+  ): AnalysisResponse {
+    const snapshots: OddsSnapshot[] = [];
+    const market: MarketKey | null = requestedMarket ?? null;
+    const marketLabel = market ? MARKET_LABELS[market] : 'No bookmaker market';
+
+    // Reuse the deterministic services with an empty snapshot set. Movement
+    // returns null, quality reflects the real absence of quotes, and the model
+    // produces its independent rating/form-based probabilities without any
+    // market price input.
+    const quality = assessDataQuality(event.id, market ?? 'match-winner', snapshots, normalizationIssues, now);
+    const model = computeModelProbabilities(event, market ?? 'match-winner', [], now);
+    const value = computeValue(event.id, market ?? 'match-winner', snapshots, model, quality, now);
+    const risk = computeRisk(event, null, quality, value, now);
+    const correlation = computeCorrelation(event, market ?? 'unknown', this.options.correlationContext?.() ?? [], now);
+
+    const eventLabel = `${event.homeTeam.name} vs ${event.awayTeam.name}`;
+    const homeAdvantage = event.sportKey === 'soccer' ? 'home advantage' : 'venue effect';
+    const stronger =
+      event.homeTeam.rating >= event.awayTeam.rating ? event.homeTeam : event.awayTeam;
+    const modelRow = model.probabilities.find((p) => p.probability.value >= 0.5) ?? model.probabilities[0];
+    const missingOddsNote =
+      'No bookmaker odds are published for this event by the active provider, so no price, edge, EV or value conclusion can be produced.';
+
+    const keyFactors: KeyFactor[] = [
+      {
+        id: 'kf-odds-availability',
+        label: 'Bookmaker market availability',
+        detail: `${missingOddsNote} Provider ${event.id.split(':')[0] || 'unknown'} returned the event without any odds snapshot.`,
+        weight: det(0.3, 'ratio', 'data-quality-service'),
+        polarity: 'adverse',
+        origin: 'deterministic',
+      },
+      {
+        id: 'kf-rating',
+        label: 'Rating differential',
+        detail: `${event.homeTeam.shortName} (${event.homeTeam.rating}) vs ${event.awayTeam.shortName} (${event.awayTeam.rating}); form ${event.homeTeam.form.join('') || 'none recorded'} vs ${event.awayTeam.form.join('') || 'none recorded'}.`,
+        weight: det(0.28, 'ratio', 'probability-service'),
+        polarity: event.homeTeam.rating >= event.awayTeam.rating ? 'supportive' : 'adverse',
+        origin: 'deterministic',
+      },
+      {
+        id: 'kf-liquidity',
+        label: 'Liquidity & availability',
+        detail: `Modelled liquidity index ${(event.liquidity * 100).toFixed(0)}%; ${event.homeTeam.injuriesOut + event.awayTeam.injuriesOut} player(s) listed out.`,
+        weight: det(0.14, 'ratio', 'risk-service'),
+        polarity: event.liquidity > 0.8 ? 'supportive' : 'adverse',
+        origin: 'deterministic',
+      },
+      {
+        id: 'kf-correlation',
+        label: 'Portfolio correlation',
+        detail: correlation.clusters.length
+          ? correlation.clusters.map((c) => c.label).join('; ')
+          : 'No overlapping exposure detected in the active book.',
+        weight: det(0.12, 'ratio', 'correlation-service'),
+        polarity: correlation.level === 'ISOLATED' ? 'supportive' : 'adverse',
+        origin: 'ai-inference',
+      },
+      {
+        id: 'kf-timing',
+        label: 'Time-to-start pressure',
+        detail: `${risk.timeToStartMinutes.formatted} until the scheduled start.`,
+        weight: det(0.1, 'ratio', 'risk-service'),
+        polarity: risk.timeToStartMinutes.value < 0 ? 'adverse' : 'neutral',
+        origin: 'deterministic',
+      },
+    ];
+
+    const positiveSignals: Signal[] = [];
+    if (correlation.level === 'ISOLATED' || correlation.level === 'LOW') {
+      positiveSignals.push({
+        id: 'ps-independence',
+        label: 'Low portfolio entanglement',
+        detail: `${correlation.independentExposureCount.formatted} independent exposure(s) alongside this event.`,
+        strength: det(1 - correlation.score.value, 'ratio', 'correlation-service'),
+        origin: 'deterministic',
+      });
+    }
+
+    const negativeSignals: Signal[] = [
+      {
+        id: 'ns-no-odds',
+        label: 'No bookmaker odds available',
+        detail: missingOddsNote,
+        strength: det(1, 'ratio', 'data-quality-service'),
+        origin: 'deterministic',
+      },
+    ];
+    if (risk.level === 'ELEVATED' || risk.level === 'HIGH') {
+      negativeSignals.push({
+        id: 'ns-risk',
+        label: `${risk.level === 'HIGH' ? 'High' : 'Elevated'} risk profile`,
+        detail:
+          risk.factors.slice().sort((a, b) => factorImpact(b) - factorImpact(a))[0]?.note ??
+          'Risk factors unavailable in this snapshot.',
+        strength: risk.score,
+        origin: 'ai-inference',
+      });
+    }
+
+    const warnings: AnalysisWarning[] = [
+      {
+        id: 'w-no-odds',
+        severity: 'critical',
+        message: missingOddsNote,
+        origin: 'deterministic',
+      },
+      {
+        id: 'w-event-only',
+        severity: 'warning',
+        message: 'Only provider event metadata was available: teams, competition, sport and start time. No market opinion is expressed.',
+        origin: 'ai-inference',
+      },
+      ...quality.issues.map((i, idx) => ({
+        id: `w-dq-${idx}`,
+        severity: (i.severity === 'error' ? 'critical' : i.severity) as AnalysisWarning['severity'],
+        message: i.message,
+        origin: 'deterministic' as const,
+      })),
+    ];
+    if (event.status === 'live') {
+      warnings.push({
+        id: 'w-live',
+        severity: 'warning',
+        message: 'Event is in play — pre-match model assumptions degrade quickly.',
+        origin: 'ai-inference',
+      });
+    }
+    warnings.push({
+      id: 'w-no-exec',
+      severity: 'info',
+      message: 'This analysis is informational. No stake, order or real-money action is produced by this system.',
+      origin: 'ai-inference',
+    });
+
+    const assumptions: Assumption[] = [
+      {
+        id: 'as-no-odds',
+        statement: 'The provider publishes no bookmaker odds for this event; the absence is reported, not estimated.',
+        basis: 'data-pipeline',
+        confidence: det(1, 'ratio', 'data-quality-service'),
+        origin: 'ai-inference',
+      },
+      {
+        id: 'as-ratings',
+        statement: `Model ${model.modelVersion} treats rating, weighted form, ${homeAdvantage} and availability as the only pre-match inputs.`,
+        basis: 'model',
+        confidence: det(0.6, 'ratio', 'probability-service'),
+        origin: 'ai-inference',
+      },
+      {
+        id: 'as-ops',
+        statement: 'Missions are monitoring instruments only; a human approval gate precedes any execution step.',
+        basis: 'operational',
+        confidence: det(1, 'ratio', 'risk-service'),
+        origin: 'ai-inference',
+      },
+    ];
+
+    const recommendedActions: RecommendedAction[] = [
+      {
+        id: 'ra-no-odds',
+        kind: 'NO_ACTION',
+        title: 'No market action — bookmaker odds unavailable',
+        detail: `${missingOddsNote} Re-run once a provider with prices covers this event.`,
+        priority: 'low',
+        missionEligible: false,
+        origin: 'ai-inference',
+      },
+      {
+        id: 'ra-quality',
+        kind: 'DATA_QUALITY_WATCH',
+        title: 'Watch for the first odds snapshot',
+        detail: 'Monitor the provider feed and reassess as soon as a two-sided bookmaker quote set appears for this event.',
+        priority: 'medium',
+        missionEligible: false,
+        trigger: {
+          metric: 'data-quality-score',
+          comparator: 'lte',
+          threshold: det(0.6, 'ratio', 'data-quality-service'),
+        },
+        origin: 'ai-inference',
+      },
+      {
+        id: 'ra-monitor',
+        kind: 'MONITOR_MARKET',
+        title: `Monitor schedule — ${eventLabel}`,
+        detail: `${event.league.name} · ${SPORT_LABELS[event.sportKey]} · starts ${event.startTime}. Event-level watch only; no price conclusion is asserted.`,
+        priority: 'low',
+        missionEligible: false,
+        origin: 'ai-inference',
+      },
+    ];
+
+    const narrative: string[] = [
+      `${eventLabel} (${event.league.name}) is present in the live provider feed with real identifiers, teams and start time, but carries no bookmaker odds. ${missingOddsNote}`,
+      `Event-level read only: the stronger rating belongs to ${stronger.name}${modelRow ? `, and the ${homeAdvantage}-adjusted model puts ${modelRow.label} at ${modelRow.probability.formatted}` : ''}. This is a pre-market structural observation, not a price-based edge.`,
+      `Data integrity: grade ${quality.grade} (${quality.score.formatted}) with ${quality.bookmakerCoverage.formatted} bookmaker coverage and ${Number.isFinite(quality.freshnessMinutes.value) && quality.freshnessMinutes.value < 9000 ? quality.freshnessMinutes.formatted : 'no'} quote freshness — the absence of odds is the defining signal here.`,
+      `Risk is ${risk.level.toLowerCase()} (${(risk.score.value * 100).toFixed(0)}/100) and correlation is ${correlation.level.toLowerCase()}. Recommended posture: hold and watch for the first two-sided quote set before any conclusion is promoted.`,
+    ];
+
+    return {
+      analysisId: analysisId(event.id, market ?? 'no-odds', now),
+      eventId: event.id,
+      generatedAt: now.toISOString(),
+      summary: {
+        headline: `Insufficient odds data: ${eventLabel} — event verified, no bookmaker market`,
+        narrative,
+        stance: 'cautious',
+        origin: 'ai-inference',
+        groundedIn: ['data-quality-service', 'probability-service', 'risk-service', 'correlation-service'],
+      },
+      confidence: {
+        score: det(0, 'ratio', AI_SERVICE_ID),
+        band: bandFor(0),
+        rationale: `Confidence is zero: the provider published no bookmaker odds for this event, so no market-backed conclusion can be promoted. Feed grade ${quality.grade}.`,
+        origin: 'ai-inference',
+        drivers: [
+          { label: 'Bookmaker odds availability', impact: 'decreases', magnitude: det(0, 'ratio', 'data-quality-service') },
+          { label: `Data quality (grade ${quality.grade})`, impact: 'decreases', magnitude: quality.score },
+          { label: 'Risk score', impact: risk.score.value <= 0.45 ? 'increases' : 'decreases', magnitude: risk.score },
+          { label: 'Correlation pressure', impact: correlation.score.value <= 0.3 ? 'increases' : 'decreases', magnitude: correlation.score },
+        ],
+      },
+      dataQuality: {
+        grade: quality.grade,
+        score: quality.score,
+        freshnessMinutes: quality.freshnessMinutes,
+        bookmakerCoverage: quality.bookmakerCoverage,
+        completeness: quality.completeness,
+        dispersion: quality.dispersion,
+        stale: quality.stale,
+        partial: quality.partial,
+        issues: quality.issues.map((i) => ({ severity: i.severity, message: i.message })),
+        interpretation: 'No odds snapshots exist for this event, so input quality is graded on the absence of market data rather than its freshness.',
+        origin: 'ai-inference',
+      },
+      keyFactors,
+      positiveSignals,
+      negativeSignals,
+      marketObservations: [],
+      probabilityEstimates: [],
+      valueSignals: [],
+      riskAssessment: {
+        level: risk.level,
+        score: risk.score,
+        exposureCeilingPct: risk.exposureCeilingPct,
+        timeToStartMinutes: risk.timeToStartMinutes,
+        factors: risk.factors,
+        interpretation:
+          risk.level === 'LOW'
+            ? 'Risk surface is benign; standard monitoring is sufficient.'
+            : risk.level === 'MODERATE'
+              ? 'Risk is manageable but the event should be re-checked closer to start.'
+              : risk.level === 'ELEVATED'
+                ? 'Risk is elevated — tighten thresholds and shorten the reassessment interval.'
+                : 'Risk is hostile; monitoring only, no escalation.',
+        origin: 'ai-inference',
+      },
+      correlationAssessment: {
+        level: correlation.level,
+        score: correlation.score,
+        independentExposureCount: correlation.independentExposureCount,
+        clusters: correlation.clusters.map((c) => ({
+          id: c.id,
+          label: c.label,
+          reason: c.reason,
+          strength: c.strength,
+          relatedEventIds: c.relatedEventIds,
+        })),
+        interpretation:
+          correlation.level === 'ISOLATED'
+            ? 'This event is effectively independent of current exposure.'
+            : correlation.level === 'LOW'
+              ? 'Mild overlap with existing exposure; no structural concern.'
+              : correlation.level === 'MODERATE'
+                ? 'Overlapping drivers exist — size any combined exposure as one position.'
+                : 'Heavily correlated with existing exposure; treat as a single concentrated risk.',
+        origin: 'ai-inference',
+      },
+      recommendedActions,
+      warnings,
+      assumptions,
+      sourceSnapshots: [],
+      context: {
+        eventLabel,
+        leagueName: event.league.name,
+        sportLabel: SPORT_LABELS[event.sportKey],
+        market,
+        marketLabel,
+        startTime: event.startTime,
+        status: event.status,
+      },
+      meta: {
+        engine: this.engineId,
+        engineMode: this.mode,
+        modelVersion: model.modelVersion,
+        contractVersion: ANALYSIS_CONTRACT_VERSION,
+        computeMs: det(Date.now() - started, 'count', 'odds-math'),
+        deterministicInputsDigest: model.inputsDigest,
+        partial: true,
+        degradedReasons: ['insufficient-odds-data', ...degradedOddsReasons(quality, event)],
+        dataStatus: 'INSUFFICIENT_ODDS_DATA',
+        oddsAvailable: false,
+      },
+    };
+  }
+}
+
+function degradedOddsReasons(
+  quality: ReturnType<typeof assessDataQuality>,
+  event: SportEvent,
+): string[] {
+  const reasons: string[] = [];
+  if (quality.issues.length) reasons.push('no-bookmaker-coverage');
+  if (event.status === 'live') reasons.push('event-in-play');
+  return reasons;
 }

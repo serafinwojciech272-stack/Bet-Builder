@@ -34,7 +34,7 @@ export class QuantAwareAnalysisService implements AIAnalysisService {
 
     const decisionGateSelections = decision.candidates.map((candidate) => ({
       id: candidate.id,
-      marketId: candidate.marketId ?? analysis.context.market,
+      marketId: candidate.marketId ?? analysis.context.market ?? 'match-winner',
       eventId: candidate.eventId,
       name: candidate.label ?? candidate.id,
       shortName: candidate.label ?? candidate.id,

@@ -78,11 +78,62 @@ export function validateAnalysisResponse(response: AnalysisResponse): Validation
     });
   }
 
-  require((response.probabilityEstimates?.length ?? 0) > 0, {
-    path: 'probabilityEstimates',
-    code: 'empty-collection',
-    message: 'probabilityEstimates must not be empty',
-  });
+  const insufficientOdds = response.meta?.dataStatus === 'INSUFFICIENT_ODDS_DATA';
+  require(
+    response.meta?.dataStatus === 'ODDS_AVAILABLE' || insufficientOdds,
+    {
+      path: 'meta.dataStatus',
+      code: 'missing-field',
+      message: 'meta.dataStatus must declare whether odds were available',
+    },
+  );
+
+  if (insufficientOdds) {
+    // An event-level analysis without bookmaker odds must not smuggle in any
+    // market-derived figure. Every prices-bearing collection must be empty and
+    // the digest must still be reproducible from event data alone.
+    require(response.meta.oddsAvailable === false, {
+      path: 'meta.oddsAvailable',
+      code: 'out-of-range',
+      message: 'meta.oddsAvailable must be false when dataStatus is INSUFFICIENT_ODDS_DATA',
+    });
+    require((response.probabilityEstimates?.length ?? 0) === 0, {
+      path: 'probabilityEstimates',
+      code: 'empty-collection',
+      message: 'insufficient-odds analysis must not emit model probabilities',
+    });
+    require((response.valueSignals?.length ?? 0) === 0, {
+      path: 'valueSignals',
+      code: 'empty-collection',
+      message: 'insufficient-odds analysis must not emit value/edge signals',
+    });
+    require((response.marketObservations?.length ?? 0) === 0, {
+      path: 'marketObservations',
+      code: 'empty-collection',
+      message: 'insufficient-odds analysis must not emit market observations',
+    });
+    require((response.sourceSnapshots?.length ?? 0) === 0, {
+      path: 'sourceSnapshots',
+      code: 'empty-collection',
+      message: 'insufficient-odds analysis must not cite odds snapshots',
+    });
+    require(response.recommendedActions.every((a) => !a.missionEligible), {
+      path: 'recommendedActions',
+      code: 'missing-field',
+      message: 'insufficient-odds analysis must not mark actions as mission-eligible',
+    });
+  } else {
+    require((response.probabilityEstimates?.length ?? 0) > 0, {
+      path: 'probabilityEstimates',
+      code: 'empty-collection',
+      message: 'probabilityEstimates must not be empty',
+    });
+    require((response.sourceSnapshots?.length ?? 0) > 0, {
+      path: 'sourceSnapshots',
+      code: 'empty-collection',
+      message: 'analysis must cite at least one odds snapshot',
+    });
+  }
 
   for (const est of response.probabilityEstimates ?? []) {
     const p = est.modelProbability?.value ?? -1;
@@ -110,11 +161,6 @@ export function validateAnalysisResponse(response: AnalysisResponse): Validation
     });
   }
 
-  require((response.sourceSnapshots?.length ?? 0) > 0, {
-    path: 'sourceSnapshots',
-    code: 'empty-collection',
-    message: 'analysis must cite at least one odds snapshot',
-  });
   require(Boolean(response.meta?.deterministicInputsDigest), {
     path: 'meta.deterministicInputsDigest',
     code: 'missing-field',

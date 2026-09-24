@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, Eye, Filter, Search, Swords, Trophy, Zap as ZapIcon } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
-import { canonicalSportKey, MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
+import { canonicalSportKey, SPORT_LABELS } from '../domain/feed/normalization';
 import type { SportKey } from '../domain/types';
 import { Chip, EmptyState, ErrorState, LoadingState, Panel, SectionHeading, Stat } from '../components/ui';
 import { dateTime, relativeTime } from '../lib/format';
@@ -138,15 +138,15 @@ export function EventsPage() {
                   </div>
                   <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
                     <div className="text-[9px] uppercase tracking-[0.12em] text-faint">Market</div>
-                    <div className="mt-1 text-xs font-semibold text-market">{MARKET_LABELS[i.market]}</div>
+                    <div className="mt-1 text-xs font-semibold text-market">{i.marketLabel}</div>
                   </div>
                 </div>
                 <p className="mt-2 text-xs font-medium text-foreground"><CalendarDays size={12} className="mr-1 inline text-ai" />{dateTime(i.event.startTime)} <span className="text-faint">· {relativeTime(i.event.startTime, nowTick)}</span></p>
               </div>
               <div className="flex flex-col justify-between gap-3 lg:w-[280px]">
                 <div className="grid grid-cols-3 gap-2">
-                  <Stat label="Najlepszy kurs" value={best?.bestPrice.formatted ?? '—'} tone="market" />
-                  <Stat label="Wartość" value={best?.edgePct.formatted ?? '—'} tone={(best?.edgePct.value ?? 0) > 0 ? 'positive' : 'default'} />
+                  <Stat label="Najlepszy kurs" value={i.market === null ? 'Brak kursów' : best?.bestPrice.formatted ?? '—'} tone="market" />
+                  <Stat label="Wartość" value={i.market === null ? 'Brak kursów' : best?.edgePct.formatted ?? '—'} tone={(best?.edgePct.value ?? 0) > 0 ? 'positive' : 'default'} />
                   <Stat label="Ryzyko" value={i.risk.level === 'LOW' ? 'NISKIE' : i.risk.level === 'ELEVATED' ? 'PODWYŻSZONE' : i.risk.level === 'HIGH' ? 'WYSOKIE' : 'KRYTYCZNE'} mono={false} />
                 </div>
                 <Link to={`/analysis/${i.event.id}`} className="inline-flex items-center justify-center rounded-lg border border-ai/30 bg-ai/10 px-3 py-2 text-[11px] font-semibold text-ai hover:bg-ai/15">Analyze event →</Link>

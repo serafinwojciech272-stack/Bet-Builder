@@ -98,4 +98,20 @@ describe('odds API contract', () => {
     expect(bodyOf(res).providerHealth.ageSeconds).toBeGreaterThan(600);
     expect(bodyOf(res).issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'stale-odds', severity: 'warning' })]));
   });
+
+  it('maps bare SportScore sport keys to canonical sports instead of defaulting to soccer', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-18T12:00:30Z'));
+    vi.stubEnv('PARLAY_API_KEY', '');
+    const match = (id: string) => ({ id, home: `Home ${id}`, away: `Away ${id}`, time: '2026-09-18T12:00:00Z', competition: `Comp ${id}` });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const sport = new URL(String(input)).searchParams.get('sport');
+      return new Response(JSON.stringify({ matches: [match(`${sport}-1`)] }), { status: 200 });
+    }));
+    const res = response();
+    await handler({ method: 'GET', query: { date: '2026-09-18', sport: 'all' } }, res);
+    expect(res.statusCode).toBe(200);
+    const bySport = new Map((bodyOf(res).events as Array<{ sportKey: string; id: string }>).map((e) => [e.id.split(':')[1], e.sportKey]));
+    expect(Object.fromEntries(bySport)).toEqual({ football: 'soccer', basketball: 'basketball', tennis: 'tennis', cricket: 'cricket' });
+  });
 });

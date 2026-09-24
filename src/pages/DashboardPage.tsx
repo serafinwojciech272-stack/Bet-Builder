@@ -181,7 +181,7 @@ export function DashboardPage() {
                       <h3 className="mt-1.5 truncate text-sm font-semibold text-foreground">
                         {i.event.homeTeam.name} vs {i.event.awayTeam.name}
                       </h3>
-                      <p className="truncate text-[11px] text-muted">{i.market} · {i.event.venue}</p>
+                      <p className="truncate text-[11px] text-muted">{i.marketLabel} · {i.event.venue}</p>
                     </div>
                     <Chip tone={i.quality.grade === 'A' ? 'positive' : i.quality.grade === 'B' ? 'ai' : i.quality.grade === 'C' ? 'warn' : 'negative'}>
                       {i.quality.grade}
@@ -198,7 +198,7 @@ export function DashboardPage() {
                     <div>
                       <dt className="text-[9px] uppercase tracking-wider text-faint">Best edge</dt>
                       <dd className={cx((best?.edgePct.value ?? 0) > 0 ? 'text-positive' : 'text-muted')}>
-                        {best?.edgePct.formatted ?? '—'}
+                        {i.market === null ? 'No odds' : best?.edgePct.formatted ?? '—'}
                       </dd>
                     </div>
                     <div>
