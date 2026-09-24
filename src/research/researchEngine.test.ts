@@ -38,6 +38,18 @@ describe('research engine hardening', () => {
     expect(result.digest).toBeTruthy();
   });
 
+  it('keeps freshness finite when a source date is unparseable', () => {
+    const sources = normalizeResearchSources([
+      { url: 'u1', title: 'Local form preview', publisher: 'Local', language: 'en' as const, publishedAt: 'not-a-date', snippet: 'form preview' },
+      { url: 'u2', title: 'Injury news', publisher: 'News', language: 'en' as const, publishedAt: 'Tue, 23 Sep 2026 10:00:00 GMT', snippet: 'injury out' },
+    ]);
+    const result = synthesizeResearch('EVT-BADDATE', buildResearchQueries('A', 'B', 'soccer', 'L'), sources, new Date('2026-09-24T00:00:00.000Z'));
+    expect(result.findings.every((f) => Number.isFinite(f.freshnessHours))).toBe(true);
+    expect(result.findings.every((f) => f.freshnessHours >= 0 && f.freshnessHours <= 168)).toBe(true);
+    expect(Number.isFinite(result.consensus.score)).toBe(true);
+    expect(Number.isFinite(result.researchQuality)).toBe(true);
+  });
+
   it('produces stable finding ids and bounded quality for the same deterministic snapshot', () => {
     const sources: ResearchSource[] = [
       { url: 'u1', title: 'Official lineup', publisher: 'Club', language: 'en', kind: 'official', reliability: 'A', publishedAt: '2026-09-22T10:00:00.000Z', snippet: 'confirmed lineup available', matchedTerms: ['lineup'] },
