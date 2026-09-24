@@ -38,11 +38,16 @@ export function createMockCoreEngine(): MockCoreEngine {
       for (const item of optimized.rejected) rejectedReasons[item.id] = item.reason;
       const selected = optimized.selected; const selectedIds = new Set(selected.map((s) => s.id));
       for (const s of valid) if (!selectedIds.has(s.id) && !rejectedReasons[s.id]) rejectedReasons[s.id] = 'Not selected after quant portfolio constraints.';
-      const combined = combinedOdds(selected.map((s) => s.odds)); const probability = selected.length ? optimized.adjustedProbability : 0; const ev = probability * combined - 1;
-      const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0; const groups = new Set(selected.map((s) => s.correlationGroup)).size;
+      const rawOdds = selected.length ? combinedOdds(selected.map((s) => s.odds)) : 0;
+      const combined = Number.isFinite(rawOdds) ? rawOdds : 0;
+      const probability = selected.length ? optimized.adjustedProbability : 0;
+      const ev = selected.length ? probability * combined - 1 : 0;
+      const stake = Number.isFinite(req.stake) && req.stake >= 0 ? req.stake : 0;
+      const rawReturn = potentialReturn(stake, combined); const rawProfit = potentialProfit(stake, combined);
+      const guaranteedReturn = selected.length && Number.isFinite(rawReturn) ? rawReturn : 0; const guaranteedProfit = selected.length && Number.isFinite(rawProfit) ? rawProfit : 0; const groups = new Set(selected.map((s) => s.correlationGroup)).size;
       const diversificationScore = selected.length <= 1 ? 0 : Math.min(1, groups / selected.length); const targetNote = req.targetCombinedOdds ? `, target ${req.targetCombinedOdds.toFixed(2)} ± ${(req.targetOddsTolerance ?? req.targetCombinedOdds * 0.1).toFixed(2)}` : '';
       const gateNote = gate.status === 'CAUTION' ? ` Decision Gate CAUTION preserved with ${gate.warnings.length} warning(s).` : ' Decision Gate READY.';
-      return { selections: selected.map((s) => s.id), rejectedSelections: Object.keys(rejectedReasons), rejectedReasons, stake, combinedOdds: combined, estimatedProbability: probability, estimatedEv: ev, potentialReturn: potentialReturn(stake, combined), potentialProfit: potentialProfit(stake, combined), diversificationScore, rationale: `Quant portfolio: ${groups} correlation group(s), dependency multiplier ${(optimized.dependencyMultiplier).toFixed(3)}, ${Object.keys(rejectedReasons).length} rejection(s)${targetNote}.${gateNote}` };
+      return { selections: selected.map((s) => s.id), rejectedSelections: Object.keys(rejectedReasons), rejectedReasons, stake, combinedOdds: combined, estimatedProbability: probability, estimatedEv: ev, potentialReturn: guaranteedReturn, potentialProfit: guaranteedProfit, diversificationScore, rationale: `Quant portfolio: ${groups} correlation group(s), dependency multiplier ${(optimized.dependencyMultiplier).toFixed(3)}, ${Object.keys(rejectedReasons).length} rejection(s)${targetNote}.${gateNote}` };
     },
   };
 }
