@@ -8,7 +8,7 @@ export interface CanonicalDataset {
   issues: NormalizationIssue[];
   droppedRecords: number;
   normalizedAt: string;
-  provider?: 'demo' | 'parlay-api' | 'the-odds-api' | 'sportscore';
+  provider?: 'demo' | 'parlay-api' | 'the-odds-api' | 'sportscore' | 'thesportsdb';
   mode?: 'DEMO' | 'LIVE' | 'LIVE_DATA_NO_ODDS';
   requestedDate?: string;
   sportsQueried?: string[];
@@ -200,7 +200,7 @@ export class LiveSportsDataRepository implements SportsDataRepository {
 
       const normalized: CanonicalDataset = {
         ...data,
-        provider: data.provider === 'sportscore' ? 'sportscore' : 'parlay-api',
+        provider: data.provider === 'sportscore' || data.provider === 'thesportsdb' ? data.provider : 'parlay-api',
         mode: data.mode === 'LIVE_DATA_NO_ODDS' ? 'LIVE_DATA_NO_ODDS' : 'LIVE',
         requestedDate: date,
       };

@@ -31,10 +31,23 @@ try {
   const health = await get('/health');
   if (!health.ok) throw new Error(`health HTTP ${health.status}`);
 
+  // With no ParlayAPI key configured the keyless event fallbacks run. Either a real
+  // event provider answers (200, LIVE_DATA_NO_ODDS, no bookmaker odds) or every
+  // provider is exhausted and the endpoint reports NO_SPORTS_PROVIDER_AVAILABLE.
   const odds = await get('/api/odds');
   const oddsBody = await odds.json();
-  if (odds.status !== 503 || oddsBody?.error !== 'ODDS_PROVIDER_NOT_CONFIGURED') {
-    throw new Error(`unexpected odds contract: HTTP ${odds.status} ${JSON.stringify(oddsBody)}`);
+  if (odds.status === 200) {
+    if (!Array.isArray(oddsBody?.events) || !oddsBody.events.length) {
+      throw new Error(`unexpected odds contract: HTTP ${odds.status} without events ${JSON.stringify(oddsBody).slice(0, 300)}`);
+    }
+    if (oddsBody.mode !== 'LIVE_DATA_NO_ODDS') {
+      throw new Error(`unexpected odds mode without key: ${oddsBody.mode}`);
+    }
+    if (Array.isArray(oddsBody.snapshots) && oddsBody.snapshots.length) {
+      throw new Error(`keyless odds response must not fabricate snapshots: ${oddsBody.snapshots.length}`);
+    }
+  } else if (odds.status !== 503 || oddsBody?.error !== 'NO_SPORTS_PROVIDER_AVAILABLE') {
+    throw new Error(`unexpected odds contract: HTTP ${odds.status} ${JSON.stringify(oddsBody).slice(0, 300)}`);
   }
 
   const research = await get('/api/research');
