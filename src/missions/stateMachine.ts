@@ -70,6 +70,12 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
         'Approval gate has not recorded a human approval decision.',
       );
     }
+    if (!Array.isArray(mission.approval.checklist)) {
+      throw new MissionTransitionError(
+        'CHECKLIST_INCOMPLETE',
+        'Approval checklist is missing or malformed; the gate cannot be evaluated.',
+      );
+    }
     const outstanding = mission.approval.checklist.filter((c) => c.required && !c.acknowledged);
     if (outstanding.length) {
       throw new MissionTransitionError(
@@ -83,11 +89,27 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
         `Approval blocked: ${mission.approval.blockers.join('; ')}`,
       );
     }
+    // An approval state alone is not a decision: a named human approver and a
+    // decision timestamp must be recorded, so default/undefined values can never
+    // be read as approval.
+    if (!mission.approval.decidedBy || !mission.approval.decidedAt) {
+      throw new MissionTransitionError(
+        'APPROVAL_REQUIRED',
+        'Approval gate has no recorded human decision (approver and decision time are required).',
+      );
+    }
   }
   if (to === 'EXECUTING' && mission.approval.state !== 'APPROVED') {
     throw new MissionTransitionError(
       'APPROVAL_REQUIRED',
       'Execution attempted without an approved mission — blocked by the approval gate.',
+    );
+  }
+  // An approved mission must still carry the human decision that authorised it.
+  if (to === 'EXECUTING' && (!mission.approval.decidedBy || !mission.approval.decidedAt)) {
+    throw new MissionTransitionError(
+      'APPROVAL_REQUIRED',
+      'Execution attempted on a mission with no recorded human approval decision.',
     );
   }
   if (to === 'MEASURING' && !mission.execution) {

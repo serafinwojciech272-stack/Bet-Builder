@@ -1,7 +1,7 @@
 import type { AnalysisRepository } from '../ai/AnalysisRepository';
 import type { CoreEngineClient } from '../engine/CoreEngineClient';
 import type { MissionRepository } from './MissionRepository';
-import { transition } from './stateMachine';
+import { transition, MissionTransitionError } from './stateMachine';
 import type { Mission } from './types';
 import { settleLedgerEntry, type SettlementStatus } from '../core/decisionLedger';
 
@@ -58,6 +58,9 @@ export class MissionService {
   }
 
   async approve(missionId: string, actor: string, note: string): Promise<Mission> {
+    if (!actor.trim()) {
+      throw new MissionTransitionError('APPROVAL_REQUIRED', 'Approval requires a named human approver.');
+    }
     const mission = await this.requireMission(missionId);
     const at = new Date().toISOString();
     const decided: Mission = {
