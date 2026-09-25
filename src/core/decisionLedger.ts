@@ -70,13 +70,28 @@ export function createLedgerEntry(packet: DecisionPacket, options: { approvalSta
   };
 }
 
+const SETTLEMENT_STATUSES: SettlementInput['status'][] = ['WON', 'LOST', 'VOID', 'CANCELLED'];
+
 export function settleLedgerEntry(entry: DecisionLedgerEntry, input: SettlementInput): DecisionLedgerEntry {
   if (entry.settlement.status !== 'PENDING') throw new Error(`LEDGER_ALREADY_SETTLED: ${entry.id}`);
+  if (!SETTLEMENT_STATUSES.includes(input.status)) {
+    throw new Error(`INVALID_SETTLEMENT: unknown settlement status ${String(input.status)}`);
+  }
+  if (input.objectiveOutcome !== undefined && input.objectiveOutcome !== 0 && input.objectiveOutcome !== 1) {
+    throw new Error(`INVALID_SETTLEMENT: objectiveOutcome must be 0 or 1, received ${String(input.objectiveOutcome)}`);
+  }
+  if (input.closingOdds !== undefined && (!Number.isFinite(input.closingOdds) || input.closingOdds <= 0)) {
+    throw new Error(`INVALID_SETTLEMENT: closingOdds must be a finite positive number, received ${String(input.closingOdds)}`);
+  }
+  const settledAt = input.settledAt ?? new Date();
+  if (!Number.isFinite(settledAt.getTime())) {
+    throw new Error('INVALID_SETTLEMENT: settledAt is not a valid timestamp');
+  }
   const next = structuredClone(entry);
   const outcome = input.objectiveOutcome;
   next.settlement = {
     status: input.status,
-    settledAt: (input.settledAt ?? new Date()).toISOString(),
+    settledAt: settledAt.toISOString(),
     objectiveOutcome: outcome ?? null,
     closingOdds: input.closingOdds ?? null,
   };
