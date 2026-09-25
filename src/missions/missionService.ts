@@ -1,7 +1,7 @@
 import type { AnalysisRepository } from '../ai/AnalysisRepository';
 import type { CoreEngineClient } from '../engine/CoreEngineClient';
 import type { MissionRepository } from './MissionRepository';
-import { transition, MissionTransitionError } from './stateMachine';
+import { transition, assertMissionPayload, MissionTransitionError } from './stateMachine';
 import type { Mission } from './types';
 import { settleLedgerEntry, type SettlementStatus } from '../core/decisionLedger';
 
@@ -17,6 +17,7 @@ export class MissionService {
   ) {}
 
   async saveDraft(mission: Mission): Promise<Mission> {
+    assertMissionPayload(mission);
     return this.missions.save(mission);
   }
 

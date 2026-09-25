@@ -27,7 +27,8 @@ export type TransitionGuardCode =
   | 'NO_ACTIONS'
   | 'ALREADY_TERMINAL'
   | 'EXECUTION_MISSING'
-  | 'MEASUREMENT_MISSING';
+  | 'MEASUREMENT_MISSING'
+  | 'MALFORMED_MISSION';
 
 export class MissionTransitionError extends Error {
   constructor(
@@ -123,6 +124,45 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
       'MEASUREMENT_MISSING',
       'Cannot complete a mission without a measurement record.',
     );
+  }
+}
+
+const MISSION_STATUSES: MissionStatus[] = [
+  'DRAFT', 'AWAITING_APPROVAL', 'APPROVED', 'EXECUTING', 'MEASURING', 'COMPLETED', 'FAILED', 'CANCELLED',
+];
+const APPROVAL_STATES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+
+/**
+ * Rejects artifacts that lack the identity, state and provenance a mission requires.
+ * Any legal lifecycle state may be persisted; a partial or forged payload may not.
+ */
+export function assertMissionPayload(mission: Mission): void {
+  const malformed = (detail: string): never => {
+    throw new MissionTransitionError('MALFORMED_MISSION', `Malformed mission artifact: ${detail}`);
+  };
+  if (!mission || typeof mission !== 'object') malformed('artifact is not an object');
+  if (typeof mission.id !== 'string' || !mission.id.trim()) malformed('missing mission id');
+  if (typeof mission.sourceAnalysisId !== 'string' || !mission.sourceAnalysisId.trim()) {
+    malformed('missing source analysis identity');
+  }
+  if (!mission.target || typeof mission.target.eventId !== 'string' || !mission.target.eventId.trim()) {
+    malformed('missing target event identity');
+  }
+  if (!MISSION_STATUSES.includes(mission.status)) malformed(`unknown lifecycle state ${String(mission.status)}`);
+  if (!mission.approval || mission.approval.required !== true) {
+    malformed('mission must carry a mandatory approval gate');
+  }
+  if (!APPROVAL_STATES.includes(mission.approval.state)) {
+    malformed(`unknown approval state ${String(mission.approval.state)}`);
+  }
+  if (!Array.isArray(mission.approval.checklist) || !mission.approval.checklist.length) {
+    malformed('approval checklist missing');
+  }
+  if (!Array.isArray(mission.approval.blockers)) malformed('approval blockers list missing');
+  if (!Array.isArray(mission.actions) || !mission.actions.length) malformed('mission has no actions');
+  if (!Array.isArray(mission.history) || !mission.history.length) malformed('mission history missing');
+  if (mission.execution !== null && typeof mission.execution !== 'object') {
+    malformed('execution record is neither null nor an object');
   }
 }
 
