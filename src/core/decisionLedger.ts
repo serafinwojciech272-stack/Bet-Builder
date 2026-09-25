@@ -39,6 +39,8 @@ export interface CalibrationSummary {
 }
 
 const clampProbability = (value: number) => Math.min(1 - 1e-9, Math.max(1e-9, value));
+/** Persisted ledger numerics must be finite; a non-finite source value is stored as its neutral default. */
+const finiteOr = (value: number | undefined, fallback: number) => (typeof value === 'number' && Number.isFinite(value) ? value : fallback);
 const binaryBrier = (p: number, outcome: number) => (p - outcome) ** 2;
 const binaryLogLoss = (p: number, outcome: number) => {
   const probability = clampProbability(p);
@@ -53,12 +55,12 @@ export function createLedgerEntry(packet: DecisionPacket, options: { approvalSta
     recordedAt: now.toISOString(),
     status: packet.status,
     selectionIds: [...packet.source.selectionIds],
-    oddsSnapshot: packet.source.combinedOdds,
-    fairProbability: packet.source.adjustedProbability,
-    confidence: packet.source.confidence,
-    quality: packet.source.quality,
+    oddsSnapshot: finiteOr(packet.source.combinedOdds, 0),
+    fairProbability: finiteOr(packet.source.adjustedProbability, 0),
+    confidence: finiteOr(packet.source.confidence, 0),
+    quality: finiteOr(packet.source.quality, 0),
     risk: packet.selections[0]?.risk ?? 'UNKNOWN',
-    dependencyMultiplier: packet.source.dependencyMultiplier,
+    dependencyMultiplier: finiteOr(packet.source.dependencyMultiplier, 1),
     approvalState: options.approvalState ?? 'PENDING',
     missionId: options.missionId ?? null,
     settlement: { status: 'PENDING', settledAt: null, objectiveOutcome: null, closingOdds: null },
