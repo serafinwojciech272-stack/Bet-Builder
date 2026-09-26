@@ -5,7 +5,7 @@ import { DemoBadge, EmptyState, Panel, SectionHeading, Stat } from '../component
 
 export default function LivePage() {
   const dataset = getDataset();
-  const live = dataset.events.filter((e) => e.status === 'LIVE');
+  const live = dataset.events.filter((e) => e.status === 'live');
   const all = dataset.events;
   const snapshotCount = Object.values(dataset.histories).reduce((total, history) => total + history.length, 0);
 
