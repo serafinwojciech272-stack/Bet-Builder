@@ -24,7 +24,8 @@ beforeEach(async () => {
 
 function draft(): Mission {
   const action = analysis.recommendedActions.find((a) => a.missionEligible)!;
-  const decisionPacket = createDecisionPacketFromAnalysis(analysis, new Date('2026-09-24T00:00:00.000Z'), [action.selectionId]);
+  const selectionId = analysis.valueSignals[0]?.selectionId;
+  const decisionPacket = createDecisionPacketFromAnalysis(analysis, new Date('2026-09-24T00:00:00.000Z'), selectionId ? [selectionId] : undefined);
   return buildMissionFromAnalysis(analysis, action, {
     decisionPacket,
     movementThresholdPct: 3,
