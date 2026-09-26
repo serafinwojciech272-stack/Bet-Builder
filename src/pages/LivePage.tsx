@@ -1,4 +1,5 @@
 import { Activity, Radio, ShieldCheck } from 'lucide-react';
+import { useEffect } from 'react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { EventCard } from '../components/EventCard';
 import { EmptyState, Panel, SectionHeading, Stat } from '../components/ui';
@@ -8,6 +9,11 @@ export default function LivePage() {
   const canonical = dataset?.events ?? [];
   const live = canonical.filter((e) => e.status === 'live');
   const snapshots = dataset?.snapshots ?? [];
+
+  useEffect(() => {
+    const timer = window.setInterval(() => { void refresh(undefined, true); }, 10 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
 
   const toCardEvent = (e: typeof canonical[number]) => ({
     id: e.id,
