@@ -114,6 +114,32 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
       'Execution attempted on a mission with no recorded human approval decision.',
     );
   }
+  if (to === 'EXECUTING') {
+    if (!mission.decisionPacket) {
+      throw new MissionTransitionError(
+        'MALFORMED_MISSION',
+        'Execution requires a decision packet linked to the mission.',
+      );
+    }
+    if (!mission.decisionLedger) {
+      throw new MissionTransitionError(
+        'MALFORMED_MISSION',
+        'Execution requires a decision ledger linked to the mission.',
+      );
+    }
+    if (mission.decisionLedger.missionId !== mission.id) {
+      throw new MissionTransitionError(
+        'MALFORMED_MISSION',
+        'Decision ledger missionId does not match the executable mission.',
+      );
+    }
+    if (mission.decisionLedger.decisionPacketId !== mission.decisionPacket.id) {
+      throw new MissionTransitionError(
+        'MALFORMED_MISSION',
+        'Decision ledger decisionPacketId does not match the mission decision packet.',
+      );
+    }
+  }
   if (to === 'EXECUTING' && mission.status === 'EXECUTING') {
     throw new MissionTransitionError(
       'ALREADY_EXECUTING',
