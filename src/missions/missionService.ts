@@ -115,8 +115,25 @@ export class MissionService {
       : moved);
   }
 
+  private readonly inFlight = new Set<string>();
+
   /** Execution is only reachable through an APPROVED mission. */
   async execute(missionId: string, actor: string): Promise<Mission> {
+    if (this.inFlight.has(missionId)) {
+      throw new MissionTransitionError(
+        'ALREADY_EXECUTING',
+        `Mission ${missionId} is already executing; a duplicate execution was refused.`,
+      );
+    }
+    this.inFlight.add(missionId);
+    try {
+      return await this.runExecution(missionId, actor);
+    } finally {
+      this.inFlight.delete(missionId);
+    }
+  }
+
+  private async runExecution(missionId: string, actor: string): Promise<Mission> {
     const mission = await this.requireMission(missionId);
     const analysis = (await this.analyses.getById(mission.sourceAnalysisId))?.analysis ?? null;
 
@@ -124,6 +141,8 @@ export class MissionService {
       actor,
       reason: 'Dispatched to Core Engine (mock)',
     });
+    // Claim the EXECUTING state before any engine dispatch so concurrent callers
+    // observe the claim and cannot both dispatch the same mission.
     working = await this.missions.save(working);
 
     try {

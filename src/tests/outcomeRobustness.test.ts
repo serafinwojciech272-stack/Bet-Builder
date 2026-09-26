@@ -197,7 +197,7 @@ describe('OUTCOME negative test matrix', () => {
     expect(await missions.count()).toBe(0);
   });
 
-  it('11. expected outcome is always present and finite; it is the basis the outcome is scored against', async () => {
+  it('11. a mission without an expected outcome is rejected as malformed', async () => {
     const { analysis, action } = await context();
     const draft = buildMissionFromAnalysis(analysis, action, { idSuffix: 'EXP' });
     expect(draft.expectedOutcome).toBeDefined();
@@ -205,9 +205,9 @@ describe('OUTCOME negative test matrix', () => {
     expect(Number.isFinite(draft.expectedOutcome.targetValue.value)).toBe(true);
     expect(Number.isFinite(draft.expectedOutcome.horizonMinutes.value)).toBe(true);
     expect(draft.expectedOutcome.successCriteria.length).toBeGreaterThan(0);
-    // The structural guard does not own expectedOutcome; a mission lacking it is still a full
-    // artifact and the missing expected value remains explicitly unresolved rather than fabricated.
-    expect(() => assertMissionPayload({ ...draft, expectedOutcome: undefined } as unknown as Mission)).not.toThrow();
+    // The expected outcome is the basis the actual result is scored against; without it
+    // the artifact is malformed and must not be persisted.
+    expect(() => assertMissionPayload({ ...draft, expectedOutcome: undefined } as unknown as Mission)).toThrow(/expected outcome missing/);
   });
 
   it('12/13/14/15. malformed, NaN, Infinity and invalid settlement payloads are rejected', async () => {

@@ -26,11 +26,28 @@ export interface CoreEngineAck {
 
 export class CoreEngineError extends Error {
   constructor(
-    readonly code: 'APPROVAL_REQUIRED' | 'UNSUPPORTED_ACTION' | 'ENGINE_UNAVAILABLE',
+    readonly code: 'APPROVAL_REQUIRED' | 'UNSUPPORTED_ACTION' | 'INVALID_PAYLOAD' | 'ENGINE_UNAVAILABLE',
     message: string,
   ) {
     super(message);
     this.name = 'CoreEngineError';
+  }
+}
+
+const ENGINE_ACTIONS = ['OBSERVE_MARKET', 'CAPTURE_SNAPSHOT', 'EVALUATE_TRIGGER', 'RECOMPUTE_ANALYSIS', 'RAISE_ALERT', 'REPORT'];
+
+/** Execution payload must carry a real human approval decision and stay finite before dispatch. */
+function assertExecutableMission(mission: Mission): void {
+  if (mission.approval.state !== 'APPROVED' || !mission.approval.decidedBy || !mission.approval.decidedAt) {
+    throw new CoreEngineError('APPROVAL_REQUIRED', 'Core Engine rejected the mission: approval gate not satisfied.');
+  }
+  const numerics = [
+    mission.expectedOutcome.targetValue.value,
+    mission.expectedOutcome.horizonMinutes.value,
+    ...mission.actions.flatMap((a) => [a.intervalMinutes?.value, a.trigger?.threshold.value]).filter((n) => n !== undefined),
+  ];
+  if (numerics.some((n) => typeof n !== 'number' || !Number.isFinite(n))) {
+    throw new CoreEngineError('INVALID_PAYLOAD', 'Core Engine rejected the mission: execution payload contains a non-finite value.');
   }
 }
 
@@ -156,10 +173,8 @@ export class MockCoreEngineClient implements CoreEngineClient {
 
   async submitMission(mission: Mission): Promise<CoreEngineAck> {
     await delay(this.options.stepDelayMs ?? 260);
-    if (mission.approval.state !== 'APPROVED') {
-      throw new CoreEngineError('APPROVAL_REQUIRED', 'Core Engine rejected the mission: approval gate not satisfied.');
-    }
-    const unsupported = mission.actions.find((a) => !['OBSERVE_MARKET', 'CAPTURE_SNAPSHOT', 'EVALUATE_TRIGGER', 'RECOMPUTE_ANALYSIS', 'RAISE_ALERT', 'REPORT'].includes(a.kind));
+    assertExecutableMission(mission);
+    const unsupported = mission.actions.find((a) => !ENGINE_ACTIONS.includes(a.kind));
     if (unsupported) throw new CoreEngineError('UNSUPPORTED_ACTION', `Action ${unsupported.kind} is not permitted by this engine.`);
     return { accepted: true, engineRef: `CE-${mission.id.slice(-8)}-${Date.now().toString(36).toUpperCase()}`, acceptedAt: new Date().toISOString() };
   }

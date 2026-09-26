@@ -28,6 +28,7 @@ export type TransitionGuardCode =
   | 'ALREADY_TERMINAL'
   | 'EXECUTION_MISSING'
   | 'MEASUREMENT_MISSING'
+  | 'ALREADY_EXECUTING'
   | 'MALFORMED_MISSION';
 
 export class MissionTransitionError extends Error {
@@ -113,6 +114,12 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
       'Execution attempted on a mission with no recorded human approval decision.',
     );
   }
+  if (to === 'EXECUTING' && mission.status === 'EXECUTING') {
+    throw new MissionTransitionError(
+      'ALREADY_EXECUTING',
+      `Mission ${mission.id} is already executing; a duplicate execution was refused.`,
+    );
+  }
   if (to === 'MEASURING' && !mission.execution) {
     throw new MissionTransitionError(
       'EXECUTION_MISSING',
@@ -161,6 +168,14 @@ export function assertMissionPayload(mission: Mission): void {
   if (!Array.isArray(mission.approval.blockers)) malformed('approval blockers list missing');
   if (!Array.isArray(mission.actions) || !mission.actions.length) malformed('mission has no actions');
   if (!Array.isArray(mission.history) || !mission.history.length) malformed('mission history missing');
+  if (!mission.expectedOutcome || typeof mission.expectedOutcome.targetValue?.value !== 'number' || typeof mission.expectedOutcome.horizonMinutes?.value !== 'number') {
+    malformed('expected outcome missing');
+  }
+  const requiredNumerics = [mission.expectedOutcome.targetValue.value, mission.expectedOutcome.horizonMinutes.value];
+  const optionalNumerics = mission.actions.flatMap((a) => [a.intervalMinutes?.value, a.trigger?.threshold.value]).filter((n) => n !== undefined);
+  if ([...requiredNumerics, ...optionalNumerics].some((n) => typeof n !== 'number' || !Number.isFinite(n))) {
+    malformed('payload contains a non-finite numeric value');
+  }
   if (mission.execution !== null && typeof mission.execution !== 'object') {
     malformed('execution record is neither null nor an object');
   }
