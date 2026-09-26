@@ -145,7 +145,7 @@ export async function seedWorkspace(workspace: Workspace): Promise<SeedResult> {
     const decisionPacket = createDecisionPacketFromAnalysis(
       analysis,
       new Date(at.getTime() + 5 * 60_000),
-      analysis.valueSignals[0]?.selectionId ? [analysis.valueSignals[0].selectionId] : undefined,
+      undefined,
     );
     let mission = buildMissionFromAnalysis(analysis, action, {
       now: at,
