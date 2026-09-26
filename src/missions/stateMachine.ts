@@ -101,6 +101,19 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
       );
     }
   }
+  if (to === 'EXECUTING' && mission.approval.state !== 'APPROVED') {
+    throw new MissionTransitionError(
+      'APPROVAL_REQUIRED',
+      'Execution attempted without an approved mission — blocked by the approval gate.',
+    );
+  }
+  // An approved mission must still carry the human decision that authorised it.
+  if (to === 'EXECUTING' && (!mission.approval.decidedBy || !mission.approval.decidedAt)) {
+    throw new MissionTransitionError(
+      'APPROVAL_REQUIRED',
+      'Execution attempted on a mission with no recorded human approval decision.',
+    );
+  }
   if (to === 'EXECUTING') {
     if (!mission.decisionPacket) {
       throw new MissionTransitionError(
@@ -126,19 +139,6 @@ export function assertGuards(mission: Mission, to: MissionStatus): void {
         'Decision ledger decisionPacketId does not match the mission decision packet.',
       );
     }
-  }
-  if (to === 'EXECUTING' && mission.approval.state !== 'APPROVED') {
-    throw new MissionTransitionError(
-      'APPROVAL_REQUIRED',
-      'Execution attempted without an approved mission — blocked by the approval gate.',
-    );
-  }
-  // An approved mission must still carry the human decision that authorised it.
-  if (to === 'EXECUTING' && (!mission.approval.decidedBy || !mission.approval.decidedAt)) {
-    throw new MissionTransitionError(
-      'APPROVAL_REQUIRED',
-      'Execution attempted on a mission with no recorded human approval decision.',
-    );
   }
   if (to === 'EXECUTING' && mission.status === 'EXECUTING') {
     throw new MissionTransitionError(
