@@ -2,6 +2,7 @@ import type { AnalysisResponse } from '../ai/contracts';
 import { measure } from '../domain/services/measurementService';
 import { det } from '../domain/numbers';
 import { buildMissionFromAnalysis } from '../missions/missionFactory';
+import { createDecisionPacketFromAnalysis } from '../core/decisionPacket';
 import { transition } from '../missions/stateMachine';
 import type { ExecutionStep, Mission, MissionStatus } from '../missions/types';
 import type { Workspace } from './services';
@@ -141,9 +142,15 @@ export async function seedWorkspace(workspace: Workspace): Promise<SeedResult> {
       analysis.recommendedActions[spec.actionIndex ?? 0] ?? analysis.recommendedActions[0];
     if (!action || !action.missionEligible) continue;
 
+    const decisionPacket = createDecisionPacketFromAnalysis(
+      analysis,
+      new Date(at.getTime() + 5 * 60_000),
+      [action.selectionId].filter(Boolean),
+    );
     let mission = buildMissionFromAnalysis(analysis, action, {
       now: at,
       createdBy: 'intelligence-layer',
+      decisionPacket,
       idSuffix: spec.eventId.slice(-4),
     });
 
