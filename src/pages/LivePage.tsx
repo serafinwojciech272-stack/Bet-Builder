@@ -27,8 +27,28 @@ export default function LivePage() {
     markets: [],
   });
 
-  const marketCountFor = (eventId: string) =>
-    new Set(snapshots.filter((s) => s.eventId === eventId).map((s) => s.market)).size;
+  const snapshotsFor = (eventId: string) => snapshots.filter((s) => s.eventId === eventId);
+  const marketCountFor = (eventId: string) => new Set(snapshotsFor(eventId).map((s) => s.market)).size;
+  const liveQuotesFor = (eventId: string) =>
+    snapshotsFor(eventId)
+      .flatMap((snapshot) => snapshot.quotes.map((quote) => ({
+        label: quote.label,
+        odds: quote.decimalOdds,
+        bookmaker: snapshot.bookmaker,
+        market: snapshot.market,
+      })))
+      .filter((quote) => Number.isFinite(quote.odds) && quote.odds > 1)
+      .slice(0, 3);
+
+  const card = (e: typeof canonical[number]) => (
+    <EventCard
+      key={e.id}
+      event={toCardEvent(e)}
+      marketCount={marketCountFor(e.id)}
+      defined={marketCountFor(e.id) > 0}
+      liveQuotes={liveQuotesFor(e.id)}
+    />
+  );
 
   return (
     <div className="space-y-8 rise">
@@ -69,14 +89,14 @@ export default function LivePage() {
         <SectionHeading index="01" title="Live now" subtitle="Only events explicitly marked live by the canonical provider feed appear here." icon={<Activity size={17} className="text-negative" />} />
         {live.length === 0
           ? <EmptyState title="No live events" detail={phase === 'loading' ? 'Refreshing the live provider feed…' : 'No active event is currently reported by the provider.'} />
-          : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{live.map((e) => <EventCard key={e.id} event={toCardEvent(e)} marketCount={marketCountFor(e.id)} defined={marketCountFor(e.id) > 0} />)}</div>}
+          : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{live.map(card)}</div>}
       </section>
 
       <section>
         <SectionHeading index="02" title="Upcoming" subtitle="Current provider inventory, including bookmaker snapshot coverage where available." />
         {canonical.length === 0
           ? <EmptyState title="No provider events" detail="The live feed returned no usable events for the selected date." />
-          : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{canonical.map((e) => <EventCard key={e.id} event={toCardEvent(e)} marketCount={marketCountFor(e.id)} defined={marketCountFor(e.id) > 0} />)}</div>}
+          : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{canonical.map(card)}</div>}
       </section>
     </div>
   );
