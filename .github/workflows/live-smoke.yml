@@ -8,26 +8,62 @@ on:
 jobs:
   live-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
+      - name: Set up HTTP retry helper
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/retry-curl.sh" <<'SH'
+          # Bounded retry that tolerates Render cold starts without masking real errors.
+          # Only curl transport failures are retried: 7 (connect), 28 (timeout),
+          # 52 (empty reply), 56 (recv failure). HTTP error statuses are never retried,
+          # so --fail and explicit status assertions still abort the step immediately.
+          retry_curl() {
+            local attempts=3 delay=5 attempt=1 code=0 tmp
+            tmp="$(mktemp)"
+            while :; do
+              : > "$tmp"
+              code=0
+              curl "$@" > "$tmp" || code=$?
+              if [ "$code" -eq 0 ]; then cat "$tmp"; rm -f "$tmp"; return 0; fi
+              case "$code" in
+                7|28|52|56) ;;
+                *) echo "curl failed with non-transient exit code $code - not retrying" >&2; rm -f "$tmp"; return "$code" ;;
+              esac
+              if [ "$attempt" -ge "$attempts" ]; then
+                echo "curl still failing (exit $code) after $attempts attempts" >&2
+                rm -f "$tmp"
+                return "$code"
+              fi
+              echo "curl transient failure (exit $code) on attempt $attempt/$attempts - retrying in ${delay}s" >&2
+              sleep "$delay"
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+          }
+          SH
+
       - name: Frontend HTTP smoke
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --max-time 20 https://bet-builder-live.onrender.com/ -o /tmp/frontend.html
+          source "$RUNNER_TEMP/retry-curl.sh"
+          retry_curl --fail --silent --show-error --location --max-time 30 https://bet-builder-live.onrender.com/ -o /tmp/frontend.html
           grep -qi '<html' /tmp/frontend.html
 
       - name: API health smoke
         run: |
           set -euo pipefail
-          body="$(curl --fail --silent --show-error --max-time 20 https://bet-builder-api-live.onrender.com/health)"
+          source "$RUNNER_TEMP/retry-curl.sh"
+          body="$(retry_curl --fail --silent --show-error --max-time 30 https://bet-builder-api-live.onrender.com/health)"
           echo "$body"
           node -e 'const b=JSON.parse(process.argv[1]); if(b.ok!==true || b.service!=="bet-builder-api") process.exit(1)' "$body"
 
       - name: Live odds smoke
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/retry-curl.sh"
           date="$(date -u +%F)"
-          status="$(curl --silent --show-error --max-time 30 -o /tmp/odds.json -w '%{http_code}' "https://bet-builder-api-live.onrender.com/api/odds?date=$date&sport=all")"
+          status="$(retry_curl --silent --show-error --max-time 45 -o /tmp/odds.json -w '%{http_code}' "https://bet-builder-api-live.onrender.com/api/odds?date=$date&sport=all")"
           cat /tmp/odds.json
           test "$status" = "200"
           node -e 'const b=require("/tmp/odds.json"); if(!Array.isArray(b.events) || !Array.isArray(b.snapshots) || !b.providerHealth) process.exit(1); if(b.mode==="LIVE" && b.provider==="parlay-api" && b.events.length>=1 && b.snapshots.length>=1 && b.providerHealth.successfulSports>=1) { require("fs").appendFileSync(process.env.GITHUB_ENV,"LIVE_ODDS_AVAILABLE=true\\n"); console.log(JSON.stringify({mode:b.mode,provider:b.provider,events:b.events.length,snapshots:b.snapshots.length,sports:b.sportsQueried.length,state:b.providerHealth.state})); process.exit(0); } if(b.mode==="LIVE" && b.provider==="the-odds-api" && b.events.length>=1 && b.snapshots.length>=1 && b.providerHealth.state==="HEALTHY") { require("fs").appendFileSync(process.env.GITHUB_ENV,"LIVE_ODDS_AVAILABLE=false\\n"); console.log("THE ODDS API FALLBACK PASS "+JSON.stringify({provider:b.provider,mode:b.mode,events:b.events.length,sports:b.sportsQueried.length})); process.exit(0); } console.error("LIVE PROVIDER CONTRACT FAILED",JSON.stringify({provider:b.provider,mode:b.mode,events:b.events.length,snapshots:b.snapshots.length,state:b.providerHealth.state,successfulSports:b.providerHealth.successfulSports})); process.exit(2);'
@@ -35,8 +71,9 @@ jobs:
       - name: Research smoke
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/retry-curl.sh"
           url='https://bet-builder-api-live.onrender.com/api/research?eventId=live-smoke&home=Manchester%20City&away=Liverpool&sport=soccer&league=Premier%20League'
-          status="$(curl --silent --show-error --max-time 30 -o /tmp/research.json -w '%{http_code}' "$url")"
+          status="$(retry_curl --silent --show-error --max-time 45 -o /tmp/research.json -w '%{http_code}' "$url")"
           cat /tmp/research.json
           test "$status" = "200"
           node -e 'const b=require("/tmp/research.json"); if(!b.researchId || !Array.isArray(b.queries) || !Array.isArray(b.sources) || !Array.isArray(b.findings) || !b.consensus) process.exit(1); console.log(JSON.stringify({queries:b.queries.length,sources:b.sources.length,findings:b.findings.length,quality:b.researchQuality}))'
