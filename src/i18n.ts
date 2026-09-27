@@ -149,11 +149,15 @@ function translateNode(text: Text, map: Record<string, string>) {
   if (!trimmed || trimmed.length > 160) return;
   let replacement = map[trimmed];
   if (!replacement) {
-    const keys = Object.keys(map).filter((key) => key.length > 2).sort((a, b) => b.length - a.length);
+    const keys = Object.keys(map)
+      .filter((key) => key.length > 3 && /\\s|[·→/&:+—–-]/.test(key))
+      .sort((a, b) => b.length - a.length);
     let next = trimmed;
     for (const key of keys) {
       if (!next.includes(key)) continue;
-      next = next.split(key).join(map[key]);
+      const escaped = key.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+      const pattern = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?=$|[^\\p{L}\\p{N}_])', 'gu');
+      next = next.replace(pattern, (_match, prefix: string) => prefix + map[key]);
     }
     if (next !== trimmed) replacement = next;
   }
