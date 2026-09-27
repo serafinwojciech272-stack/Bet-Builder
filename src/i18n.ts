@@ -103,6 +103,12 @@ const EN_DE_AUDIT: Record<string,string> = {
 const EN_DE: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [EN_PL[pl] ?? pl, de]));
 const DE_EN: Record<string, string> = Object.fromEntries(Object.entries(EN_DE).map(([en, de]) => [de, en]));
 const DE_PL: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [de, pl]));
+const EN_DE_EXTRA: Record<string, string> = Object.fromEntries(
+  Object.entries(DE_PL_EXTRA).map(([en, de]) => [en, de])
+);
+const DE_EN_EXTRA: Record<string, string> = Object.fromEntries(
+  Object.entries(DE_PL_EXTRA).map(([en, de]) => [de, en])
+);
 
 
 const EN_PL_PAGES: Record<string,string> = {
@@ -131,9 +137,16 @@ const EN_DE_PAGES: Record<string,string> = {
 };
 
 function mapFor(lang: Lang): Record<string, string> {
-  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...EN_PL_PAGES, ...DE_EN };
-  if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE_AUDIT, ...EN_DE_PAGES, ...EN_DE };
-  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL, ...EN_PL_EXTRA, ...EN_PL_AUDIT, ...EN_PL_PAGES };
+  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...EN_PL_PAGES, ...DE_EN, ...DE_EN_EXTRA };
+  if (lang === 'de') return { ...PL_DE, ...EN_DE_EXTRA, ...EN_DE_AUDIT, ...EN_DE_PAGES, ...EN_DE };
+  return {
+    ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])),
+    ...DE_PL,
+    ...DE_PL_EXTRA,
+    ...EN_PL_EXTRA,
+    ...EN_PL_AUDIT,
+    ...EN_PL_PAGES,
+  };
 }
 
 const originalText = new WeakMap<Text, string>();
