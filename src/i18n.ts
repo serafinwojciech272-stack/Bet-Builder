@@ -54,14 +54,60 @@ const DE_PL_EXTRA: Record<string,string> = {
 'My coupon':'Mein Wettschein','Coupon is empty':'Wettschein ist leer','AI coupon generator':'KI-Wettscheingenerator','Find the best coupon':'Besten Wettschein finden','Stake':'Einsatz'
 };
 
+
+
+const EN_PL_AUDIT: Record<string,string> = {
+  'AI conclusion':'Wniosek AI','Stance:':'Stanowisko:','Confidence':'Pewność','band:':'pasmo:','Grounded in:':'Podstawa:',
+  'Data quality':'Jakość danych','Score':'Wynik','Freshness':'Świeżość','Coverage':'Pokrycie','Completeness':'Kompletność','AI reading':'Odczyt AI',
+  'Risk':'Ryzyko','Risk score':'Wynik ryzyka','To start':'Do rozpoczęcia','minutes':'minut','exposure ceiling':'limit ekspozycji','of unit':'jednostki',
+  'Correlation':'Korelacja','Cluster score':'Wynik klastra','Independent':'Niezależne','other exposures':'inne ekspozycje','No overlapping exposure detected.':'Nie wykryto nakładających się ekspozycji.',
+  'Market movement':'Ruch rynku','raw market data':'surowe dane rynkowe','Selection':'Wybór','Open':'Otwarcie','Now':'Teraz','Books':'Bukmacherzy',
+  'Model vs market':'Model vs rynek','Model':'Model','Implied':'Implikowane','Edge':'Przewaga','Best price':'Najlepszy kurs','EV / unit':'EV / jednostkę','Kelly':'Kelly','capped ¼':'limit ¼',
+  'Key factors':'Kluczowe czynniki','Positive signals':'Pozytywne sygnały','strength':'siła','No supportive signals detected.':'Nie wykryto pozytywnych sygnałów.',
+  'No movement history captured yet.':'Nie zarejestrowano jeszcze historii zmian.','Odds movement per selection':'Zmiana kursu dla wyboru',
+  'Computed by':'Obliczone przez','AI inference':'Wnioskowanie AI','Deterministic':'Deterministyczne','Measured':'Zmierzono','meter':'miernik',
+  'Something failed upstream':'Wystąpił błąd po stronie źródła danych','Re-pull feed':'Pobierz dane ponownie','Stale data':'Nieaktualne dane',
+  'Partial data.':'Dane częściowe.','This analysis ran on an incomplete input set':'Ta analiza została wykonana na niepełnym zestawie danych wejściowych','Conclusions are provisional.':'Wnioski są wstępne.',
+  'Approve this mission':'Zatwierdź tę misję','Mission lifecycle':'Cykl życia misji','Mission horizon in minutes':'Horyzont misji w minutach',
+  'AI Decision Cockpit':'Kokpit decyzji AI','Universal Decision Engine':'Uniwersalny silnik decyzji','MISSION READY':'MISJA GOTOWA',
+  'Odds':'Kursy','Decision ready':'Decyzja gotowa','AI analysis':'Analiza AI','MARKET FABRIC':'WARSTWA RYNKOWA',
+  'Dashboard':'Panel główny','Sports':'Sporty','Live':'Na żywo','Builder':'Kreator','Home':'Start','Missions':'Misje',
+  'Add':'Dodaj','Remove':'Usuń','Prob':'Prawd.','Implied':'Implikowane','Value':'Wartość','EV':'EV','Quality':'Jakość','MOCK ANALYSIS':'ANALIZA TESTOWA',
+  'Something failed upstream':'Wystąpił błąd źródła danych','Stale data — newest capture is':'Nieaktualne dane — najnowszy odczyt ma','minutes old. Figures below are indicative only.':'minut. Poniższe wartości mają charakter orientacyjny.',
+  'system OK':'system OK','Private mode':'Tryb prywatny','Opportunity Radar':'Radar okazji','research · edge · decision':'badanie · przewaga · decyzja',
+  'dane → kursy → analiza → decyzja → kupon':'dane → kursy → analiza → decyzja → kupon','synchronizacja…':'synchronizacja…','kursów':'kursów','odświeżono':'odświeżono',
+  'Dane deterministyczne · warstwa AI · bez realnych transakcji':'Dane deterministyczne · warstwa AI · bez realnych transakcji',
+  'Bet Builder / Inteligencja sportowa':'Bet Builder / Inteligencja sportowa'
+};
+
+const EN_DE_AUDIT: Record<string,string> = {
+  'AI conclusion':'KI-Fazit','Stance:':'Haltung:','Confidence':'Konfidenz','band:':'Band:','Grounded in:':'Basierend auf:',
+  'Data quality':'Datenqualität','Score':'Wert','Freshness':'Aktualität','Coverage':'Abdeckung','Completeness':'Vollständigkeit','AI reading':'KI-Auswertung',
+  'Risk':'Risiko','Risk score':'Risiko-Score','To start':'Bis zum Start','minutes':'Minuten','exposure ceiling':'Expositionsgrenze','of unit':'der Einheit',
+  'Correlation':'Korrelation','Cluster score':'Cluster-Score','Independent':'Unabhängig','other exposures':'andere Expositionen','No overlapping exposure detected.':'Keine überlappende Exposition erkannt.',
+  'Market movement':'Marktbewegung','raw market data':'Rohdaten des Marktes','Selection':'Auswahl','Open':'Eröffnung','Now':'Jetzt','Books':'Anbieter',
+  'Model vs market':'Modell vs. Markt','Model':'Modell','Implied':'Impliziert','Edge':'Vorteil','Best price':'Beste Quote','EV / unit':'EV / Einheit','Kelly':'Kelly','capped ¼':'begrenzt auf ¼',
+  'Key factors':'Schlüsselfaktoren','Positive signals':'Positive Signale','strength':'Stärke','No supportive signals detected.':'Keine positiven Signale erkannt.',
+  'No movement history captured yet.':'Noch keine Bewegungsverlauf-Daten erfasst.','Odds movement per selection':'Quotenbewegung je Auswahl',
+  'Computed by':'Berechnet von','AI inference':'KI-Inferenz','Deterministic':'Deterministisch','Measured':'Gemessen','meter':'Messwert',
+  'Something failed upstream':'Fehler in der vorgelagerten Datenquelle','Re-pull feed':'Daten erneut laden','Stale data':'Veraltete Daten',
+  'Partial data.':'Unvollständige Daten.','This analysis ran on an incomplete input set':'Diese Analyse wurde mit unvollständigen Eingabedaten ausgeführt','Conclusions are provisional.':'Die Ergebnisse sind vorläufig.',
+  'Approve this mission':'Mission genehmigen','Mission lifecycle':'Missionszyklus','Mission horizon in minutes':'Missionshorizont in Minuten',
+  'AI Decision Cockpit':'KI-Entscheidungscockpit','Universal Decision Engine':'Universelle Entscheidungs-Engine','MISSION READY':'MISSION BEREIT',
+  'Odds':'Quoten','Decision ready':'Entscheidung bereit','AI analysis':'KI-Analyse','MARKET FABRIC':'MARKT-EBENE',
+  'Dashboard':'Dashboard','Sports':'Sportarten','Live':'Live','Builder':'Builder','Home':'Startseite','Missions':'Missionen',
+  'Add':'Hinzufügen','Remove':'Entfernen','Prob':'Wahrsch.','Implied':'Impliziert','Value':'Wert','EV':'EV','Quality':'Qualität','MOCK ANALYSIS':'TESTANALYSE',
+  'system OK':'System OK','Private mode':'Privatmodus','Opportunity Radar':'Chancen-Radar','research · edge · decision':'Recherche · Vorteil · Entscheidung'
+};
+
 const EN_DE: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [EN_PL[pl] ?? pl, de]));
 const DE_EN: Record<string, string> = Object.fromEntries(Object.entries(EN_DE).map(([en, de]) => [de, en]));
 const DE_PL: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [de, pl]));
 
 function mapFor(lang: Lang): Record<string, string> {
-  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...DE_EN };
-  if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE };
-  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL, ...EN_PL_EXTRA };
+  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...EN_DE_AUDIT, ...DE_EN };
+  if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE_AUDIT, ...EN_DE };
+  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL, ...EN_PL_EXTRA, ...EN_PL_AUDIT };
 }
 
 const originalText = new WeakMap<Text, string>();
@@ -75,7 +121,16 @@ function translateNode(text: Text, map: Record<string, string>) {
   const source = originalText.get(text) ?? current;
   const trimmed = source.trim();
   if (!trimmed || trimmed.length > 160) return;
-  const replacement = map[trimmed];
+  let replacement = map[trimmed];
+  if (!replacement) {
+    const keys = Object.keys(map).filter((key) => key.length > 2).sort((a, b) => b.length - a.length);
+    let next = trimmed;
+    for (const key of keys) {
+      if (!next.includes(key)) continue;
+      next = next.split(key).join(map[key]);
+    }
+    if (next !== trimmed) replacement = next;
+  }
   if (!replacement) {
     if (current !== source) text.nodeValue = source;
     return;
