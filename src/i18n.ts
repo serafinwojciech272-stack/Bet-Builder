@@ -61,7 +61,7 @@ const DE_PL: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).m
 function mapFor(lang: Lang): Record<string, string> {
   if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...DE_EN };
   if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE };
-  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL };
+  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL, ...EN_PL_EXTRA };
 }
 
 const originalText = new WeakMap<Text, string>();
