@@ -35,6 +35,14 @@ function dateBoundsUtc(date: string) {
   return { from: isoSeconds(start), to: isoSeconds(end) };
 }
 function slug(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function normalizeDecimalOdds(price: number): number | null {
+  if (!Number.isFinite(price)) return null;
+  // Defensive guard: compatible feeds can still return American integers despite oddsFormat=decimal.
+  if (price >= 100) return Number((1 + price / 100).toFixed(3));
+  if (price <= -100) return Number((1 + 100 / Math.abs(price)).toFixed(3));
+  if (price >= 1.01 && price <= 100) return Number(price.toFixed(3));
+  return null;
+}
 function team(name: string) { return { id: slug(name), name, shortName: name.length > 18 ? name.slice(0, 18) : name, rating: 0.5, form: [] as Array<'W' | 'D' | 'L'>, injuriesOut: 0 }; }
 function canonicalSport(key: string): SportKey { if (key.startsWith('basketball_')) return 'basketball'; if (key.startsWith('icehockey_')) return 'icehockey'; if (key.startsWith('baseball_')) return 'baseball'; if (key.startsWith('americanfootball_')) return 'americanfootball'; if (key.startsWith('tennis_')) return 'tennis'; if (key.startsWith('volleyball_')) return 'volleyball'; if (key.startsWith('golf_')) return 'golf'; if (key.startsWith('handball_')) return 'handball'; if (key.startsWith('rugby')) return 'rugby'; if (key.startsWith('tabletennis_')) return 'tabletennis'; if (key.startsWith('darts_')) return 'darts'; if (key.startsWith('cricket_')) return 'cricket'; if (key.startsWith('aussierules_')) return 'aussierules'; return 'soccer'; }
 async function fetchWithTimeout(url: string | URL, init: RequestInit = {}, timeoutMs = 12000): Promise<Response> {
@@ -116,11 +124,12 @@ async function fetchParlayTryFallback(requestedSport: string, issues: DatasetRes
           const canonicalMarket = MARKET_MAP[market.key];
           if (!canonicalMarket) continue;
           const quotes: OddsQuote[] = market.outcomes
-            .filter((o) => Number.isFinite(o.price) && o.price >= 1.01 && o.price <= 1000)
-            .map((o) => ({
+            .map((o) => ({ o, decimalOdds: normalizeDecimalOdds(o.price) }))
+            .filter((entry): entry is { o: ApiOutcome; decimalOdds: number } => entry.decimalOdds !== null)
+            .map(({ o, decimalOdds }) => ({
               selectionId: `${eventId}:${market.key}:${slug(o.name)}`,
               label: o.name,
-              decimalOdds: Number(o.price.toFixed(3)),
+              decimalOdds,
             }));
           if (!quotes.length) continue;
           const capturedAt = market.last_update || bookmaker.last_update || new Date().toISOString();
