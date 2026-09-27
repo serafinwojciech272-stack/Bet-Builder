@@ -4,7 +4,7 @@ import { CheckCircle2, Database, History, Info, LayoutDashboard, ListFilter, Rad
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { Button, EngineBadge } from './ui';
 import { cx, relativeTime } from '../lib/format';
-import { LANGS, type Lang, installLanguageObserver } from '../i18n';
+import { LANGS, type Lang, detectBrowserLang, installLanguageObserver } from '../i18n';
 
 const NAV = [
   { to: '/', label: 'Mecze', icon: ListFilter, key: 'e', end: true },
@@ -24,7 +24,7 @@ function Toasts() {
   </div>)}</div>;
 }
 function SettingsControls(){
-  const [lang,setLang]=useState<Lang>(()=>(localStorage.getItem('bb-lang') as Lang)||'pl');
+  const [lang,setLang]=useState<Lang>(()=>detectBrowserLang());
   const [light,setLight]=useState(()=>localStorage.getItem('bb-theme')==='light');
   const [sound,setSound]=useState(()=>localStorage.getItem('bb-sound')==='on');
   const audioRef=useRef<AudioContext|null>(null);
