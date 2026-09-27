@@ -131,7 +131,7 @@ const EN_DE_PAGES: Record<string,string> = {
 };
 
 function mapFor(lang: Lang): Record<string, string> {
-  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...EN_PL_PAGES, ...EN_DE_AUDIT, ...DE_EN };
+  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...EN_PL_PAGES, ...DE_EN };
   if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE_AUDIT, ...EN_DE_PAGES, ...EN_DE };
   return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL, ...EN_PL_EXTRA, ...EN_PL_AUDIT, ...EN_PL_PAGES };
 }
