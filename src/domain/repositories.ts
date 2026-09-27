@@ -17,11 +17,13 @@ export interface CanonicalDataset {
   availableSports?: Array<{ key: string; title: string; group: string }>;
   providerHealth?: ProviderHealth;
 }
+
 export interface SportsDataRepository {
   loadCanonicalDataset(options?: { date?: string; sport?: string; forceRefresh?: boolean }): Promise<CanonicalDataset>;
   getEvent(eventId: string): Promise<SportEvent | null>;
   getSnapshots(eventId: string): Promise<OddsSnapshot[]>;
 }
+
 function delay(ms: number) { return new Promise<void>(resolve => setTimeout(resolve, ms)); }
 function sportScoreKey(sport: string): import('./types').SportKey {
   if (sport === 'basketball') return 'basketball';
@@ -46,6 +48,7 @@ function liveStatus(raw: Record<string, unknown>, start: Date): 'live' | 'final'
   if (Boolean(raw.live) || ['live', 'inplay', 'in-play', 'in progress'].includes(text)) return 'live';
   return start.getTime() <= Date.now() && start.getTime() > Date.now() - 4 * 60 * 60 * 1000 ? 'live' : 'scheduled';
 }
+
 async function loadParlayTryDirect(date: string, sport: string): Promise<CanonicalDataset> {
   const sportKeys = sport === 'all'
     ? ['soccer_epl', 'basketball_nba', 'americanfootball_nfl', 'icehockey_nhl', 'baseball_mlb', 'mma_mixed_martial_arts']
@@ -100,6 +103,7 @@ async function loadParlayTryDirect(date: string, sport: string): Promise<Canonic
     providerHealth: { provider: 'parlay-api', state: uniqueEvents.length ? 'DEGRADED' : 'OFFLINE', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 120, catalogCount: sportKeys.length, queriedSports: sportKeys.length, successfulSports: sportKeys.length, failedSports: 0, eventCount: uniqueEvents.length, snapshotCount: snapshots.length, bookmakerCount: bookmakers.size, warnings: ['PRIMARY API GATEWAY RECOVERED', snapshots.length ? 'REAL LIVE ODDS' : 'REAL EVENTS AVAILABLE', 'NO-AUTH FALLBACK'] },
   };
 }
+
 function sportScoreKeyLegacy(sport: string): import('./types').SportKey { return sportScoreKey(sport); }
 async function loadSportScoreDirect(date: string, sport: string): Promise<CanonicalDataset> {
   const sports = sport === 'all' ? ['football', 'basketball', 'tennis', 'cricket'] : [sport === 'soccer' ? 'football' : sport];
@@ -119,7 +123,107 @@ async function loadSportScoreDirect(date: string, sport: string): Promise<Canoni
   if (!events.length) issues.push({ code: 'sportscore-browser-empty', severity: 'info', message: `SportScore returned no usable events for ${date}.` });
   return { events: events.sort((a, b) => a.startTime.localeCompare(b.startTime)), snapshots: [], issues, droppedRecords: 0, normalizedAt: new Date().toISOString(), provider: 'sportscore', mode: 'LIVE_DATA_NO_ODDS', requestedDate: date, sportsQueried: sports, bookmakers: [], availableSports: sports.filter(s => ['football','basketball','tennis','cricket'].includes(s)).map(s => ({ key: sportScoreKeyLegacy(s), title: s, group: s })), providerHealth: { provider: 'sportscore', state: events.length ? 'HEALTHY' : 'OFFLINE', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 600, catalogCount: sports.length, queriedSports: sports.length, successfulSports: sports.length, failedSports: 0, eventCount: events.length, snapshotCount: 0, bookmakerCount: 0, warnings: ['REAL EVENTS AVAILABLE', 'NO BOOKMAKER ODDS'] } };
 }
-function deriveProviderHealth(data: CanonicalDataset): ProviderHealth { const fetchedAt = data.normalizedAt; const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(fetchedAt).getTime()) / 1000)); const staleAfterSeconds = 600; const queriedSports = data.sportsQueried?.length ?? 0; const failedSports = data.issues.filter(i => i.code === 'provider-error' || i.code === 'provider-network-error' || i.code === 'provider-payload-error').length; return { provider: data.provider ?? 'unknown', state: data.mode !== 'LIVE' ? 'OFFLINE' : ageSeconds > staleAfterSeconds ? 'STALE' : failedSports > 0 ? 'DEGRADED' : 'HEALTHY', fetchedAt, ageSeconds, staleAfterSeconds, catalogCount: data.availableSports?.length ?? 0, queriedSports, successfulSports: Math.max(0, queriedSports - failedSports), failedSports, eventCount: data.events.length, snapshotCount: data.snapshots.length, bookmakerCount: data.bookmakers?.length ?? new Set(data.snapshots.map(s => s.bookmaker)).size, warnings: data.issues.filter(i => i.severity !== 'info').map(i => i.message).slice(0, 6) }; }
-export class MockSportsDataRepository implements SportsDataRepository { private cache: CanonicalDataset | null = null; constructor(private readonly options: { latencyMs?: number; failFirstLoad?: boolean } = {}) {} async loadCanonicalDataset(): Promise<CanonicalDataset> { if (this.cache) return this.cache; await delay(this.options.latencyMs ?? 520); const eventResult = normalizeEvents(RAW_EVENTS); const ids = new Set(eventResult.value.map(e => e.id)); const oddsResult = normalizeOddsSnapshots(RAW_ODDS, ids); this.cache = { events: eventResult.value, snapshots: oddsResult.value, issues: [...eventResult.issues, ...oddsResult.issues], droppedRecords: eventResult.droppedRecords + oddsResult.droppedRecords, normalizedAt: new Date().toISOString(), provider: 'demo', mode: 'DEMO' }; return this.cache; } async getEvent(eventId: string) { const data = await this.loadCanonicalDataset(); return data.events.find(e => e.id === eventId) ?? null; } async getSnapshots(eventId: string) { const data = await this.loadCanonicalDataset(); return data.snapshots.filter(s => s.eventId === eventId); } }
-export class LiveSportsDataRepository implements SportsDataRepository { private cache = new Map<string, CanonicalDataset>(); private readonly testFallback = import.meta.env.MODE === 'test'; private readonly testRepository = new MockSportsDataRepository({ latencyMs: 0 }); async loadCanonicalDataset(options: { date?: string; sport?: string; forceRefresh?: boolean } = {}): Promise<CanonicalDataset> { const date = options.date ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); const sport = options.sport ?? 'all'; const cacheKey = `${date}:${sport}`; if (this.testFallback) return this.testRepository.loadCanonicalDataset(); if (!options.forceRefresh && this.cache.has(cacheKey)) return this.cache.get(cacheKey)!; try { const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, ''); const endpoint = configuredBase ? `${configuredBase}/api/odds` : '/api/odds'; const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), 9000); let response: Response; try { response = await fetch(`${endpoint}?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, { signal: controller.signal, headers: { Accept: 'application/json' } }); } finally { window.clearTimeout(timeout); } if (!response.ok) throw new Error(`LIVE_ODDS_HTTP_${response.status}`); const text = await response.text(); let data: CanonicalDataset; try { data = JSON.parse(text) as CanonicalDataset; } catch { const recovered = await loadParlayTryDirect(date, sport); if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; } throw new Error('LIVE_ODDS_INVALID_JSON'); } if (!Array.isArray(data.events) || !Array.isArray(data.snapshots)) { const recovered = await loadParlayTryDirect(date, sport); if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; } throw new Error('LIVE_ODDS_INVALID_PAYLOAD'); } if (!data.events.length) { const recovered = await loadParlayTryDirect(date, sport); if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; } throw new Error('LIVE_ODDS_EMPTY'); } const normalized: CanonicalDataset = { ...data, provider: data.provider === 'sportscore' || data.provider === 'thesportsdb' ? data.provider : 'parlay-api', mode: data.mode === 'LIVE_DATA_NO_ODDS' ? 'LIVE_DATA_NO_ODDS' : 'LIVE', requestedDate: date }; normalized.providerHealth = data.providerHealth ?? deriveProviderHealth(normalized); this.cache.set(cacheKey, normalized); return normalized; } catch (error) { try { const recovered = await loadParlayTryDirect(date, sport); if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; } } catch { /* Continue to the next real-data recovery path. */ } try { const sportScore = await loadSportScoreDirect(date, sport); if (sportScore.events.length) { this.cache.set(cacheKey, sportScore); return sportScore; } } catch { /* Continue to deterministic fallback only as a last-resort diagnostic state. */ } const fallback = await this.testRepository.loadCanonicalDataset(); const detail = error instanceof Error ? error.message : 'Unknown provider failure'; const degraded = { ...fallback, normalizedAt: new Date().toISOString(), requestedDate: date, provider: 'demo' as const, mode: 'DEMO' as const, availableSports: undefined, quota: undefined, issues: [{ code: 'live-provider-fallback', severity: 'warning' as const, message: `Live odds unavailable (${detail}). Deterministic fallback shown only as a diagnostic state.` }, ...fallback.issues] }; this.cache.set(cacheKey, degraded); return degraded; } } async getEvent(eventId: string) { const data = await this.loadCanonicalDataset(); return data.events.find(e => e.id === eventId) ?? null; } async getSnapshots(eventId: string) { const data = await this.loadCanonicalDataset(); return data.snapshots.filter(s => s.eventId === eventId); } }
+
+function deriveProviderHealth(data: CanonicalDataset): ProviderHealth {
+  const fetchedAt = data.normalizedAt;
+  const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(fetchedAt).getTime()) / 1000));
+  const staleAfterSeconds = 600;
+  const queriedSports = data.sportsQueried?.length ?? 0;
+  const failedSports = data.issues.filter(i => i.code === 'provider-error' || i.code === 'provider-network-error' || i.code === 'provider-payload-error').length;
+  return { provider: data.provider ?? 'unknown', state: data.mode !== 'LIVE' ? 'OFFLINE' : ageSeconds > staleAfterSeconds ? 'STALE' : failedSports > 0 ? 'DEGRADED' : 'HEALTHY', fetchedAt, ageSeconds, staleAfterSeconds, catalogCount: data.availableSports?.length ?? 0, queriedSports, successfulSports: Math.max(0, queriedSports - failedSports), failedSports, eventCount: data.events.length, snapshotCount: data.snapshots.length, bookmakerCount: data.bookmakers?.length ?? new Set(data.snapshots.map(s => s.bookmaker)).size, warnings: data.issues.filter(i => i.severity !== 'info').map(i => i.message).slice(0, 6) };
+}
+
+export class MockSportsDataRepository implements SportsDataRepository {
+  private cache: CanonicalDataset | null = null;
+  constructor(private readonly options: { latencyMs?: number; failFirstLoad?: boolean } = {}) {}
+  async loadCanonicalDataset(): Promise<CanonicalDataset> {
+    if (this.cache) return this.cache;
+    await delay(this.options.latencyMs ?? 520);
+    const eventResult = normalizeEvents(RAW_EVENTS);
+    const ids = new Set(eventResult.value.map(e => e.id));
+    const oddsResult = normalizeOddsSnapshots(RAW_ODDS, ids);
+    this.cache = { events: eventResult.value, snapshots: oddsResult.value, issues: [...eventResult.issues, ...oddsResult.issues], droppedRecords: eventResult.droppedRecords + oddsResult.droppedRecords, normalizedAt: new Date().toISOString(), provider: 'demo', mode: 'DEMO' };
+    return this.cache;
+  }
+  async getEvent(eventId: string) { const data = await this.loadCanonicalDataset(); return data.events.find(e => e.id === eventId) ?? null; }
+  async getSnapshots(eventId: string) { const data = await this.loadCanonicalDataset(); return data.snapshots.filter(s => s.eventId === eventId); }
+}
+
+export class LiveSportsDataRepository implements SportsDataRepository {
+  private cache = new Map<string, CanonicalDataset>();
+
+  async loadCanonicalDataset(options: { date?: string; sport?: string; forceRefresh?: boolean } = {}): Promise<CanonicalDataset> {
+    const date = options.date ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const sport = options.sport ?? 'all';
+    const cacheKey = `${date}:${sport}`;
+    if (!options.forceRefresh && this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
+
+    try {
+      const configuredBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
+      const endpoint = configuredBase ? `${configuredBase}/api/odds` : '/api/odds';
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 9000);
+      let response: Response;
+      try {
+        response = await fetch(`${endpoint}?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+      if (!response.ok) throw new Error(`LIVE_ODDS_HTTP_${response.status}`);
+
+      const text = await response.text();
+      let data: CanonicalDataset;
+      try {
+        data = JSON.parse(text) as CanonicalDataset;
+      } catch {
+        const recovered = await loadParlayTryDirect(date, sport);
+        if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; }
+        throw new Error('LIVE_ODDS_INVALID_JSON');
+      }
+      if (!Array.isArray(data.events) || !Array.isArray(data.snapshots)) {
+        const recovered = await loadParlayTryDirect(date, sport);
+        if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; }
+        throw new Error('LIVE_ODDS_INVALID_PAYLOAD');
+      }
+      if (!data.events.length) {
+        const recovered = await loadParlayTryDirect(date, sport);
+        if (recovered.events.length) { this.cache.set(cacheKey, recovered); return recovered; }
+        throw new Error('LIVE_ODDS_EMPTY');
+      }
+
+      const normalized: CanonicalDataset = {
+        ...data,
+        provider: data.provider === 'sportscore' || data.provider === 'thesportsdb' ? data.provider : 'parlay-api',
+        mode: data.mode === 'LIVE_DATA_NO_ODDS' ? 'LIVE_DATA_NO_ODDS' : 'LIVE',
+        requestedDate: date,
+      };
+      normalized.providerHealth = data.providerHealth ?? deriveProviderHealth(normalized);
+      this.cache.set(cacheKey, normalized);
+      return normalized;
+    } catch (error) {
+      try {
+        const recovered = await loadParlayTryDirect(date, sport);
+        if (recovered.events.length) {
+          this.cache.set(cacheKey, recovered);
+          return recovered;
+        }
+      } catch { /* Continue to the next real-data recovery path. */ }
+
+      try {
+        const sportScore = await loadSportScoreDirect(date, sport);
+        if (sportScore.events.length) {
+          this.cache.set(cacheKey, sportScore);
+          return sportScore;
+        }
+      } catch { /* No deterministic fallback. Live data failure must remain visible. */ }
+
+      const detail = error instanceof Error ? error.message : 'Unknown provider failure';
+      throw new Error(`LIVE_DATA_UNAVAILABLE: ${detail}`);
+    }
+  }
+
+  async getEvent(eventId: string) { const data = await this.loadCanonicalDataset(); return data.events.find(e => e.id === eventId) ?? null; }
+  async getSnapshots(eventId: string) { const data = await this.loadCanonicalDataset(); return data.snapshots.filter(s => s.eventId === eventId); }
+}
+
 export const sportsDataRepository: SportsDataRepository = new LiveSportsDataRepository();
