@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './deep-enhance.css'
 import './visual-polish.css'
+import { applyLanguage, detectBrowserLang } from './i18n'
 import App from './App.tsx'
 
 interface ErrorBoundaryProps {
@@ -50,6 +51,9 @@ class AppErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState>
     )
   }
 }
+
+const initialLang = detectBrowserLang()
+applyLanguage(initialLang)
 
 createRoot(document.getElementById('root')!).render(
   <AppErrorBoundary>
