@@ -79,6 +79,33 @@ describe('odds API contract', () => {
     expect(bodyOf(res).providerHealth.ageSeconds).toBeLessThan(120);
   });
 
+  it('converts defensive American-style prices to true decimal odds', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-18T12:00:30Z'));
+    vi.stubEnv('PARLAY_API_KEY', 'test-key');
+    const payload = [{ key: 'soccer_test', group: 'soccer', title: 'Test Soccer', active: true, has_outrights: false }];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/sports/?')) return new Response(JSON.stringify(payload), { status: 200 });
+      return new Response(JSON.stringify([{
+        id: 'evt-american',
+        sport_key: 'soccer_test',
+        sport_title: 'Test Soccer',
+        commence_time: '2026-09-18T12:00:00Z',
+        home_team: 'Home FC',
+        away_team: 'Away FC',
+        bookmakers: [{ key: 'book1', title: 'Book One', last_update: '2026-09-18T11:59:00Z',
+          markets: [{ key: 'h2h', last_update: '2026-09-18T11:59:00Z',
+            outcomes: [{ name: 'Home FC', price: 130 }, { name: 'Away FC', price: -150 }] }] }],
+      }]), { status: 200 });
+    }));
+    const res = response();
+    await handler({ method: 'GET', query: { date: '2026-09-18', sport: 'soccer' } }, res);
+    expect(res.statusCode).toBe(200);
+    const snapshots = bodyOf(res).snapshots as Array<{ quotes: Array<{ decimalOdds: number }> }>;
+    expect(snapshots[0].quotes.map(q => q.decimalOdds)).toEqual([2.3, 1.667]);
+  });
+
   it('marks old provider quotes as stale instead of healthy', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-18T12:30:00Z'));
