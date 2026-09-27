@@ -31,13 +31,36 @@ const PL_DE: Record<string, string> = {
   'Inteligencja sportowa':'Sportintelligenz','Dane demonstracyjne':'Demodaten','Prawdziwe dane':'Live-Daten','Nadchodzące mecze':'Kommende Spiele',
   'Brak danych dostawcy dla':'Keine Anbieterdaten für'
 };
+const EN_PL_EXTRA: Record<string,string> = {
+'Loading intelligence…':'Ładowanie inteligencji…','Loading Bet Builder intelligence…':'Ładowanie inteligencji Bet Builder…','Application failed to render':'Nie udało się wyświetlić aplikacji','Reload application':'Przeładuj aplikację',
+'Live board':'Panel na żywo','Live monitor':'Monitor na żywo','Live now':'Na żywo','Upcoming':'Nadchodzące','Event inventory':'Baza wydarzeń','Snapshots':'Migawki kursów',
+'No live events':'Brak wydarzeń na żywo','No provider events':'Brak wydarzeń od dostawcy','Retry live feed':'Ponów pobieranie danych na żywo','Refresh data':'Odśwież dane','Retry':'Ponów',
+'Analysis complete':'Analiza zakończona','Analysis failed':'Analiza nie powiodła się','Core optimization failed':'Optymalizacja Core nie powiodła się',
+'Mission drafted':'Misja utworzona','Mission approved':'Misja zatwierdzona','Mission rejected':'Misja odrzucona','Mission cancelled':'Misja anulowana','Mission completed':'Misja zakończona','Mission failed':'Misja nie powiodła się','Mission blocked':'Misja zablokowana',
+'Analysis history':'Historia analiz','Mission history':'Historia misji','History & calibration':'Historia i kalibracja','No analyses yet':'Brak analiz','No mission history':'Brak historii misji','No missions in this state':'Brak misji w tym stanie',
+'Comparison':'Porównanie','Metric':'Metryka','Confidence':'Pewność','Quality':'Jakość','Best edge':'Najlepsza przewaga','Freshness (min)':'Świeżość (min)','Risk score':'Wynik ryzyka','Correlation score':'Wynik korelacji',
+'No events':'Brak wydarzeń','Open mission':'Otwórz misję','Search events':'Szukaj wydarzeń','Search':'Szukaj','Private mode':'Tryb prywatny','Decision ready':'Decyzja gotowa','Ready':'Gotowe','Boot':'Uruchamianie','Gated':'Zablokowane bramką',
+'No events match the filters':'Brak wydarzeń dla wybranych filtrów','Change the date, sport or search.':'Zmień datę, dyscyplinę albo wyszukiwanie.',
+'My coupon':'Mój kupon','Coupon is empty':'Kupon jest pusty','Generate coupon':'Generuj kupon','AI coupon generator':'Generator kuponu AI','Find the best coupon':'Znajdź najlepszy kupon',
+'Number of events':'Liczba zdarzeń','Combined odds':'Kurs łączny','Stake':'Stawka','Show technical details':'Pokaż szczegóły techniczne','Hide technical details':'Ukryj szczegóły techniczne',
+'System OK':'System OK','Live intelligence':'Inteligencja na żywo','No real-money execution':'bez transakcji za prawdziwe pieniądze','Upcoming matches':'Nadchodzące mecze'
+};
+const DE_PL_EXTRA: Record<string,string> = {
+'Loading intelligence…':'Intelligenz wird geladen…','Live board':'Live-Übersicht','Live monitor':'Live-Monitor','Live now':'Live','Upcoming':'Kommend','Event inventory':'Ereignisse','Snapshots':'Kurs-Snapshots',
+'No live events':'Keine Live-Ereignisse','Retry':'Erneut versuchen','Refresh data':'Daten aktualisieren','Analysis complete':'Analyse abgeschlossen','Analysis failed':'Analyse fehlgeschlagen','Mission drafted':'Mission erstellt','Mission approved':'Mission genehmigt','Mission rejected':'Mission abgelehnt','Mission completed':'Mission abgeschlossen','Mission failed':'Mission fehlgeschlagen',
+'Analysis history':'Analysehistorie','Mission history':'Missionshistorie','History & calibration':'Historie & Kalibrierung','No analyses yet':'Noch keine Analysen','No mission history':'Keine Missionshistorie','No missions in this state':'Keine Missionen in diesem Status',
+'Comparison':'Vergleich','Metric':'Metrik','Confidence':'Konfidenz','Quality':'Qualität','Best edge':'Bester Vorteil','Risk score':'Risiko-Score','Correlation score':'Korrelations-Score',
+'No events':'Keine Ereignisse','Open mission':'Mission öffnen','Search events':'Ereignisse suchen','Search':'Suchen','Private mode':'Privatmodus','Decision ready':'Entscheidung bereit','Ready':'Bereit','Boot':'Start','Gated':'Gesperrt',
+'My coupon':'Mein Wettschein','Coupon is empty':'Wettschein ist leer','AI coupon generator':'KI-Wettscheingenerator','Find the best coupon':'Besten Wettschein finden','Stake':'Einsatz'
+};
+
 const EN_DE: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [EN_PL[pl] ?? pl, de]));
 const DE_EN: Record<string, string> = Object.fromEntries(Object.entries(EN_DE).map(([en, de]) => [de, en]));
 const DE_PL: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [de, pl]));
 
 function mapFor(lang: Lang): Record<string, string> {
-  if (lang === 'en') return { ...EN_PL, ...DE_EN };
-  if (lang === 'de') return { ...PL_DE, ...EN_DE };
+  if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...DE_EN };
+  if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE };
   return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl, en]) => [en, pl])), ...DE_PL };
 }
 
@@ -85,6 +108,15 @@ export function applyLanguage(lang: Lang) {
       else el.setAttribute(attr, source);
     }
   });
+}
+
+export function detectBrowserLang(): Lang {
+  const saved = localStorage.getItem('bb-lang') as Lang | null;
+  if (saved === 'pl' || saved === 'en' || saved === 'de') return saved;
+  const browser = (navigator.languages?.[0] ?? navigator.language ?? 'pl').toLowerCase();
+  if (browser.startsWith('de')) return 'de';
+  if (browser.startsWith('en')) return 'en';
+  return 'pl';
 }
 
 export function installLanguageObserver(lang: Lang) {
