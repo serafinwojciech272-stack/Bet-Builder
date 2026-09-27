@@ -12,7 +12,6 @@ const MissionDetailPage = lazy(() => import('./pages/MissionDetailPage').then(m 
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const BuilderPage = lazy(() => import('./pages/BuilderPage'));
 import { useBuilder } from './hooks/useBuilder';
-import { useI18n } from './state/useI18n';
 
 function BuilderRoute() {
   const builder = useBuilder();
@@ -20,12 +19,11 @@ function BuilderRoute() {
 }
 
 export default function App() {
-  const { t } = useI18n();
   return (
     <HashRouter>
       <IntelligenceProvider>
         <AppShell>
-          <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-[10px] uppercase tracking-[.18em] text-white/50">{t('Loading Bet Builder intelligence…')}</div></div>}>
+          <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-[10px] uppercase tracking-[.18em] text-white/50">Loading Bet Builder intelligence…</div></div>}>
             <Routes>
               <Route path="/" element={<EventsPage />} />
               <Route path="/sports" element={<SportsPage />} />
