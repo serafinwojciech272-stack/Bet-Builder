@@ -1,4 +1,4 @@
-import { LiveSportsDataRepository, type SportsDataRepository } from '../domain/repositories';
+import { LiveSportsDataRepository, MockSportsDataRepository, type SportsDataRepository } from '../domain/repositories';
 import type { CorrelationContextEntry } from '../domain/services/riskService';
 import { MockAIAnalysisService } from '../ai/MockAIAnalysisService';
 import { QuantAwareAnalysisService } from '../ai/quantAwareAnalysisService';
@@ -22,7 +22,9 @@ export interface Workspace {
 }
 
 export function createWorkspace(): Workspace {
-  const dataRepository = new LiveSportsDataRepository();
+  const dataRepository: SportsDataRepository = import.meta.env.MODE === 'test'
+    ? new MockSportsDataRepository({ latencyMs: 0 })
+    : new LiveSportsDataRepository();
   const coreEngine: CoreEngineClient = import.meta.env.MODE === 'test'
     ? new MockCoreEngineClient({ stepDelayMs: 320 })
     : new LiveCoreEngineClient();
@@ -31,7 +33,8 @@ export function createWorkspace(): Workspace {
   let failNext = false;
   const correlationContext = () => correlationCache;
 
-  // Do not preload live odds here: the provider bootstrap is owned by IntelligenceProvider.\n  // A second hidden request doubled provider traffic and could delay first paint.\n
+  // Do not preload live odds here: the provider bootstrap is owned by IntelligenceProvider.
+  // A second hidden request doubled provider traffic and could delay first paint.
 
   const baseAnalysisService = new MockAIAnalysisService(dataRepository, {
     latencyMs: 620,

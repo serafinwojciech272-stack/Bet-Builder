@@ -1,0 +1,234 @@
+/* VISUAL POLISH v14 — six-point command-center refinement
+   1. animated atmosphere
+   2. glass/depth
+   3. hierarchy
+   4. telemetry motion
+   5. micro-interactions
+   6. responsive + reduced-motion safety
+*/
+:root{
+  --vp-violet:#9b8cff;
+  --vp-cyan:#78e4ff;
+  --vp-gold:#f0cb7a;
+  --vp-green:#5ee6a5;
+  --vp-red:#ff6675;
+  --vp-ink:#070a14;
+}
+@keyframes vpAurora{
+  0%,100%{transform:translate3d(-2%,0,0) scale(1);opacity:.55}
+  50%{transform:translate3d(2%,1.5%,0) scale(1.05);opacity:.9}
+}
+@keyframes vpGrid{
+  0%,100%{background-position:0 0,0 0}
+  50%{background-position:26px 18px,-18px 26px}
+}
+@keyframes vpSweep{
+  0%,65%{transform:translateX(-125%);opacity:0}
+  76%{opacity:.42}
+  88%,100%{transform:translateX(125%);opacity:0}
+}
+@keyframes vpFloat{
+  0%,100%{transform:translate3d(0,0,0)}
+  50%{transform:translate3d(0,-5px,0)}
+}
+@keyframes vpPulse{
+  0%,100%{opacity:.45;box-shadow:0 0 0 rgba(155,140,255,0)}
+  50%{opacity:1;box-shadow:0 0 22px rgba(155,140,255,.2)}
+}
+@keyframes vpMetric{
+  from{opacity:0;transform:translateY(7px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+
+/* 1 — animated atmosphere */
+.club-backdrop{
+  background:
+    radial-gradient(700px 480px at 8% 6%,rgba(155,140,255,.08),transparent 70%),
+    radial-gradient(680px 460px at 92% 18%,rgba(120,228,255,.055),transparent 70%),
+    radial-gradient(760px 500px at 55% 96%,rgba(240,203,122,.035),transparent 72%);
+}
+.club-backdrop::after{
+  opacity:.9;
+  background:
+    radial-gradient(520px 360px at 78% 10%,rgba(155,140,255,.10),transparent 68%),
+    radial-gradient(560px 380px at 15% 52%,rgba(120,228,255,.055),transparent 70%);
+  animation:vpAurora 20s ease-in-out infinite;
+}
+.club-backdrop main::after{
+  animation:vpAurora 16s ease-in-out infinite reverse;
+  opacity:.75;
+}
+.bb-command-hero,.bb-ai-command,.bb-decision-cockpit{
+  position:relative;
+  isolation:isolate;
+}
+.bb-command-hero::after,.bb-ai-command::before,.bb-decision-cockpit::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background:
+    linear-gradient(rgba(155,140,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(120,228,255,.018) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:radial-gradient(ellipse at center,black 0%,transparent 82%);
+  animation:vpGrid 22s ease-in-out infinite;
+}
+.bb-command-hero>*:not(.bb-hero-grid),.bb-ai-command>*:not(.bb-ai-command-noise),.bb-decision-cockpit>*{
+  position:relative;
+  z-index:2;
+}
+
+/* 2 — glass/depth */
+.bb-command-hero,.bb-ai-command,.bb-decision-cockpit,.bb-intel-rail,.bb-decision-ribbon{
+  backdrop-filter:blur(20px) saturate(125%);
+  -webkit-backdrop-filter:blur(20px) saturate(125%);
+}
+.bb-command-hero{
+  box-shadow:
+    0 36px 120px rgba(0,0,0,.38),
+    0 0 80px rgba(155,140,255,.055),
+    inset 0 1px rgba(255,255,255,.07);
+}
+.bb-ai-command,.bb-decision-cockpit{
+  box-shadow:
+    0 30px 100px rgba(0,0,0,.34),
+    0 0 70px rgba(155,140,255,.06),
+    inset 0 1px rgba(255,255,255,.065);
+}
+.bb-intel-rail{
+  box-shadow:0 16px 58px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.055);
+}
+
+/* 3 — hierarchy */
+.bb-hero-title,.bb-ai-command h2,.bb-decision-cockpit h2{
+  text-shadow:0 12px 45px rgba(0,0,0,.42);
+}
+.bb-hero-title span,.bb-ai-command h2 span{
+  background:linear-gradient(100deg,#f5f2ff 0%,#b7aaff 44%,#78e4ff 72%,#f0cb7a 100%);
+  background-size:220% auto;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:vpGrid 9s ease-in-out infinite;
+}
+.bb-proof-row{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.055);
+  border-radius:12px;
+  padding:9px 11px;
+  background:linear-gradient(90deg,rgba(255,255,255,.025),rgba(155,140,255,.035),rgba(255,255,255,.018));
+}
+.bb-proof-row::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  width:34%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);
+  transform:translateX(-140%);
+  animation:vpSweep 9s ease-in-out infinite;
+  pointer-events:none;
+}
+.bb-decision-node{
+  transition:background .25s ease,transform .25s ease,box-shadow .25s ease;
+}
+.bb-decision-node:hover{
+  transform:translateY(-3px);
+  background:linear-gradient(180deg,rgba(25,28,52,.86),rgba(9,12,24,.68));
+  box-shadow:inset 0 -2px 0 rgba(155,140,255,.28),0 14px 30px rgba(0,0,0,.18);
+}
+
+/* 4 — telemetry motion */
+.bb-rail-brand svg,.bb-ai-orbit,.bb-console-ring{
+  filter:drop-shadow(0 0 14px rgba(155,140,255,.18));
+}
+.bb-rail-brand svg{animation:vpFloat 4.5s ease-in-out infinite}
+.bb-ai-signal{
+  transition:transform .22s ease,border-color .22s ease,background .22s ease,box-shadow .22s ease;
+}
+.bb-ai-signal:hover{
+  transform:translateY(-2px);
+  border-color:rgba(155,140,255,.22);
+  background:rgba(155,140,255,.045);
+  box-shadow:0 12px 30px rgba(0,0,0,.16);
+}
+.bb-ai-signal i{animation:vpPulse 2.2s ease-in-out infinite}
+.bb-cockpit-layer{
+  transition:transform .22s ease,border-color .22s ease,background .22s ease;
+}
+.bb-cockpit-layer:hover{
+  transform:translateY(-2px);
+  border-color:rgba(120,228,255,.17);
+  background:rgba(120,228,255,.025);
+}
+.bb-cockpit-bar i{
+  animation:vpSweep 5.5s ease-in-out infinite;
+}
+.bb-ai-metric{
+  animation:vpMetric .45s cubic-bezier(.2,.72,.2,1) both;
+}
+.bb-ai-metric:nth-child(2){animation-delay:.05s}
+.bb-ai-metric:nth-child(3){animation-delay:.1s}
+.bb-ai-metric:nth-child(4){animation-delay:.15s}
+.bb-ai-cta{
+  transition:color .2s ease,background .2s ease;
+}
+.bb-ai-cta:hover{color:#f0cb7a;background:rgba(240,203,122,.035)}
+
+/* 5 — micro-interactions */
+.club-primary-cta,.club-secondary-cta{
+  position:relative;
+  overflow:hidden;
+  transition:transform .2s ease,box-shadow .25s ease,border-color .25s ease,background .25s ease;
+}
+.club-primary-cta::after,.club-secondary-cta::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(110deg,transparent 34%,rgba(255,255,255,.10) 50%,transparent 66%);
+  transform:translateX(-130%);
+  pointer-events:none;
+}
+.club-primary-cta:hover::after,.club-secondary-cta:hover::after{animation:vpSweep 1s ease-out 1}
+.club-primary-cta:hover,.club-secondary-cta:hover{transform:translateY(-2px)}
+header.sticky nav a::after{
+  content:"";
+  position:absolute;
+  left:16px;
+  right:16px;
+  bottom:2px;
+  height:1px;
+  transform:scaleX(0);
+  transform-origin:center;
+  background:linear-gradient(90deg,transparent,var(--vp-gold),transparent);
+  transition:transform .22s ease;
+}
+header.sticky nav a:hover::after,header.sticky nav a[aria-current="page"]::after{transform:scaleX(1)}
+.club-backdrop main input,.club-backdrop main select{
+  transition:transform .18s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.club-backdrop main input:hover,.club-backdrop main select:hover{transform:translateY(-1px)}
+.club-backdrop main article{
+  transition:transform .24s cubic-bezier(.2,.72,.2,1),box-shadow .24s ease,border-color .24s ease;
+}
+
+/* 6 — responsive + motion safety */
+@media(max-width:900px){
+  .bb-decision-node:hover,.bb-ai-signal:hover,.bb-cockpit-layer:hover{transform:none}
+}
+@media(max-width:640px){
+  .bb-command-hero,.bb-ai-command,.bb-decision-cockpit{box-shadow:0 20px 65px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.055)}
+  .bb-proof-row{line-height:1.5}
+}
+@media(prefers-reduced-motion:reduce){
+  .club-backdrop::after,.club-backdrop main::after,
+  .bb-command-hero::after,.bb-ai-command::before,.bb-decision-cockpit::before,
+  .bb-hero-title span,.bb-ai-signal i,.bb-cockpit-bar i,
+  .bb-ai-metric,.bb-proof-row::after,.bb-primary-cta::after,
+  .bb-secondary-cta::after,.bb-rail-brand svg{animation:none!important}
+  .bb-decision-node:hover,.bb-ai-signal:hover,.bb-cockpit-layer:hover,
+  .club-primary-cta:hover,.club-secondary-cta:hover,
+  .club-backdrop main input:hover,.club-backdrop main select:hover{transform:none}
+}
