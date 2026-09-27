@@ -46,12 +46,19 @@ const EN_PL_EXTRA: Record<string,string> = {
 'System OK':'System OK','Live intelligence':'Inteligencja na żywo','No real-money execution':'bez transakcji za prawdziwe pieniądze','Upcoming matches':'Nadchodzące mecze'
 };
 const DE_PL_EXTRA: Record<string,string> = {
-'Loading intelligence…':'Intelligenz wird geladen…','Live board':'Live-Übersicht','Live monitor':'Live-Monitor','Live now':'Live','Upcoming':'Kommend','Event inventory':'Ereignisse','Snapshots':'Kurs-Snapshots',
-'No live events':'Keine Live-Ereignisse','Retry':'Erneut versuchen','Refresh data':'Daten aktualisieren','Analysis complete':'Analyse abgeschlossen','Analysis failed':'Analyse fehlgeschlagen','Mission drafted':'Mission erstellt','Mission approved':'Mission genehmigt','Mission rejected':'Mission abgelehnt','Mission completed':'Mission abgeschlossen','Mission failed':'Mission fehlgeschlagen',
+'Loading intelligence…':'Intelligenz wird geladen…','Loading Bet Builder intelligence…':'Bet-Builder-Intelligenz wird geladen…','Application failed to render':'Anwendung konnte nicht dargestellt werden','Reload application':'Anwendung neu laden',
+'Live board':'Live-Übersicht','Live monitor':'Live-Monitor','Live now':'Live','Upcoming':'Kommend','Event inventory':'Ereignisbestand','Snapshots':'Kurs-Snapshots',
+'No live events':'Keine Live-Ereignisse','No provider events':'Keine Anbieterereignisse','Retry live feed':'Live-Feed erneut laden','Refresh data':'Daten aktualisieren','Retry':'Erneut versuchen',
+'Analysis complete':'Analyse abgeschlossen','Analysis failed':'Analyse fehlgeschlagen','Core optimization failed':'Core-Optimierung fehlgeschlagen',
+'Mission drafted':'Mission erstellt','Mission approved':'Mission genehmigt','Mission rejected':'Mission abgelehnt','Mission cancelled':'Mission abgebrochen','Mission completed':'Mission abgeschlossen','Mission failed':'Mission fehlgeschlagen','Mission blocked':'Mission blockiert',
 'Analysis history':'Analysehistorie','Mission history':'Missionshistorie','History & calibration':'Historie & Kalibrierung','No analyses yet':'Noch keine Analysen','No mission history':'Keine Missionshistorie','No missions in this state':'Keine Missionen in diesem Status',
-'Comparison':'Vergleich','Metric':'Metrik','Confidence':'Konfidenz','Quality':'Qualität','Best edge':'Bester Vorteil','Risk score':'Risiko-Score','Correlation score':'Korrelations-Score',
+'Comparison':'Vergleich','Metric':'Metrik','Confidence':'Konfidenz','Quality':'Qualität','Best edge':'Bester Vorteil','Freshness (min)':'Aktualität (Min.)','Risk score':'Risiko-Score','Correlation score':'Korrelations-Score',
 'No events':'Keine Ereignisse','Open mission':'Mission öffnen','Search events':'Ereignisse suchen','Search':'Suchen','Private mode':'Privatmodus','Decision ready':'Entscheidung bereit','Ready':'Bereit','Boot':'Start','Gated':'Gesperrt',
-'My coupon':'Mein Wettschein','Coupon is empty':'Wettschein ist leer','AI coupon generator':'KI-Wettscheingenerator','Find the best coupon':'Besten Wettschein finden','Stake':'Einsatz'
+'No events match the filters':'Keine Ereignisse entsprechen den Filtern','Change the date, sport or search.':'Datum, Sport oder Suche ändern.','My coupon':'Mein Wettschein','Coupon is empty':'Wettschein ist leer','Generate coupon':'Wettschein generieren','AI coupon generator':'KI-Wettscheingenerator','Find the best coupon':'Besten Wettschein finden',
+'Number of events':'Anzahl Ereignisse','Combined odds':'Gesamtquote','Stake':'Einsatz','Show technical details':'Technische Details anzeigen','Hide technical details':'Technische Details ausblenden',
+'System OK':'System OK','Live intelligence':'Live-Intelligenz','No real-money execution':'keine Ausführung mit echtem Geld','Upcoming matches':'Kommende Spiele',
+'Search events':'Ereignisse suchen','Motyw jasny lub ciemny':'Helles oder dunkles Design','Dźwięk włącz/wyłącz':'Ton ein/aus','Stan silnika inteligencji':'Status der Intelligence Engine','Główna nawigacja':'Hauptnavigation','Bet Builder — strona główna':'Bet Builder — Startseite',
+'AI gotowe · symulacja':'KI bereit · Simulation','AI offline':'KI offline','włączone':'aktiviert','wyłączone':'deaktiviert','Odśwież dane':'Daten aktualisieren'
 };
 
 
@@ -121,7 +128,7 @@ const EN_DE_PAGES: Record<string,string> = {
 function mapFor(lang: Lang): Record<string, string> {
   if (lang === 'en') return { ...EN_PL, ...EN_PL_EXTRA, ...EN_PL_PAGES, ...DE_EN, ...DE_EN_EXTRA };
   if (lang === 'de') return { ...PL_DE, ...DE_PL_EXTRA, ...EN_DE_AUDIT, ...EN_DE_PAGES, ...EN_DE };
-  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl])), ...DE_PL, ...DE_PL_EXTRA, ...EN_PL_EXTRA, ...EN_PL_AUDIT, ...EN_PL_PAGES };
+  return { ...Object.fromEntries(Object.entries(EN_PL).map(([pl,en])=>[en,pl])), ...DE_PL, ...EN_PL_EXTRA, ...EN_PL_AUDIT, ...EN_PL_PAGES };
 }
 
 const originalText = new WeakMap<Text,string>();
