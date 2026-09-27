@@ -320,3 +320,5 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
 }
 
 export default async function handler(req: QueryRequest, res: JsonResponse) { try { return await oddsHandler(req,res); } catch(error) { return json(res,500,{error:'ODDS_INTERNAL_ERROR',message:error instanceof Error?error.message:'unknown error'}); } }
+
+// Live odds integrity: provider values are normalized to true decimal odds at the API boundary.
