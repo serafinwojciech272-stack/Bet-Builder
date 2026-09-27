@@ -33,6 +33,13 @@ function sportScoreKey(sport: string): import('./types').SportKey {
 }
 function sportScoreSlug(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function bookmakerKey(value: string) { return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 32) || 'unknown'; }
+function normalizeDecimalOdds(price: number): number | null {
+  if (!Number.isFinite(price)) return null;
+  if (price >= 100) return Number((1 + price / 100).toFixed(3));
+  if (price <= -100) return Number((1 + 100 / Math.abs(price)).toFixed(3));
+  if (price >= 1.01 && price <= 100) return Number(price.toFixed(3));
+  return null;
+}
 function canonicalSportFromKey(key: string): import('./types').SportKey {
   if (key.startsWith('basketball_')) return 'basketball';
   if (key.startsWith('americanfootball_')) return 'americanfootball';
@@ -59,7 +66,7 @@ async function loadParlayTryDirect(date: string, sport: string): Promise<Canonic
   const issues: NormalizationIssue[] = [{ code: 'api-gateway-recovery', severity: 'warning', message: 'Primary /api/odds response was unavailable or invalid. Browser recovered against the no-auth ParlayAPI live feed.' }];
   await Promise.all(sportKeys.map(async (sportKey) => {
     try {
-      const response = await fetch(`https://parlay-api.com/v1/try/${encodeURIComponent(sportKey)}/odds`, { headers: { Accept: 'application/json' } });
+      const response = await fetch(`https://parlay-api.com/v1/try/${encodeURIComponent(sportKey)}/odds?oddsFormat=decimal`, { headers: { Accept: 'application/json' } });
       if (!response.ok) return;
       const payload = await response.json() as { events?: Array<Record<string, unknown>> };
       for (const raw of payload.events ?? []) {
@@ -87,7 +94,7 @@ async function loadParlayTryDirect(date: string, sport: string): Promise<Canonic
             const marketKey = String(rawMarket.key ?? '');
             if (marketKey !== 'h2h') continue;
             const outcomes = Array.isArray(rawMarket.outcomes) ? rawMarket.outcomes as Array<Record<string, unknown>> : [];
-            const quotes: OddsQuote[] = outcomes.map((o) => ({ label: String(o.name ?? ''), decimalOdds: Number(o.price), selectionId: `${id}:${key}:${sportScoreSlug(String(o.name ?? ''))}` })).filter((q) => q.label && Number.isFinite(q.decimalOdds) && q.decimalOdds >= 1.01 && q.decimalOdds <= 1000);
+            const quotes: OddsQuote[] = outcomes.map((o) => ({ label: String(o.name ?? ''), decimalOdds: normalizeDecimalOdds(Number(o.price)), selectionId: `${id}:${key}:${sportScoreSlug(String(o.name ?? ''))}` })).filter((q) => q.label && q.decimalOdds !== null);
             if (!quotes.length) continue;
             const capturedAt = String(rawMarket.last_update ?? rawBook.last_update ?? new Date().toISOString());
             snapshots.push({ id: `${id}:${key}:${capturedAt}`, eventId: id, market: 'match-winner', bookmaker: key as import('./types').BookmakerId, capturedAt, quotes, feedLatencyMs: Math.max(0, Date.now() - new Date(capturedAt).getTime()), provider: 'parlay-api-try' });
