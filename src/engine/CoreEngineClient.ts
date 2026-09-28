@@ -91,6 +91,9 @@ export class LiveCoreEngineClient implements CoreEngineClient {
   }
 
   async submitMission(mission: Mission): Promise<CoreEngineAck> {
+    assertExecutableMission(mission);
+    const unsupported = mission.actions.find((a) => !ENGINE_ACTIONS.includes(a.kind));
+    if (unsupported) throw new CoreEngineError('UNSUPPORTED_ACTION', `Action ${unsupported.kind} is not permitted by this engine.`);
     const submitted = await this.call('submit', { mission });
     const remoteMission = submitted.mission as Record<string, unknown> | undefined;
     const engineRef = String(remoteMission?.id || '');

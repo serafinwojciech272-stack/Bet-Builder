@@ -5,7 +5,7 @@ import { assertMissionPayload } from '../missions/stateMachine';
 import { InMemoryMissionRepository } from '../missions/MissionRepository';
 import { InMemoryAnalysisRepository } from '../ai/AnalysisRepository';
 import { MissionService } from '../missions/missionService';
-import { CoreEngineError, MockCoreEngineClient } from '../engine/CoreEngineClient';
+import { CoreEngineError, LiveCoreEngineClient, MockCoreEngineClient } from '../engine/CoreEngineClient';
 import { evaluateDecisionCenter } from '../core/decisionCenter';
 import { createDecisionPacket } from '../core/decisionPacket';
 import type { Mission } from '../missions/types';

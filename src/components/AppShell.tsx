@@ -4,7 +4,7 @@ import { CheckCircle2, Database, History, Info, LayoutDashboard, ListFilter, Rad
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { Button, EngineBadge } from './ui';
 import { cx, relativeTime } from '../lib/format';
-import { LANGS, type Lang, detectBrowserLang, installLanguageObserver } from '../i18n';
+import { LANGS, type Lang, applyLanguage, detectBrowserLang, installLanguageObserver } from '../i18n';
 
 const NAV = [
   { to: '/', label: 'Mecze', icon: ListFilter, key: 'e', end: true },
@@ -29,7 +29,7 @@ function SettingsControls(){
   const [sound,setSound]=useState(()=>localStorage.getItem('bb-sound')==='on');
   const audioRef=useRef<AudioContext|null>(null);
   useEffect(()=>{document.documentElement.dataset.theme=light?'light':'dark';localStorage.setItem('bb-theme',light?'light':'dark');},[light]);
-  useEffect(()=>{localStorage.setItem('bb-lang',lang);return installLanguageObserver(lang);},[lang]);
+  useEffect(()=>{localStorage.setItem('bb-lang',lang);applyLanguage(lang);},[lang]);
   useEffect(()=>{localStorage.setItem('bb-sound',sound?'on':'off');if(sound){const C=window.AudioContext||((window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext);if(C&&!audioRef.current){const ctx=new C();audioRef.current=ctx;const master=ctx.createGain();master.gain.value=.018;master.connect(ctx.destination);[174.61,261.63,329.63].forEach((hz,i)=>{const o=ctx.createOscillator();o.type='sine';o.frequency.value=hz;o.connect(master);o.start();setTimeout(()=>o.stop(),2200+i*300);});}}else{void audioRef.current?.close();audioRef.current=null;}},[sound]);
   return <div className="flex items-center gap-1 rounded-xl border border-white/[.08] bg-white/[.025] p-1">
     {LANGS.map(x=><button key={x.id} type="button" onClick={()=>setLang(x.id)} className={cx('rounded-lg px-2 py-1 text-[9px] font-bold',lang===x.id?'bg-ai/20 text-ai':'text-faint hover:text-foreground')}>{x.label}</button>)}
