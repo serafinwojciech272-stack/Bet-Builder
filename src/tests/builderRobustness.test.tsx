@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { isAdmissibleSelection, sanitizeSelections, useBuilder } from '../hooks/useBuilder';
 import { computeBuilderStats } from '../hooks/useBuilderStats';
@@ -74,12 +73,12 @@ describe('builder input boundary', () => {
     const root = createRoot(container);
     let api: ReturnType<typeof useBuilder> | null = null;
     function Probe() { api = useBuilder(); return null; }
-    await act(async () => { root.render(<Probe />); });
-    await act(async () => {
-      api!.add(selection({ id: 'bad', odds: NaN }));
-      api!.add(selection({ id: 'good' }));
-      api!.replace([selection({ id: 'rep', odds: Infinity }), selection({ id: 'good' })]);
-    });
+    root.render(<Probe />);
+    await new Promise((r) => setTimeout(r, 0));
+    api!.add(selection({ id: 'bad', odds: NaN }));
+    api!.add(selection({ id: 'good' }));
+    api!.replace([selection({ id: 'rep', odds: Infinity }), selection({ id: 'good' })]);
+    await new Promise((r) => setTimeout(r, 0));
     expect(api!.selections.map((s) => s.id)).toEqual(['good']);
     expect(api!.selections.every((s) => Number.isFinite(s.odds) && Number.isFinite(s.probability))).toBe(true);
     root.unmount();
