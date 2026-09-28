@@ -43,6 +43,7 @@ const researchModule = await import('./api/research.ts');
 const coreEngineE2EModule = await import('./api/core-engine-persistence-e2e.ts');
 const healthModule = await import('./api/health.ts');
 const decisionReasoningModule = await import('./api/decision-reasoning.ts');
+const dailyCouponModule = await import('./api/daily-coupon.ts');
 const coreEngineModule = await import('./api/core-engine.ts');
 const oddsHandler = oddsModule.default as Handler;
 const sportScoreSmokeModule = await import('./api/sportscore-smoke.ts');
@@ -51,6 +52,7 @@ const researchHandler = researchModule.default as Handler;
 const coreEngineE2EHandler = coreEngineE2EModule.default as Handler;
 const healthHandler = healthModule.default as Handler;
 const decisionReasoningHandler = decisionReasoningModule.default as Handler;
+const dailyCouponHandler = dailyCouponModule.default as Handler;
 const coreEngineHandler = coreEngineModule.default as Handler;
 
 const MIME: Record<string, string> = {
@@ -105,6 +107,7 @@ const server = createServer(async (req, res) => {
 
   try {
     if (url.pathname === '/api/odds') return await adapt(oddsHandler, req, res);
+    if (url.pathname === '/api/daily-coupon') return await adapt(dailyCouponHandler, req, res);
     if (url.pathname === '/api/sportscore-smoke') return await adapt(sportScoreSmokeHandler, req, res);
     if (url.pathname === '/api/research') return await adapt(researchHandler, req, res);
     if (url.pathname === '/api/core-engine-persistence-e2e') return await adapt(coreEngineE2EHandler, req, res);
