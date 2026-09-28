@@ -94,7 +94,7 @@ async function loadParlayTryDirect(date: string, sport: string): Promise<Canonic
             const marketKey = String(rawMarket.key ?? '');
             if (marketKey !== 'h2h') continue;
             const outcomes = Array.isArray(rawMarket.outcomes) ? rawMarket.outcomes as Array<Record<string, unknown>> : [];
-            const quotes: OddsQuote[] = outcomes.map((o) => ({ label: String(o.name ?? ''), decimalOdds: normalizeDecimalOdds(Number(o.price)), selectionId: `${id}:${key}:${sportScoreSlug(String(o.name ?? ''))}` })).filter((q) => q.label && q.decimalOdds !== null);
+            const quotes: OddsQuote[] = outcomes.map((o): OddsQuote | null => { const label = String(o.name ?? ''); const decimalOdds = normalizeDecimalOdds(Number(o.price)); if (!label || decimalOdds === null) return null; return { label, decimalOdds, selectionId: `${id}:${key}:${sportScoreSlug(label)}` }; }).filter((q): q is OddsQuote => q !== null);
             if (!quotes.length) continue;
             const capturedAt = String(rawMarket.last_update ?? rawBook.last_update ?? new Date().toISOString());
             snapshots.push({ id: `${id}:${key}:${capturedAt}`, eventId: id, market: 'match-winner', bookmaker: key as import('./types').BookmakerId, capturedAt, quotes, feedLatencyMs: Math.max(0, Date.now() - new Date(capturedAt).getTime()), provider: 'parlay-api-try' });
