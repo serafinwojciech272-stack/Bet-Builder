@@ -8,6 +8,7 @@ declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 async function mount(path: string) {
+  localStorage.setItem('bb-lang', 'pl');
   window.location.hash = `#${path}`;
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -29,12 +30,12 @@ describe('application smoke tests', () => {
   it('renders the nine analysis sections for an event', async () => {
     const { container, root } = await mount('/analysis/EVT-SOC-1001');
     const text = container.textContent ?? '';
-    for (const section of ['Event overview', 'Market intelligence', 'Odds movement', 'Model probabilities', 'Value analysis', 'Risk & correlation', 'AI reasoning', 'Recommended actions', 'Mission creation']) expect(text).toContain(section);
-    expect(text).toContain('AI inference'); root.unmount();
+    for (const section of ['Przegląd wydarzenia', 'Inteligencja rynku', 'Ruch kursów', 'Prawdopodobieństwa modelu', 'Analiza wartości', 'Ryzyko i korelacja', 'Wnioskowanie AI', 'Rekomendowane działania', 'Tworzenie misji']) expect(text).toContain(section);
+    expect(text).toContain('Wnioskowanie AI'); root.unmount();
   }, 25_000);
 
   it('renders mission control and the history views', async () => {
-    const missions = await mount('/missions'); expect(missions.container.textContent).toContain('Mission control'); expect(missions.container.textContent).toContain('AWAITING APPROVAL'); missions.root.unmount();
-    const history = await mount('/history'); expect(history.container.textContent).toContain('History & calibration'); expect(history.container.textContent).toContain('Analysis history'); history.root.unmount();
+    const missions = await mount('/missions'); expect(missions.container.textContent).toContain('Kontrola misji'); expect(missions.container.textContent).toContain('AWAITING APPROVAL'); missions.root.unmount();
+    const history = await mount('/history'); expect(history.container.textContent).toContain('Historia i kalibracja'); expect(history.container.textContent).toContain('Historia analiz'); history.root.unmount();
   }, 30_000);
 });
