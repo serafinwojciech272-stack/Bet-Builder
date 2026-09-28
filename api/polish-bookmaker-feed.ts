@@ -122,7 +122,7 @@ export async function fetchPolishBookmakerDataset(
   requestedDate: string,
   requestedSport: string,
   requestedBookmakers: string[],
-): Promise<CanonicalDataset & { provider: string; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; providerHealth?: CanonicalDataset['providerHealth'] }> {
+): Promise<CanonicalDataset & { provider: 'odds-api.io'; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; providerHealth?: CanonicalDataset['providerHealth'] }> {
   const apiKey = process.env.ODDS_API_IO_KEY?.trim();
   const wanted = requestedBookmakers.filter(value => ['STS', 'Superbet'].includes(value)) as BookmakerName[];
   const base = {
