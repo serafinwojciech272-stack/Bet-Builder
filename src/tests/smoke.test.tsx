@@ -1,5 +1,4 @@
 // @vitest-environment happy-dom
-import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
 import App from '../App';
@@ -13,8 +12,8 @@ async function mount(path: string) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  await act(async () => { root.render(<App />); });
-  await act(async () => { await new Promise((r) => setTimeout(r, 8000)); });
+  root.render(<App />);
+  await new Promise((r) => setTimeout(r, 8000));
   return { container, root };
 }
 
