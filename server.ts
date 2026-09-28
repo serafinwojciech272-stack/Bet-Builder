@@ -1,4 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, join, normalize } from 'node:path';
 
 type AdapterRequest = { method?: string; query: Record<string, string>; headers?: Record<string, string | undefined>; body?: unknown };
 type AdapterResponse = {
@@ -24,9 +26,7 @@ async function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse
       chunks.push(buffer);
     }
     const raw = Buffer.concat(chunks).toString('utf8');
-    if (raw) {
-      body = String(req.headers['content-type'] ?? '').includes('application/json') ? JSON.parse(raw) : raw;
-    }
+    if (raw) body = String(req.headers['content-type'] ?? '').includes('application/json') ? JSON.parse(raw) : raw;
   }
   const request = { method: req.method ?? 'GET', query, body, headers: { origin: req.headers.origin, authorization: req.headers.authorization, 'x-core-engine-e2e-token': req.headers['x-core-engine-e2e-token'] } };
   const response = {
@@ -53,6 +53,46 @@ const healthHandler = healthModule.default as Handler;
 const decisionReasoningHandler = decisionReasoningModule.default as Handler;
 const coreEngineHandler = coreEngineModule.default as Handler;
 
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+async function serveFrontend(pathname: string, res: ServerResponse) {
+  const cleanPath = pathname === '/' ? '/index.html' : pathname;
+  const relative = normalize(cleanPath).replace(/^([/\\])+/, '');
+  if (relative.startsWith('..')) return false;
+  const distRoot = join(process.cwd(), 'dist');
+  try {
+    const file = await readFile(join(distRoot, relative));
+    res.statusCode = 200;
+    res.setHeader('Content-Type', MIME[extname(relative).toLowerCase()] ?? 'application/octet-stream');
+    res.end(file);
+    return true;
+  } catch {
+    if (pathname.includes('.')) return false;
+    try {
+      const file = await readFile(join(distRoot, 'index.html'));
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end(file);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   const origin = req.headers.origin;
@@ -71,6 +111,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/health') return await adapt(healthHandler, req, res);
     if (url.pathname === '/api/core-engine') return await adapt(coreEngineHandler, req, res);
     if (url.pathname === '/api/decision-reasoning') return await adapt(decisionReasoningHandler, req, res);
+    if (req.method === 'GET' && await serveFrontend(url.pathname, res)) return;
     res.statusCode = 404;
     res.setHeader('Content-Type','application/json; charset=utf-8');
     res.end(JSON.stringify({ error:'NOT_FOUND' }));
@@ -82,4 +123,4 @@ const server = createServer(async (req, res) => {
 });
 
 const port = Number(process.env.PORT ?? 10000);
-server.listen(port, '0.0.0.0', () => console.log(`Bet Builder API listening on ${port}`));
+server.listen(port, '0.0.0.0', () => console.log(`Bet Builder full-stack server listening on ${port}`));
