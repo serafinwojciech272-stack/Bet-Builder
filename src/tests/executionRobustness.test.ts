@@ -269,4 +269,21 @@ describe('EXECUTION negative test matrix', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+
+  it('25. live engine rejects unsupported actions before any remote call', async () => {
+    const { analysis, action } = await context();
+    const draft = buildMissionFromAnalysis(analysis, action, { decisionPacket: eligiblePacket(analysis), idSuffix: 'LIVE-GATE' });
+    const approved: Mission = {
+      ...draft,
+      status: 'APPROVED',
+      approval: { ...draft.approval, state: 'APPROVED', decidedBy: 'human', decidedAt: new Date().toISOString(), checklist: draft.approval.checklist.map((check) => ({ ...check, acknowledged: true })), blockers: [] },
+      actions: [...draft.actions, { id: 'forged-place', kind: 'PLACE_BET' as never, description: 'forbidden monetary action' }],
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const live = new LiveCoreEngineClient();
+    await expect(live.submitMission(approved)).rejects.toMatchObject({ code: 'UNSUPPORTED_ACTION' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 });
