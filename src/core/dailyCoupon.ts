@@ -11,6 +11,14 @@ export interface DailyCouponInput {
   minOdds?: number;
   maxOdds?: number;
   targetCombinedOdds?: number;
+  providerHealth?: {
+    provider: string;
+    state: 'HEALTHY' | 'DEGRADED' | 'STALE' | 'OFFLINE';
+    ageSeconds: number;
+    staleAfterSeconds: number;
+    snapshotCount: number;
+    bookmakerCount: number;
+  };
 }
 
 export interface DailyCouponLeg {
@@ -51,6 +59,7 @@ export interface DailyCouponResult {
   warnings: string[];
   analysis: string;
   description: string;
+  sourceStatus: 'VERIFIED' | 'DEGRADED' | 'UNAVAILABLE';
 }
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/gi, '');
@@ -153,9 +162,12 @@ export function buildDailyCoupon(input: DailyCouponInput): DailyCouponResult {
   const blockers: string[] = [];
   const warnings: string[] = [];
   if (!dayEvents.length) blockers.push('Brak wydarzeń na wskazany dzień.');
+  if (input.providerHealth?.state === 'OFFLINE') blockers.push('Dostawca danych jest OFFLINE — kupon nie może zostać oznaczony jako gotowy.');
+  if (input.providerHealth?.state === 'STALE') blockers.push(`Dane dostawcy są STALE (${input.providerHealth.ageSeconds}s > ${input.providerHealth.staleAfterSeconds}s).`);
   if (requested.length && !bookmakersFound.length) blockers.push('Wybrani bukmacherzy nie występują w aktualnym feedzie.');
   if (!legs.length && !blockers.length) blockers.push('Brak typów spełniających filtry jakości.');
   if (legs.length < Math.min(2, maxLegs) && !blockers.length) warnings.push('Liczba kwalifikujących się zdarzeń jest ograniczona.');
+  if (input.providerHealth?.state === 'DEGRADED') warnings.push(`Dostawca działa w trybie DEGRADED (${input.providerHealth.provider}).`);
   if (snapshots.length === 0 && dayEvents.length) warnings.push('Dzień zawiera mecze, ale brak aktualnych kursów w feedzie.');
 
   const estimatedProbability = legs.reduce((p, leg) => p * leg.modelProbability, 1);
@@ -163,6 +175,7 @@ export function buildDailyCoupon(input: DailyCouponInput): DailyCouponResult {
   const potentialReturn = stake * combinedOdds;
   const potentialProfit = Math.max(0, potentialReturn - stake);
   const status: DailyCouponResult['status'] = blockers.length ? 'BLOCKED' : warnings.length ? 'REVIEW' : 'READY';
+  const sourceStatus: DailyCouponResult['sourceStatus'] = blockers.length || !bookmakersFound.length ? 'UNAVAILABLE' : input.providerHealth?.state === 'DEGRADED' ? 'DEGRADED' : 'VERIFIED';
 
   const analysis = legs.length
     ? `Przeskanowano ${dayEvents.length} wydarzeń z ${input.date}. Wybrano ${legs.length} rozdzielonych zdarzeń po filtrze kursów, jakości, EV i korelacji. Łączny kurs ${combinedOdds.toFixed(2)}, modelowe prawdopodobieństwo ${(estimatedProbability * 100).toFixed(1)}%, EV ${(estimatedEv * 100).toFixed(1)}%.`
@@ -187,5 +200,6 @@ export function buildDailyCoupon(input: DailyCouponInput): DailyCouponResult {
     warnings,
     analysis,
     description,
+    sourceStatus,
   };
 }

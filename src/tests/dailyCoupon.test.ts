@@ -8,6 +8,7 @@ const event = (id: string, startTime: string, status: SportEvent['status'] = 'sc
   awayTeam: { id: id+'a', name: 'Away '+id, shortName: 'Away '+id, rating: .5, form: [], injuriesOut: 0 },
   startTime, status, venue: '', monitored: true, liquidity: .8,
 });
+
 const snap = (eventId: string, bookmaker: string, odds: number): OddsSnapshot => ({
   id: eventId+bookmaker, eventId, market: 'match-winner', bookmaker, capturedAt: '2026-09-28T08:00:00Z', feedLatencyMs: 1000,
   provider: 'test', quotes: [{ selectionId: eventId+':home', label: 'Home', decimalOdds: odds }, { selectionId: eventId+':away', label: 'Away', decimalOdds: 2.2 }],
@@ -27,6 +28,7 @@ describe('daily bookmaker coupon planner', () => {
     expect(result.combinedOdds).toBeGreaterThan(1);
     expect(result.potentialReturn).toBeGreaterThan(0);
   });
+
   it('blocks when requested bookmakers are absent', () => {
     const result = buildDailyCoupon({
       date: '2026-09-28', events: [event('a','2026-09-28T18:00:00Z')],
@@ -34,5 +36,27 @@ describe('daily bookmaker coupon planner', () => {
     });
     expect(result.status).toBe('BLOCKED');
     expect(result.blockers.join(' ')).toMatch(/bukmacherzy/i);
+  });
+
+  it('blocks stale provider data instead of producing a READY coupon', () => {
+    const result = buildDailyCoupon({
+      date: '2026-09-28', events: [event('a','2026-09-28T18:00:00Z')],
+      snapshots: [snap('a','STS',2.0)], bookmakers: ['STS'], stake: 10,
+      providerHealth: { provider: 'parlay-api', state: 'STALE', ageSeconds: 900, staleAfterSeconds: 120, snapshotCount: 1, bookmakerCount: 1 },
+    });
+    expect(result.status).toBe('BLOCKED');
+    expect(result.sourceStatus).toBe('UNAVAILABLE');
+    expect(result.blockers.join(' ')).toMatch(/STALE/i);
+  });
+
+  it('marks degraded provider data as REVIEW, never silently READY', () => {
+    const result = buildDailyCoupon({
+      date: '2026-09-28', events: [event('a','2026-09-28T18:00:00Z'), event('b','2026-09-28T20:00:00Z')],
+      snapshots: [snap('a','STS',2.0), snap('b','STS',2.2)], bookmakers: ['STS'], stake: 10,
+      providerHealth: { provider: 'parlay-api', state: 'DEGRADED', ageSeconds: 20, staleAfterSeconds: 120, snapshotCount: 2, bookmakerCount: 1 },
+    });
+    expect(result.status).toBe('REVIEW');
+    expect(result.sourceStatus).toBe('DEGRADED');
+    expect(result.warnings.join(' ')).toMatch(/DEGRADED/i);
   });
 });
