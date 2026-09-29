@@ -1,5 +1,6 @@
 import { buildDailyCoupon } from '../src/core/dailyCoupon.js';
 import type { CanonicalDataset } from '../src/domain/repositories.js';
+import { fetchPolishBookmakerDataset } from './polish-bookmaker-feed.js';
 
 type QueryRequest = { method?: string; query?: Record<string, string | undefined> };
 type JsonResponse = { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void };
@@ -29,14 +30,20 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const port = Number(process.env.PORT ?? 10000);
 
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/api/odds?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(15000),
-    });
-    const raw = await response.text();
     let dataset: CanonicalDataset;
-    try { dataset = JSON.parse(raw) as CanonicalDataset; } catch { return json(res, 502, { error: 'ODDS_INVALID_JSON', sourceStatus: 'UNAVAILABLE' }); }
-    if (!response.ok) return json(res, response.status, { error: 'ODDS_PROVIDER_UNAVAILABLE', sourceStatus: 'UNAVAILABLE', dataset });
+    const realPolishFeed = Boolean(process.env.ODDS_API_IO_KEY?.trim()) && bookmakers.some(bookmaker => ['STS', 'Superbet'].includes(bookmaker));
+    if (realPolishFeed) {
+      dataset = await fetchPolishBookmakerDataset(date, sport, bookmakers);
+    } else {
+      const response = await fetch(`http://127.0.0.1:${port}/api/odds?date=${encodeURIComponent(date)}&sport=${encodeURIComponent(sport)}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(15000),
+      });
+      const raw = await response.text();
+      try { dataset = JSON.parse(raw) as CanonicalDataset; } catch { return json(res, 502, { error: 'ODDS_INVALID_JSON', sourceStatus: 'UNAVAILABLE' }); }
+      if (!response.ok) return json(res, response.status, { error: 'ODDS_PROVIDER_UNAVAILABLE', sourceStatus: 'UNAVAILABLE', dataset });
+    }
+
     const result = buildDailyCoupon({
       date,
       events: dataset.events,
@@ -58,7 +65,13 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
     return json(res, 200, {
       ...result,
       generatedAt: new Date().toISOString(),
-      source: { provider: dataset.provider, mode: dataset.mode, bookmakersAvailable: dataset.bookmakers ?? [], providerHealth: dataset.providerHealth ?? null },
+      source: {
+        provider: dataset.provider,
+        mode: dataset.mode,
+        bookmakersAvailable: dataset.bookmakers ?? [],
+        providerHealth: dataset.providerHealth ?? null,
+        realBookmakerFeed: realPolishFeed,
+      },
       execution: 'READ_ONLY_COUPON_GENERATION',
     });
   } catch (error) {
