@@ -14,7 +14,7 @@
     "test:health": "node scripts/health-smoke.mjs",
     "test:persistence-e2e": "node scripts/persistence-e2e.mjs",
     "test:api-contract": "node scripts/api-contract-smoke.mjs",
-    "render:start": "tsc -b && vite build && npx --yes tsx@4.19.4 server.ts"
+    "render:start": "npx --yes tsx@4.19.4 server.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
