@@ -108,7 +108,7 @@ function findBookmaker(record: Record<string, Array<{ name?: string; updatedAt?:
   return key ? { key, markets: record[key] ?? [] } : null;
 }
 
-async function fetchJson(url: URL, apiKey: string): Promise<Response> {
+async function fetchJson(url: URL, _apiKey: string): Promise<Response> {
   return fetch(url, {
     headers: { Accept: 'application/json' },
     signal: AbortSignal.timeout(10000),
