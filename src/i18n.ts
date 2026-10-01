@@ -109,9 +109,6 @@ const EN_DE_AUDIT: Record<string,string> = {
 const EN_DE: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [EN_PL[pl] ?? pl, de]));
 const DE_EN: Record<string, string> = Object.fromEntries(Object.entries(EN_DE).map(([en, de]) => [de, en]));
 const DE_PL: Record<string, string> = Object.fromEntries(Object.entries(PL_DE).map(([pl, de]) => [de, pl]));
-const EN_DE_EXTRA: Record<string, string> = Object.fromEntries(
-  Object.entries(DE_PL_EXTRA).map(([en, de]) => [en, de])
-);
 const DE_EN_EXTRA: Record<string, string> = Object.fromEntries(
   Object.entries(DE_PL_EXTRA).map(([en, de]) => [de, en])
 );
