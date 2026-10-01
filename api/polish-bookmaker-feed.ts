@@ -183,15 +183,19 @@ export async function fetchPolishBookmakerDataset(
       const selected = events.filter(event => event.home && event.away && event.date && polishDate(event.date) === requestedDate);
       if (!selected.length) continue;
 
-      const eventIds = selected.map(event => String(event.id)).slice(0, 100);
-      const oddsUrl = new URL('https://api.odds-api.io/v3/odds/multi');
-      oddsUrl.searchParams.set('apiKey', apiKey);
-      oddsUrl.searchParams.set('eventIds', eventIds.join(','));
-      oddsUrl.searchParams.set('bookmakers', wanted.join(','));
-      const oddsResponse = await fetchJson(oddsUrl, apiKey);
-      const oddsEvents = await oddsResponse.json() as ExternalEvent[];
+      // Odds-API.io /v3/odds/multi accepts at most 10 event IDs per request.
+      // Batch explicitly so a busy sport/day cannot turn the whole bookmaker feed into a 400.
+      const eventIds = selected.map(event => String(event.id));
+      for (let batchStart = 0; batchStart < eventIds.length; batchStart += 10) {
+        const batch = eventIds.slice(batchStart, batchStart + 10);
+        const oddsUrl = new URL('https://api.odds-api.io/v3/odds/multi');
+        oddsUrl.searchParams.set('apiKey', apiKey);
+        oddsUrl.searchParams.set('eventIds', batch.join(','));
+        oddsUrl.searchParams.set('bookmakers', wanted.join(','));
+        const oddsResponse = await fetchJson(oddsUrl, apiKey);
+        const oddsEvents = await oddsResponse.json() as ExternalEvent[];
 
-      for (const raw of oddsEvents) {
+        for (const raw of oddsEvents) {
         if (!raw.id || !raw.home || !raw.away || !raw.date || polishDate(raw.date) !== requestedDate) continue;
         const eventId = `oddsapiio:${raw.id}`;
         const sportKey = sport.canonical;
@@ -238,6 +242,7 @@ export async function fetchPolishBookmakerDataset(
           }
         }
       }
+    }
     } catch (error) {
       failedSports += 1;
       issues.push({
