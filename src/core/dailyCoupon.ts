@@ -1,5 +1,5 @@
 import type { OddsSnapshot, SportEvent, Selection } from '../domain/types.js';
-import { impliedProbability, modelEv, valueOver, riskForOdds } from '../analytics/calcs.js';
+import { impliedProbability, modelEv, riskForOdds } from '../analytics/calcs.js';
 
 export interface DailyCouponInput {
   date: string; // Europe/Warsaw calendar date: YYYY-MM-DD
