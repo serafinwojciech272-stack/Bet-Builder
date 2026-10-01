@@ -4,7 +4,7 @@ import { CheckCircle2, Database, History, Info, LayoutDashboard, ListFilter, Rad
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { Button, EngineBadge } from './ui';
 import { cx, relativeTime } from '../lib/format';
-import { LANGS, type Lang, applyLanguage, detectBrowserLang, installLanguageObserver } from '../i18n';
+import { LANGS, type Lang, applyLanguage, detectBrowserLang } from '../i18n';
 
 const NAV = [
   { to: '/', label: 'Mecze', icon: ListFilter, key: 'e', end: true },
