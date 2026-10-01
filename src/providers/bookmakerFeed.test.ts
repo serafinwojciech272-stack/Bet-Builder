@@ -33,6 +33,22 @@ describe('bookmaker provider abstraction', () => {
     expect(selected).toBeNull();
   });
 
+  it('uses the first configured provider when multiple providers support the same bookmaker', () => {
+    const resolutions = resolveBookmakerProviders([
+      makeProvider('primary', true, ['STS']),
+      makeProvider('fallback', true, ['STS']),
+    ], { date: '2026-10-01', sport: 'all', bookmakers: ['STS'] });
+    expect(resolutions[0].provider?.id).toBe('primary');
+  });
+
+  it('falls back to the next configured provider when the primary is unavailable', () => {
+    const resolutions = resolveBookmakerProviders([
+      makeProvider('primary', false, ['STS']),
+      makeProvider('fallback', true, ['STS']),
+    ], { date: '2026-10-01', sport: 'all', bookmakers: ['STS'] });
+    expect(resolutions[0].provider?.id).toBe('fallback');
+  });
+
   it('merges datasets without duplicate events or snapshots', () => {
     const base = { events: [], snapshots: [], issues: [], droppedRecords: 0, normalizedAt: new Date().toISOString(), provider: 'odds-api.io' as const, mode: 'LIVE' as const, bookmakers: ['STS'] };
     const merged = mergeBookmakerDatasets([base, { ...base, bookmakers: ['Superbet'] }], ['STS', 'Superbet']);
