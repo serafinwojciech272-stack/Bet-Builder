@@ -1,32 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { selectBookmakerFeedProvider, type BookmakerFeedProvider } from './bookmakerFeed.js';
+import { mergeBookmakerDatasets, resolveBookmakerProviders, selectBookmakerFeedProvider, type BookmakerFeedProvider } from './bookmakerFeed.js';
 
-const makeProvider = (configured: boolean, capabilities: string[]): BookmakerFeedProvider => ({
-  id: 'test',
-  capabilities,
-  isConfigured: () => configured,
+const makeProvider = (id: string, configured: boolean, capabilities: string[]): BookmakerFeedProvider => ({
+  id, capabilities, isConfigured: () => configured,
   fetch: async () => ({ events: [], snapshots: [], issues: [], droppedRecords: 0, normalizedAt: new Date().toISOString() }),
 });
 
 describe('bookmaker provider abstraction', () => {
-  it('selects a configured provider matching requested bookmaker', () => {
-    const selected = selectBookmakerFeedProvider([makeProvider(true, ['STS'])], {
-      date: '2026-10-01', sport: 'all', bookmakers: ['STS', 'Superbet'],
-    });
-    expect(selected?.id).toBe('test');
+  it('resolves each requested bookmaker independently', () => {
+    const resolutions = resolveBookmakerProviders([
+      makeProvider('sts-provider', true, ['STS']),
+      makeProvider('superbet-provider', true, ['Superbet']),
+    ], { date: '2026-10-01', sport: 'all', bookmakers: ['STS', 'Superbet'] });
+    expect(resolutions.map(r => [r.bookmaker, r.provider?.id])).toEqual([
+      ['STS', 'sts-provider'], ['Superbet', 'superbet-provider'],
+    ]);
+  });
+
+  it('does not treat partial coverage as full coverage', () => {
+    const resolutions = resolveBookmakerProviders(
+      [makeProvider('sts-provider', true, ['STS'])],
+      { date: '2026-10-01', sport: 'all', bookmakers: ['STS', 'Superbet'] },
+    );
+    expect(resolutions[0].provider?.id).toBe('sts-provider');
+    expect(resolutions[1].provider).toBeNull();
   });
 
   it('ignores providers without configuration', () => {
-    const selected = selectBookmakerFeedProvider([makeProvider(false, ['STS', 'Superbet'])], {
+    const selected = selectBookmakerFeedProvider([makeProvider('test', false, ['STS', 'Superbet'])], {
       date: '2026-10-01', sport: 'all', bookmakers: ['STS'],
     });
     expect(selected).toBeNull();
   });
 
-  it('returns null when no requested bookmaker exists', () => {
-    const selected = selectBookmakerFeedProvider([makeProvider(true, ['STS'])], {
-      date: '2026-10-01', sport: 'all', bookmakers: [],
-    });
-    expect(selected).toBeNull();
+  it('merges datasets without duplicate events or snapshots', () => {
+    const base = { events: [], snapshots: [], issues: [], droppedRecords: 0, normalizedAt: new Date().toISOString(), provider: 'odds-api.io' as const, mode: 'LIVE' as const, bookmakers: ['STS'] };
+    const merged = mergeBookmakerDatasets([base, { ...base, bookmakers: ['Superbet'] }], ['STS', 'Superbet']);
+    expect(merged.bookmakers).toEqual(['STS', 'Superbet']);
+    expect(merged.mode).toBe('LIVE');
   });
 });
