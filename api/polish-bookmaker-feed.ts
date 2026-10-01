@@ -108,7 +108,7 @@ function findBookmaker(record: Record<string, Array<{ name?: string; updatedAt?:
   return key ? { key, markets: record[key] ?? [] } : null;
 }
 
-async function fetchJson(url: URL, _apiKey: string): Promise<Response> {
+async function fetchJson(url: URL): Promise<Response> {
   return fetch(url, {
     headers: { Accept: 'application/json' },
     signal: AbortSignal.timeout(10000),
@@ -177,7 +177,7 @@ export async function fetchPolishBookmakerDataset(
       eventsUrl.searchParams.set('sport', sport.api);
       eventsUrl.searchParams.set('status', 'pending');
       eventsUrl.searchParams.set('limit', '1000');
-      const response = await fetchJson(eventsUrl, apiKey);
+      const response = await fetchJson(eventsUrl);
       const events = await response.json() as ExternalEvent[];
       successfulSports += 1;
       const selected = events.filter(event => event.home && event.away && event.date && polishDate(event.date) === requestedDate);
@@ -192,7 +192,7 @@ export async function fetchPolishBookmakerDataset(
         oddsUrl.searchParams.set('apiKey', apiKey);
         oddsUrl.searchParams.set('eventIds', batch.join(','));
         oddsUrl.searchParams.set('bookmakers', wanted.join(','));
-        const oddsResponse = await fetchJson(oddsUrl, apiKey);
+        const oddsResponse = await fetchJson(oddsUrl);
         const oddsEvents = await oddsResponse.json() as ExternalEvent[];
 
         for (const raw of oddsEvents) {
