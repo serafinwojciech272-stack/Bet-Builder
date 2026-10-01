@@ -1,0 +1,17 @@
+name: Production Daily Coupon E2E
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  production-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Render auto-deploy
+        run: sleep 150
+      - name: Run production E2E
+        env:
+          BET_BUILDER_URL: https://bet-builder-api-live.onrender.com
+        run: node scripts/production-daily-coupon-e2e.mjs
