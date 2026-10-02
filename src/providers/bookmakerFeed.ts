@@ -37,7 +37,7 @@ export function selectBookmakerFeedProvider(
 
 
 function mergeProviderHealth(datasets: readonly CanonicalDataset[]) {
-  const health = datasets.map(d => d.providerHealth).filter((value): NonNullable<typeof value> => Boolean(value));
+  const health = datasets.map(d => d.providerHealth).filter((value): value is NonNullable<typeof value> => Boolean(value));
   if (!health.length) return undefined;
   const states = new Set(health.map(h => h.state));
   const state = states.has('OFFLINE') ? 'OFFLINE' : states.has('STALE') ? 'STALE' : states.has('DEGRADED') ? 'DEGRADED' : 'HEALTHY';
