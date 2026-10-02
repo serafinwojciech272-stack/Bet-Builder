@@ -1,6 +1,5 @@
 import type { BookmakerFeedProvider } from '../src/providers/bookmakerFeed.js';
 import { fetchPolishBookmakerDataset } from './polish-bookmaker-feed.js';
-import { arbiScanBookmakerProvider } from './arbiscan-bookmaker-provider.js';
 
 export const oddsApiIoBookmakerProvider: BookmakerFeedProvider = {
   id: 'odds-api.io',
@@ -11,5 +10,5 @@ export const oddsApiIoBookmakerProvider: BookmakerFeedProvider = {
 };
 
 export function getBookmakerFeedProviders(): readonly BookmakerFeedProvider[] {
-  return [oddsApiIoBookmakerProvider, arbiScanBookmakerProvider];
+  return [oddsApiIoBookmakerProvider];
 }
