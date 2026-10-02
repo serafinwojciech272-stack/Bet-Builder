@@ -595,3 +595,155 @@ box-shadow:0 40px 120px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.07)}
 .bb-universal-state span{font-size:8px;letter-spacing:.16em;color:rgba(255,255,255,.42)}
 .bb-universal-state b{font-size:9px;letter-spacing:.12em;color:var(--bb-green,#67e8a5)}
 @media (max-width:640px){.bb-universal-strip{align-items:flex-start;flex-direction:column}.bb-universal-state{width:100%;justify-content:space-between}}
+
+
+/* STUNNING COMMAND CENTER v14 — cinematic UI polish */
+@keyframes bbAuroraDrift{
+  0%,100%{transform:translate3d(-2%,0,0) scale(1);opacity:.55}
+  50%{transform:translate3d(2%,1.5%,0) scale(1.045);opacity:.8}
+}
+@keyframes bbScanLine{
+  0%,65%{transform:translateX(-130%);opacity:0}
+  72%{opacity:.8}
+  88%,100%{transform:translateX(130%);opacity:0}
+}
+@keyframes bbButtonBreath{
+  0%,100%{box-shadow:0 10px 28px rgba(0,0,0,.22),0 0 0 rgba(88,215,255,0)}
+  50%{box-shadow:0 14px 42px rgba(0,0,0,.3),0 0 30px rgba(88,215,255,.12)}
+}
+@keyframes bbCardEnter{
+  from{opacity:0;transform:translateY(12px) scale(.985);filter:blur(2px)}
+  to{opacity:1;transform:none;filter:none}
+}
+@keyframes bbStatusGlow{
+  0%,100%{box-shadow:0 0 0 rgba(98,231,173,0)}
+  50%{box-shadow:0 0 18px rgba(98,231,173,.11)}
+}
+.club-hero{
+  box-shadow:0 35px 120px rgba(10,4,30,.52),inset 0 1px rgba(255,255,255,.07),0 0 80px rgba(155,140,255,.045);
+}
+.club-hero .club-title{
+  text-wrap:balance;
+}
+.club-hero .club-title-accent{
+  filter:drop-shadow(0 0 18px rgba(155,140,255,.16));
+}
+.club-hero .club-content::after{
+  content:"";
+  position:absolute;
+  inset:-15% -8%;
+  z-index:-1;
+  background:radial-gradient(ellipse at 75% 45%,rgba(155,140,255,.14),transparent 30%),radial-gradient(ellipse at 45% 80%,rgba(88,215,255,.07),transparent 34%);
+  animation:bbAuroraDrift 12s ease-in-out infinite;
+  pointer-events:none;
+}
+.club-hero .live-dot{
+  box-shadow:0 0 14px rgba(94,230,165,.9);
+}
+.club-generator > div:first-child,
+.club-ticket > div:first-child{
+  position:relative;
+}
+.club-generator button{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+}
+.club-generator button::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  width:55%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);
+  transform:translateX(-180%);
+  animation:bbScanLine 5.5s ease-in-out infinite;
+  pointer-events:none;
+}
+.club-generator button:first-of-type{
+  animation:bbButtonBreath 3.8s ease-in-out infinite;
+}
+.club-generator input{
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(0,0,0,.16))!important;
+  border-color:rgba(155,140,255,.18)!important;
+}
+.club-generator input:focus{
+  border-color:rgba(88,215,255,.45)!important;
+}
+.club-generator .text-cyan-300{
+  text-shadow:0 0 18px rgba(88,215,255,.16);
+}
+.club-generator > div:last-child{
+  animation:bbCardEnter .5s cubic-bezier(.2,.7,.2,1) both;
+}
+.club-generator > div:last-child .grid > div{
+  position:relative;
+  overflow:hidden;
+}
+.club-generator > div:last-child .grid > div::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.035) 50%,transparent 65%);
+  transform:translateX(-120%);
+  animation:bbScanLine 8s ease-in-out infinite;
+  pointer-events:none;
+}
+.club-generator .font-mono{
+  text-shadow:0 0 12px rgba(88,215,255,.12);
+}
+.club-generator .rounded-lg.border.border-white\/\[\.06\]{
+  transition:transform .2s ease,border-color .2s ease,background .2s ease;
+}
+.club-generator .rounded-lg.border.border-white\/\[\.06\]:hover{
+  transform:translateX(3px);
+  border-color:rgba(155,140,255,.24);
+  background:rgba(155,140,255,.055);
+}
+.club-ticket{
+  box-shadow:0 24px 80px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.055),0 0 50px rgba(240,203,122,.025);
+}
+.club-ticket .text-cyan-200{
+  text-shadow:0 0 24px rgba(88,215,255,.18);
+}
+.club-ticket .text-white{
+  transition:color .2s ease,text-shadow .2s ease;
+}
+.club-ticket:hover .text-cyan-200{
+  text-shadow:0 0 30px rgba(88,215,255,.28);
+}
+.club-backdrop main > section{
+  will-change:transform;
+}
+.club-backdrop main > section:nth-of-type(1){
+  animation:bbCardEnter .55s .05s cubic-bezier(.2,.7,.2,1) both;
+}
+.club-backdrop main > section:nth-of-type(2){
+  animation:bbCardEnter .55s .11s cubic-bezier(.2,.7,.2,1) both;
+}
+.club-backdrop main > section:nth-of-type(3){
+  animation:bbCardEnter .55s .17s cubic-bezier(.2,.7,.2,1) both;
+}
+.club-backdrop main .glass,
+.club-backdrop main .ai-surface,
+.club-backdrop main .market-surface{
+  transition:border-color .25s ease,box-shadow .25s ease,transform .25s ease;
+}
+.club-backdrop main .glass:hover,
+.club-backdrop main .ai-surface:hover,
+.club-backdrop main .market-surface:hover{
+  border-color:rgba(155,140,255,.2);
+  box-shadow:0 22px 70px rgba(0,0,0,.24),0 0 35px rgba(155,140,255,.045);
+}
+@media(max-width:640px){
+  .club-hero .club-content::after{display:none}
+  .club-generator button{width:100%}
+  .club-generator button::after{animation-duration:7s}
+}
+@media(prefers-reduced-motion:reduce){
+  .club-hero .club-content::after,
+  .club-generator button,
+  .club-generator button::after,
+  .club-generator > div:last-child,
+  .club-generator > div:last-child .grid > div::after,
+  .club-backdrop main > section{animation:none}
+}
