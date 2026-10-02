@@ -8,7 +8,7 @@ export interface CanonicalDataset {
   issues: NormalizationIssue[];
   droppedRecords: number;
   normalizedAt: string;
-  provider?: 'demo' | 'parlay-api' | 'the-odds-api' | 'sportscore' | 'thesportsdb' | 'odds-api.io';
+  provider?: 'demo' | 'parlay-api' | 'the-odds-api' | 'sportscore' | 'thesportsdb' | 'odds-api.io' | 'arbiscan';
   mode?: 'DEMO' | 'LIVE' | 'LIVE_DATA_NO_ODDS';
   requestedDate?: string;
   sportsQueried?: string[];
