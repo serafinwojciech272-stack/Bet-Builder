@@ -1,4 +1,5 @@
 import type { CanonicalDataset } from '../domain/repositories.js';
+import type { ProviderHealth } from '../domain/types.js';
 
 export type BookmakerFeedRequest = { date: string; sport: string; bookmakers: string[] };
 
@@ -36,7 +37,7 @@ export function selectBookmakerFeedProvider(
 }
 
 
-function mergeProviderHealth(datasets: readonly CanonicalDataset[]) {
+function mergeProviderHealth(datasets: readonly CanonicalDataset[]): ProviderHealth | undefined {
   const health = datasets.map(d => d.providerHealth).filter((value): value is NonNullable<typeof value> => Boolean(value));
   if (!health.length) return undefined;
   const states = new Set(health.map(h => h.state));
