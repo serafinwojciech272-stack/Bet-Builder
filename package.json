@@ -1,12 +1,12 @@
 {
   "name": "vite-react-ts",
   "private": true,
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && npm test && vite build",
-    "postinstall": "tsc -b && vite build",
+    "build": "tsc -p tsconfig.build.json --noEmit && npm test && vite build",
+    "postinstall": "tsc -p tsconfig.build.json --noEmit && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
