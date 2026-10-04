@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: bet-builder-master
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: master-level-qa-ui-20261004
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    autoDeploy: true
