@@ -9,6 +9,8 @@ jobs:
   production-e2e:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Wait for Render auto-deploy
         run: sleep 150
       - name: Run production E2E
