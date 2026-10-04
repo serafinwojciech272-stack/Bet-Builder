@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './deep-enhance.css'
 import './visual-polish.css'
+import './master-level.css'
 import { detectBrowserLang, installLanguageObserver } from './i18n'
 import App from './App.tsx'
 
