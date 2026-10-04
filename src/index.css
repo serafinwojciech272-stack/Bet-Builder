@@ -595,3 +595,43 @@ box-shadow:0 40px 120px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.07)}
 .bb-universal-state span{font-size:8px;letter-spacing:.16em;color:rgba(255,255,255,.42)}
 .bb-universal-state b{font-size:9px;letter-spacing:.12em;color:var(--bb-green,#67e8a5)}
 @media (max-width:640px){.bb-universal-strip{align-items:flex-start;flex-direction:column}.bb-universal-state{width:100%;justify-content:space-between}}
+
+
+/* SUPER UI EXPERIENCE v14 — clarity, hierarchy, tactile feedback */
+:root{
+  --bb-focus:rgba(120,228,255,.42);
+  --bb-panel-strong:rgba(7,10,20,.88);
+}
+.club-backdrop main{scroll-margin-top:80px}
+.club-backdrop button:not(:disabled),.club-backdrop a{cursor:pointer}
+.club-backdrop button:disabled{opacity:.42;cursor:not-allowed;filter:saturate(.55)}
+.club-backdrop .club-generator,.club-backdrop .club-ticket,.club-backdrop .bb-decision-cockpit,.club-backdrop .bb-ai-command{box-shadow:0 24px 80px rgba(0,0,0,.30),inset 0 1px rgba(255,255,255,.055),0 0 0 1px rgba(255,255,255,.015)}
+.club-backdrop input[type="number"]{appearance:textfield}
+.club-backdrop input[type="number"]::-webkit-inner-spin-button,.club-backdrop input[type="number"]::-webkit-outer-spin-button{opacity:.55}
+.club-backdrop button:focus-visible,.club-backdrop a:focus-visible,.club-backdrop input:focus-visible{outline:2px solid var(--bb-focus);outline-offset:3px;box-shadow:0 0 0 5px rgba(120,228,255,.08),0 0 28px rgba(120,228,255,.08)}
+/* Make the bookmaker scan feel like the primary operating surface */
+.club-backdrop section:has(> div .text-cyan-300) button{min-height:40px}
+.club-backdrop section:has(> div .text-cyan-300) .bg-cyan-500\/20{box-shadow:0 10px 30px rgba(72,215,255,.10),inset 0 1px rgba(255,255,255,.08)}
+/* Selection states: immediate visual confirmation */
+.club-backdrop button[aria-pressed="true"]{position:relative;transform:translateY(-1px);box-shadow:0 0 0 1px rgba(240,203,122,.12),0 12px 28px rgba(155,140,255,.12),inset 0 1px rgba(255,255,255,.08)!important}
+.club-backdrop button[aria-pressed="true"]::after{content:"✓";position:absolute;right:5px;top:4px;width:13px;height:13px;display:grid;place-items:center;border-radius:50%;background:rgba(94,230,165,.18);color:#6ff0b3;font:800 8px/1 var(--font-mono)}
+/* Coupon leg cards */
+.club-backdrop .club-ticket .font-mono{letter-spacing:.02em}
+.club-backdrop .club-ticket [class*="grid"]>div{transition:background .18s ease,border-color .18s ease,transform .18s ease}
+.club-backdrop .club-ticket [class*="grid"]>div:hover{transform:translateX(2px);border-color:rgba(240,203,122,.20);background:rgba(240,203,122,.035)}
+/* Status messaging gets semantic left rail */
+.club-backdrop [role="status"]{position:relative;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.club-backdrop [role="status"]::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#9b8cff,#58d7ff,#f0cb7a)}
+/* Better density on event cards */
+@media(min-width:1100px){
+  .club-backdrop main{max-width:1540px}
+  .club-backdrop main article.group{padding:18px}
+}
+@media(max-width:760px){
+  .club-backdrop .club-generator,.club-backdrop .club-ticket,.club-backdrop .bb-decision-cockpit,.club-backdrop .bb-ai-command{border-radius:18px}
+  .club-backdrop section:has(> div .text-cyan-300) button{min-height:44px}
+  .club-backdrop button{touch-action:manipulation}
+}
+@media(prefers-reduced-motion:reduce){
+  .club-backdrop button[aria-pressed="true"],.club-backdrop .club-ticket [class*="grid"]>div:hover{transform:none}
+}
