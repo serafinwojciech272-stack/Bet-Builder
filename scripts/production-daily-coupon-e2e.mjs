@@ -15,7 +15,7 @@ async function get(path) {
   return body;
 }
 
-const health = await get('/health');
+await get('/health');
 console.log('E2E health: PASS');
 
 const date = warsawDate();
@@ -24,26 +24,52 @@ const coupon = await get('/api/daily-coupon?date=' + encodeURIComponent(date) + 
 if (!coupon.source || coupon.source.realBookmakerFeed !== true) {
   throw new Error('REAL_BOOKMAKER_FEED_NOT_ACTIVE: ' + JSON.stringify(coupon.source));
 }
-if (!['odds-api.io'].includes(coupon.source.provider)) {
+if (coupon.source.provider !== 'odds-api.io') {
   throw new Error('UNEXPECTED_PROVIDER: ' + JSON.stringify(coupon.source));
 }
-if (!Array.isArray(coupon.legs)) {
-  throw new Error('COUPON_LEGS_MISSING');
+
+const available = new Set((coupon.source.bookmakersAvailable || []).map(value => String(value).toLowerCase()));
+for (const bookmaker of ['sts', 'superbet']) {
+  if (!available.has(bookmaker)) {
+    throw new Error('BOOKMAKER_NOT_PRESENT_IN_LIVE_FEED: ' + bookmaker + ' ' + JSON.stringify(coupon.source));
+  }
 }
-if (!Number.isFinite(coupon.combinedOdds) && coupon.legs.length > 0) {
-  throw new Error('COMBINED_ODDS_INVALID');
+
+if (!Array.isArray(coupon.legs)) throw new Error('COUPON_LEGS_MISSING');
+
+if (coupon.legs.length === 0) {
+  if (coupon.status !== 'BLOCKED' && coupon.status !== 'REVIEW') {
+    throw new Error('NO_COUPON_LEGS_WITHOUT_BLOCK_OR_REVIEW: ' + JSON.stringify(coupon));
+  }
+  console.log(JSON.stringify({
+    e2e: 'PASS_NO_ELIGIBLE_LEGS',
+    date,
+    provider: coupon.source.provider,
+    realBookmakerFeed: coupon.source.realBookmakerFeed,
+    status: coupon.status,
+    sourceStatus: coupon.sourceStatus,
+    legs: 0,
+    bookmakersAvailable: coupon.source.bookmakersAvailable
+  }, null, 2));
+  process.exit(0);
 }
-if (coupon.legs.length > 0 && (!Number.isFinite(coupon.potentialReturn) || !Number.isFinite(coupon.potentialProfit))) {
-  throw new Error('RETURN_PROFIT_INVALID');
+
+if (!Number.isFinite(coupon.combinedOdds) || coupon.combinedOdds <= 1) {
+  throw new Error('COMBINED_ODDS_INVALID: ' + JSON.stringify(coupon));
 }
+if (!Number.isFinite(coupon.potentialReturn) || !Number.isFinite(coupon.potentialProfit)) {
+  throw new Error('RETURN_PROFIT_INVALID: ' + JSON.stringify(coupon));
+}
+
 for (const leg of coupon.legs) {
   if (!Number.isFinite(leg.odds) || leg.odds <= 1) throw new Error('INVALID_REAL_QUOTE: ' + JSON.stringify(leg));
   if (!leg.bookmaker || !['sts', 'superbet'].includes(String(leg.bookmaker).toLowerCase())) {
     throw new Error('UNEXPECTED_BOOKMAKER: ' + JSON.stringify(leg));
   }
 }
+
 console.log(JSON.stringify({
-  e2e: 'PASS',
+  e2e: 'PASS_REAL_COUPON',
   date,
   provider: coupon.source.provider,
   realBookmakerFeed: coupon.source.realBookmakerFeed,
