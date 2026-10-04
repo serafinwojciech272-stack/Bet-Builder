@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
@@ -56,18 +57,10 @@ const dailyCouponHandler = dailyCouponModule.default as Handler;
 const coreEngineHandler = coreEngineModule.default as Handler;
 
 const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8', '.png': 'image/png',
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon',
+  '.woff': 'font/woff', '.woff2': 'font/woff2',
 };
 
 async function serveFrontend(pathname: string, res: ServerResponse) {
@@ -96,14 +89,22 @@ async function serveFrontend(pathname: string, res: ServerResponse) {
 }
 
 const server = createServer(async (req, res) => {
+  const requestId = String(req.headers['x-request-id'] ?? randomUUID());
+  res.setHeader('X-Request-ID', requestId);
   const url = new URL(req.url ?? '/', 'http://localhost');
   const origin = req.headers.origin;
-  const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app,https://bet-builder-live.onrender.com').split(',').map((value) => value.trim()).filter(Boolean));
+  const defaultOrigins = ['https://bet-builder-preview.vercel.app', 'https://bet-builder-live.onrender.com', 'https://bet-builder-final.onrender.com'];
+  const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? defaultOrigins.join(',')).split(',').map((value) => value.trim()).filter(Boolean));
+
   if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Core-Engine-E2E-Token');
-  if (req.method === 'OPTIONS') { res.statusCode = origin && !allowedOrigins.has(origin) ? 403 : 204; res.end(); return; }
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Core-Engine-E2E-Token, X-Request-ID');
+  if (req.method === 'OPTIONS') {
+    res.statusCode = origin && !allowedOrigins.has(origin) ? 403 : 204;
+    res.end();
+    return;
+  }
 
   try {
     if (url.pathname === '/api/odds') return await adapt(oddsHandler, req, res);
@@ -118,12 +119,23 @@ const server = createServer(async (req, res) => {
     res.statusCode = 404;
     res.setHeader('Content-Type','application/json; charset=utf-8');
     res.end(JSON.stringify({ error:'NOT_FOUND' }));
-  } catch {
-    res.statusCode = 500;
-    res.setHeader('Content-Type','application/json; charset=utf-8');
-    res.end(JSON.stringify({ error:'INTERNAL_SERVER_ERROR' }));
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'api_request_error',
+      requestId,
+      method: req.method ?? 'GET',
+      pathname: url.pathname,
+      error: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    }));
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type','application/json; charset=utf-8');
+      res.end(JSON.stringify({ error:'INTERNAL_SERVER_ERROR' }));
+    }
   }
 });
 
 const port = Number(process.env.PORT ?? 10000);
-server.listen(port, '0.0.0.0', () => console.log(`Bet Builder full-stack server listening on ${port}`));
+server.listen(port, '0.0.0.0', () => console.log(JSON.stringify({ level: 'info', event: 'server_started', port })));
