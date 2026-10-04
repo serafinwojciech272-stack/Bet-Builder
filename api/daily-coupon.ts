@@ -76,7 +76,7 @@ async function loadBookmakerDataset(date: string, sport: string, bookmakers: str
 export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
   const date = req.query?.date ?? todayWarsaw();
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
 
   const bookmakers = (req.query?.bookmakers ?? 'STS,Superbet').split(',').map(v => v.trim()).filter(Boolean).slice(0, 4);
   const stake = Math.max(0, numberQuery(req, 'stake', 20));
