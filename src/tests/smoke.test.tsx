@@ -18,11 +18,12 @@ async function mount(path: string) {
 }
 
 describe('application smoke tests', () => {
-  it('boots the shell and renders every dashboard section', async () => {
+  it('boots the shell and renders the redesigned dashboard contract', async () => {
     const { container, root } = await mount('/');
     const text = container.textContent ?? '';
-    for (const section of ['Wydarzenia sportowe', 'Szukaj drużyny lub ligi', 'Wszystkie', 'Sortuj']) expect(text).toContain(section);
-    expect(text).toContain('Mecze');
+    for (const section of ['Dzisiejsza inteligencja', 'Szukaj wydarzenia', 'Wszystkie sporty', 'Najważniejsze okazje', 'Decision Center', 'Human']) expect(text).toContain(section);
+    expect(text).toContain('Bet Builder');
+    expect(text).toContain('Execution');
     root.unmount();
   }, 25_000);
 
