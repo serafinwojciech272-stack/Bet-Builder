@@ -1,0 +1,278 @@
+/* ULTRA UX REDESIGN v1
+   Authoritative source: Wklejony kod markdown(3).md
+   Visual layer only. Domain and Core Engine contracts remain unchanged.
+*/
+:root{
+  --ux-bg:#05070D;
+  --ux-bg-2:#080B12;
+  --ux-panel:#101522;
+  --ux-panel-2:#141A26;
+  --ux-panel-3:#18202D;
+  --ux-border:rgba(255,255,255,.08);
+  --ux-border-strong:rgba(255,255,255,.12);
+  --ux-text:#FFFFFF;
+  --ux-text-2:#F4F6FA;
+  --ux-muted:#CBD5E1;
+  --ux-faint:#94A3B8;
+  --ux-dim:#64748B;
+  --ux-ai:#9B8CFF;
+  --ux-cyan:#78E4FF;
+  --ux-gold:#F0CB7A;
+  --ux-positive:#5EE6A5;
+  --ux-negative:#FF6675;
+  --ux-warning:#F5B95C;
+  --ux-radius:14px;
+  --ux-radius-sm:10px;
+  --ux-shadow:0 18px 55px rgba(0,0,0,.28);
+}
+
+html,body,#root{min-height:100%;background:var(--ux-bg);color:var(--ux-text)}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.club-backdrop{
+  min-height:100dvh;
+  overflow-x:clip;
+  background:
+    radial-gradient(700px 420px at 8% 0%,rgba(155,140,255,.055),transparent 70%),
+    radial-gradient(620px 420px at 92% 12%,rgba(120,228,255,.035),transparent 70%),
+    var(--ux-bg);
+}
+.club-backdrop::before,
+.club-backdrop::after,
+.club-backdrop main::after{display:none!important}
+
+header.sticky{
+  background:rgba(5,7,13,.94)!important;
+  border-bottom:1px solid var(--ux-border)!important;
+  backdrop-filter:blur(18px)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+}
+header.sticky>div>div:first-child{height:62px!important}
+header.sticky nav a{
+  border:1px solid transparent;
+  border-radius:10px!important;
+  transition:background .16s ease,border-color .16s ease,color .16s ease;
+}
+header.sticky nav a:hover{transform:none!important}
+header.sticky nav a[aria-current="page"]{
+  background:rgba(155,140,255,.10)!important;
+  border-color:rgba(155,140,255,.22)!important;
+  box-shadow:none!important;
+}
+header.sticky nav a[aria-current="page"]::after,
+header.sticky nav a:hover::after{display:none!important}
+
+.club-opportunity{display:none!important}
+.club-signal{font-size:9px!important;letter-spacing:.1em!important}
+.club-signal-dot{box-shadow:none!important}
+
+.bb-intel-rail{
+  margin-bottom:18px;
+  padding:9px 12px;
+  border:1px solid var(--ux-border);
+  border-radius:var(--ux-radius-sm);
+  background:rgba(16,21,34,.78);
+  box-shadow:none;
+  backdrop-filter:blur(14px);
+}
+.bb-rail-brand{font-size:8px!important;letter-spacing:.18em!important;color:var(--ux-faint)!important}
+.bb-rail-flow{gap:0!important}
+.bb-rail-node{min-width:92px!important}
+.bb-rail-index{display:none!important}
+.bb-rail-link{opacity:.35!important}
+.bb-rail-right{font-size:8px!important;color:var(--ux-faint)!important}
+
+.club-backdrop main{
+  max-width:1480px!important;
+  padding-top:18px!important;
+}
+.page-stage{min-width:0}
+
+.club-backdrop main article{
+  border:1px solid var(--ux-border)!important;
+  border-radius:var(--ux-radius)!important;
+  background:linear-gradient(145deg,rgba(16,21,34,.96),rgba(10,14,23,.96))!important;
+  box-shadow:var(--ux-shadow)!important;
+  transition:border-color .16s ease,box-shadow .16s ease!important;
+}
+.club-backdrop main article:hover{
+  transform:none!important;
+  border-color:var(--ux-border-strong)!important;
+  box-shadow:var(--ux-shadow)!important;
+}
+.club-backdrop main section{
+  border-color:var(--ux-border)!important;
+}
+.club-backdrop input,
+.club-backdrop select,
+.club-backdrop textarea{
+  min-height:40px;
+  border:1px solid var(--ux-border-strong)!important;
+  border-radius:10px!important;
+  background:var(--ux-panel)!important;
+  box-shadow:none!important;
+}
+.club-backdrop input:focus-visible,
+.club-backdrop select:focus-visible,
+.club-backdrop textarea:focus-visible{
+  outline:2px solid rgba(155,140,255,.45)!important;
+  outline-offset:2px;
+  border-color:rgba(155,140,255,.55)!important;
+  box-shadow:0 0 0 3px rgba(155,140,255,.10)!important;
+  transform:none!important;
+}
+.club-backdrop button,
+.club-backdrop a{
+  min-height:40px;
+}
+.club-backdrop button:focus-visible,
+.club-backdrop a:focus-visible{
+  outline:2px solid rgba(155,140,255,.62)!important;
+  outline-offset:2px!important;
+  box-shadow:none!important;
+}
+
+.club-backdrop main [class*="bg-gradient"],
+.club-backdrop main [class*="bg-gradient-to"],
+.club-backdrop main [class*="bg-gradient-to-br"]{
+  background-image:none!important;
+}
+.club-interface-hero,
+.club-interface-console,
+.bb-command-hero,
+.bb-ai-command,
+.bb-decision-cockpit{
+  background:var(--ux-panel)!important;
+  border:1px solid var(--ux-border)!important;
+  box-shadow:var(--ux-shadow)!important;
+  animation:none!important;
+}
+.club-interface-title span,
+.bb-hero-title span,
+.bb-ai-command h2 span{
+  background:none!important;
+  color:inherit!important;
+  animation:none!important;
+}
+.club-interface-title,
+.bb-hero-title{
+  letter-spacing:-.035em!important;
+  text-shadow:none!important;
+}
+.club-interface-console::before,
+.bb-command-hero::after,
+.bb-ai-command::before,
+.bb-decision-cockpit::before{display:none!important}
+
+.club-primary-cta{
+  min-height:44px;
+  border:1px solid rgba(240,203,122,.45)!important;
+  border-radius:10px!important;
+  background:rgba(240,203,122,.12)!important;
+  color:#fff!important;
+  box-shadow:none!important;
+}
+.club-primary-cta:hover{
+  background:rgba(240,203,122,.18)!important;
+  transform:none!important;
+}
+.club-secondary-cta{
+  min-height:44px;
+  border:1px solid rgba(155,140,255,.28)!important;
+  border-radius:10px!important;
+  background:rgba(155,140,255,.08)!important;
+  box-shadow:none!important;
+}
+.club-secondary-cta:hover{transform:none!important;background:rgba(155,140,255,.13)!important}
+
+.bb-proof-row{
+  border:1px solid var(--ux-border)!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.025)!important;
+}
+.bb-proof-row::after{display:none!important}
+.bb-decision-node:hover,
+.bb-ai-signal:hover,
+.bb-cockpit-layer:hover{transform:none!important;box-shadow:none!important}
+
+.club-backdrop main [class*="text-ai"],
+.club-backdrop main [class*="text-violet"]{color:var(--ux-ai)!important}
+.club-backdrop main [class*="text-market"],
+.club-backdrop main [class*="text-cyan"]{color:var(--ux-cyan)!important}
+.club-backdrop main [class*="text-positive"],
+.club-backdrop main [class*="text-emerald"],
+.club-backdrop main [class*="text-green"]{color:var(--ux-positive)!important;text-shadow:none!important}
+.club-backdrop main [class*="text-negative"],
+.club-backdrop main [class*="text-red"]{color:var(--ux-negative)!important;text-shadow:none!important}
+.club-backdrop main [class*="text-warn"],
+.club-backdrop main [class*="text-amber"],
+.club-backdrop main [class*="text-yellow"]{color:var(--ux-warning)!important;text-shadow:none!important}
+.club-backdrop main [class*="text-mission"]{color:var(--ux-gold)!important}
+
+.club-backdrop main .font-mono{
+  font-variant-numeric:tabular-nums;
+}
+.club-backdrop main h1{
+  font-size:clamp(1.75rem,3vw,2.65rem)!important;
+  line-height:1.05!important;
+}
+.club-backdrop main h2{
+  font-size:clamp(1.15rem,2vw,1.55rem)!important;
+  line-height:1.15!important;
+}
+.club-backdrop main h3{font-size:1rem!important}
+
+.bb-decision-cockpit,
+.bb-ai-command,
+.bb-command-hero{
+  border-radius:var(--ux-radius)!important;
+}
+
+.club-backdrop [aria-live="polite"]{
+  text-shadow:none!important;
+}
+.club-backdrop [role="status"]{text-shadow:none!important}
+
+.club-backdrop footer{
+  color:var(--ux-faint);
+}
+.club-backdrop footer .border-t{border-color:var(--ux-border)!important}
+
+@media(max-width:1023px){
+  .club-backdrop main{padding-top:14px!important}
+  .bb-intel-rail{overflow-x:auto}
+  .bb-rail-flow{min-width:max-content}
+}
+@media(max-width:767px){
+  header.sticky>div>div:first-child{height:56px!important}
+  .club-backdrop main{padding:12px 12px 92px!important}
+  .bb-intel-rail{margin-bottom:12px;padding:8px}
+  .bb-rail-right{display:none!important}
+  .bb-rail-node{min-width:76px!important}
+  .club-backdrop main article{border-radius:12px!important}
+  .club-backdrop main h1{font-size:1.65rem!important}
+  .club-backdrop main h2{font-size:1.2rem!important}
+  .club-backdrop button,
+  .club-backdrop a,
+  .club-backdrop input,
+  .club-backdrop select{min-height:44px}
+  .club-backdrop main [class*="grid-cols-"]{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+    scroll-behavior:auto!important;
+  }
+}
+@media(forced-colors:active){
+  .club-backdrop button:focus-visible,
+  .club-backdrop a:focus-visible,
+  .club-backdrop input:focus-visible,
+  .club-backdrop select:focus-visible{
+    outline:2px solid CanvasText!important;
+    box-shadow:none!important;
+  }
+}
