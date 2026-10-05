@@ -1,80 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Database, History, Info, LayoutDashboard, ListFilter, Radar, RefreshCw, Trophy, Search, ShieldCheck, X, XCircle, Zap, Sun, Moon, Volume2, VolumeX, Gauge, Sparkles, Orbit } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Activity, BarChart3, Clock3, History, LayoutDashboard, ListChecks, Moon, RefreshCw, Sun, Volume2, VolumeX, Zap, ShieldCheck } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
-import { Button, EngineBadge } from './ui';
 import { cx, relativeTime } from '../lib/format';
 import { LANGS, type Lang, applyLanguage, detectBrowserLang } from '../i18n';
 
 const NAV = [
-  { to: '/', label: 'Mecze', icon: ListFilter, key: 'e', end: true },
-  { to: '/builder', label: 'Kupon', icon: Zap, key: 'b', end: false },
-  { to: '/analysis', label: 'Analiza', icon: LayoutDashboard, key: 'a', end: false },
-  { to: '/missions', label: 'Misje', icon: Radar, key: 'm', end: false },
-  { to: '/history', label: 'Historia', icon: History, key: 'h', end: false },
+  {to:'/',label:'Home',icon:LayoutDashboard,key:'h',end:true},
+  {to:'/live',label:'Live',icon:Activity,key:'l',end:false},
+  {to:'/sports',label:'Sports',icon:ListChecks,key:'s',end:false},
+  {to:'/analysis',label:'Analiza',icon:BarChart3,key:'a',end:false},
+  {to:'/builder',label:'Builder',icon:Zap,key:'b',end:false},
+  {to:'/missions',label:'Misje',icon:Clock3,key:'m',end:false},
+  {to:'/history',label:'Historia',icon:History,key:'i',end:false},
 ];
-
-function Toasts() {
-  const { toasts, dismissToast } = useIntelligence();
-  if (!toasts.length) return null;
-  return <div aria-live="polite" aria-atomic="false" className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2">{toasts.map((t) => <div key={t.id} className={cx('rise pointer-events-auto flex items-start gap-3 rounded-2xl border px-4 py-3.5 shadow-2xl backdrop-blur-xl', t.tone === 'success' ? 'border-positive/40 bg-positive/[0.1]' : t.tone === 'error' ? 'border-negative/40 bg-negative/[0.1]' : 'border-ai/40 bg-ai/[0.08]')}>
-    {t.tone === 'success' ? <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-positive" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="mt-0.5 shrink-0 text-negative" aria-hidden /> : <Info size={15} className="mt-0.5 shrink-0 text-ai" aria-hidden />}
-    <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-foreground">{t.title}</p>{t.detail ? <p className="mt-0.5 break-words text-[11px] leading-relaxed text-muted">{t.detail}</p> : null}</div>
-    <button type="button" onClick={() => dismissToast(t.id)} className="text-faint transition-colors hover:text-foreground" aria-label="Zamknij"><X size={13} aria-hidden /></button>
-  </div>)}</div>;
-}
-function SettingsControls(){
-  const [lang,setLang]=useState<Lang>(()=>detectBrowserLang());
-  const [light,setLight]=useState(()=>localStorage.getItem('bb-theme')==='light');
-  const [sound,setSound]=useState(()=>localStorage.getItem('bb-sound')==='on');
-  const audioRef=useRef<AudioContext|null>(null);
-  useEffect(()=>{document.documentElement.dataset.theme=light?'light':'dark';localStorage.setItem('bb-theme',light?'light':'dark');},[light]);
-  useEffect(()=>{localStorage.setItem('bb-lang',lang);applyLanguage(lang);},[lang]);
-  useEffect(()=>{localStorage.setItem('bb-sound',sound?'on':'off');if(sound){const C=window.AudioContext||((window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext);if(C&&!audioRef.current){const ctx=new C();audioRef.current=ctx;const master=ctx.createGain();master.gain.value=.018;master.connect(ctx.destination);[174.61,261.63,329.63].forEach((hz,i)=>{const o=ctx.createOscillator();o.type='sine';o.frequency.value=hz;o.connect(master);o.start();setTimeout(()=>o.stop(),2200+i*300);});}}else{void audioRef.current?.close();audioRef.current=null;}},[sound]);
-  return <div className="flex items-center gap-1 rounded-xl border border-white/[.08] bg-white/[.025] p-1">
-    {LANGS.map(x=><button key={x.id} type="button" onClick={()=>setLang(x.id)} className={cx('rounded-lg px-2 py-1 text-[9px] font-bold',lang===x.id?'bg-ai/20 text-ai':'text-faint hover:text-foreground')}>{x.label}</button>)}
-    <button type="button" onClick={()=>setLight(v=>!v)} className="rounded-lg p-1.5 text-muted hover:text-foreground" aria-label="Motyw jasny lub ciemny">{light?<Moon size={13}/>:<Sun size={13}/>}</button>
-    <button type="button" onClick={()=>setSound(v=>!v)} className="rounded-lg p-1.5 text-muted hover:text-foreground" aria-label="Dźwięk włącz/wyłącz">{sound?<Volume2 size={13}/>:<VolumeX size={13}/>}</button>
-  </div>
-}
-
-function IntelligenceRail({ dataset, engine }: { dataset: ReturnType<typeof useIntelligence>['dataset']; engine: ReturnType<typeof useIntelligence>['engine'] }) {
-  const live = dataset?.events.filter((event) => event.status === 'live').length ?? 0;
-  const snapshots = dataset?.snapshots.length ?? 0;
-  const mode = dataset?.mode ?? 'SYNC';
-  const steps = [
-    { label: 'FEED', value: mode, tone: mode === 'LIVE' ? 'text-positive' : 'text-warn' },
-    { label: 'MARKETS', value: snapshots.toLocaleString('pl-PL'), tone: 'text-market' },
-    { label: 'LIVE', value: String(live), tone: live ? 'text-negative' : 'text-faint' },
-    { label: 'CORE', value: engine ? 'READY' : 'BOOT', tone: engine ? 'text-ai' : 'text-faint' },
-    { label: 'EXEC', value: 'GATED', tone: 'text-mission' },
-  ];
-  return <div className="bb-intel-rail" aria-label="Stan silnika inteligencji">
-    <div className="bb-rail-brand"><Orbit size={13} /><span>INTELLIGENCE FABRIC</span></div>
-    <div className="bb-rail-flow">
-      {steps.map((step, index) => <div key={step.label} className="bb-rail-node">
-        <span className="bb-rail-index">0{index + 1}</span>
-        <span className="bb-rail-label">{step.label}</span>
-        <strong className={step.tone}>{step.value}</strong>
-        {index < steps.length - 1 ? <span className="bb-rail-link" aria-hidden /> : null}
-      </div>)}
-    </div>
-    <div className="bb-rail-right"><Gauge size={12} /><span>CORE {engine?.coreVersion ?? '—'}</span><Sparkles size={12} className="text-ai" /><span>DECISION READY</span></div>
-  </div>;
-}
-
-function Brand() {
-  return <NavLink to="/" className="group flex min-w-0 items-center gap-3" aria-label="Bet Builder — strona główna"><span className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-ai/40 bg-ai/[0.12] shadow-[0_0_28px_rgba(139,124,255,.16)]"><span className="absolute inset-0 bg-gradient-to-br from-ai/20 via-transparent to-transparent" /><Zap size={17} className="relative text-ai transition-transform duration-300 group-hover:scale-110" aria-hidden /></span><span className="hidden leading-none sm:block"><span className="block font-display text-[15px] font-bold tracking-[-0.02em] text-foreground">Bet Builder</span><span className="mt-1 flex items-center gap-2 font-mono text-[8px] font-medium uppercase tracking-[0.22em] text-faint"><span className="club-spark" />Private Intelligence Club</span></span></NavLink>;
-}
-export function AppShell({ children }: { children: ReactNode }) {
-  const { engine, refresh, phase, lastRefreshedAt, nowTick, dataset, simulateEngineFailure } = useIntelligence();
-  const navigate = useNavigate(); const location = useLocation(); const pendingG = useRef(false);
-  useEffect(() => { const onKey = (e: KeyboardEvent) => { const target = e.target as HTMLElement | null; if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return; if (e.key.toLowerCase() === 'g') { pendingG.current = true; window.setTimeout(() => { pendingG.current = false; }, 1200); return; } if (pendingG.current) { const match = NAV.find((n) => n.key === e.key.toLowerCase()); if (match) { e.preventDefault(); navigate(match.to); } pendingG.current = false; return; } if (e.key.toLowerCase() === 'r' && !e.metaKey && !e.ctrlKey) void refresh(); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [navigate, refresh]);
-  const dataAge = dataset ? (nowTick - new Date(dataset.normalizedAt).getTime()) / 60_000 : 0; const feedMode = dataset?.mode ?? '—';
-  return <div className="min-h-screen grid-noise club-backdrop">
-    <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-ai focus:px-3 focus:py-2 focus:text-xs focus:font-semibold focus:text-ink">Przejdź do treści</a>
-    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-ink/80 backdrop-blur-2xl"><div className="mx-auto max-w-[1600px] px-4 sm:px-6"><div className="flex h-[68px] items-center gap-4"><Brand /><div className="hidden h-7 w-px bg-white/[0.07] lg:block" /><div className="hidden items-center gap-2 rounded-xl border border-orange-400/20 bg-orange-400/[0.05] px-3 py-1.5 lg:flex club-opportunity"><Trophy size={13} className="text-orange-300" aria-hidden /><span><span className="block font-mono text-[9px] font-bold uppercase tracking-[.16em] text-orange-200/90">Opportunity Radar</span><span className="mt-0.5 block text-[8px] text-orange-100/45">research · edge · decision</span></span></div><nav aria-label="Główna nawigacja" className="hidden lg:block"><ul className="flex items-center gap-1">{NAV.map((item) => <li key={item.to}><NavLink to={item.to} end={item.end} title={item.label} className={({ isActive }) => cx('group relative flex items-center gap-2 rounded-xl px-3.5 py-2 text-[12px] font-medium transition-all duration-200', isActive ? 'bg-white/[0.065] text-foreground' : 'text-muted hover:bg-white/[0.035] hover:text-foreground')}><item.icon size={14} className={cx('transition-colors', (location.pathname === item.to || (!item.end && location.pathname.startsWith(item.to))) ? 'text-ai' : 'text-faint group-hover:text-muted')} aria-hidden />{item.label}<kbd className="ml-1 rounded border border-line bg-surface-2 px-1 py-0.5 font-mono text-[8px] text-faint">{item.key}</kbd></NavLink></li>)}</ul></nav><div className="ml-auto flex items-center gap-2"><div className="hidden 2xl:flex club-signal"><span className="club-signal-dot" />LIVE INTELLIGENCE <span>·</span> PRIVATE MODE</div><SettingsControls /><button type="button" onClick={() => navigate('/events')} className="hidden h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-[11px] text-muted transition-all hover:border-ai/30 hover:bg-ai/[0.06] hover:text-foreground md:flex"><Search size={13} aria-hidden /><span>Szukaj wydarzeń</span><kbd className="ml-2 rounded border border-line px-1.5 py-0.5 font-mono text-[8px] text-faint">/</kbd></button><div className="hidden xl:flex items-center gap-2">{engine ? <EngineBadge label={engine.aiOnline ? 'AI gotowe · symulacja' : 'AI offline'} detail={engine.aiDetail} /> : null}{engine ? <EngineBadge label={`Core ${engine.coreVersion}`} detail={`Core Engine: ${engine.coreEngineId}. Wykonanie pieniężne: ${engine.monetaryExecution ? 'włączone' : 'wyłączone'}.`} /> : null}</div><Button variant="subtle" icon={<RefreshCw size={13} />} loading={phase === 'loading'} onClick={() => void refresh()} title="Odśwież dane" ariaLabel="Odśwież dane" /></div></div><div className="flex items-center gap-2 overflow-x-auto border-t border-white/[0.045] py-2 lg:hidden">{NAV.map((item) => <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => cx('flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium', isActive ? 'bg-ai/[0.12] text-ai ring-1 ring-ai/25' : 'text-muted')}><item.icon size={12} aria-hidden />{item.label}</NavLink>)}</div></div><div className="border-t border-white/[0.045] bg-black/10"><div className="mx-auto flex h-7 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6"><div className="flex min-w-0 items-center gap-2.5 font-mono text-[9px] uppercase tracking-[0.14em] text-faint"><span className="flex shrink-0 items-center gap-1.5 text-positive"><span className="live-dot h-1.5 w-1.5 rounded-full bg-positive" />system OK</span><span className="hidden text-line sm:inline">/</span><span className="hidden truncate sm:inline">dane → kursy → analiza → decyzja → kupon</span><span className="hidden rounded border border-white/[0.06] px-1.5 py-0.5 text-[8px] text-muted sm:inline">{feedMode}</span></div><div className="flex shrink-0 items-center gap-3 font-mono text-[9px] text-faint"><span className="hidden sm:inline"><Database size={9} className="mr-1 inline" />{dataset?.snapshots.length ?? 0} kursów</span><span>{lastRefreshedAt ? `odświeżono ${relativeTime(lastRefreshedAt, nowTick)}` : 'synchronizacja…'}</span>{dataAge > 5 ? <span className="text-warn">dane {Math.round(dataAge)} min</span> : null}</div></div></div></header>
-    <main id="main" className="mx-auto max-w-[1600px] px-4 py-7 sm:px-6 lg:py-9"><IntelligenceRail dataset={dataset} engine={engine} /><div className="page-stage">{children}</div></main>
-    <footer className="mx-auto max-w-[1600px] px-4 pb-10 pt-2 sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-5"><p className="flex items-center gap-2 text-[10px] text-faint"><ShieldCheck size={12} className="text-positive/70" aria-hidden />Dane deterministyczne · warstwa AI · bez realnych transakcji</p><p className="font-mono text-[9px] uppercase tracking-[0.14em] text-faint">Bet Builder / Inteligencja sportowa</p></div><button type="button" onClick={simulateEngineFailure} className="sr-only">Test błędu</button></footer><Toasts />
-  </div>;
-}
+function Controls(){const [lang,setLang]=useState<Lang>(()=>detectBrowserLang());const [light,setLight]=useState(false);const [sound,setSound]=useState(()=>localStorage.getItem('bb-sound')==='on');useEffect(()=>{applyLanguage(lang);localStorage.setItem('bb-lang',lang)},[lang]);return <div className="flex items-center gap-1">{LANGS.map(x=><button key={x.id} type="button" onClick={()=>setLang(x.id)} className={cx('min-h-[34px] rounded-md px-2 text-[9px] font-bold',lang===x.id?'bg-white/10 text-white':'text-slate-500 hover:text-white')}>{x.label}</button>)}<button type="button" aria-label="Motyw" onClick={()=>{setLight(v=>!v);document.documentElement.dataset.theme=!light?'light':'dark'}} className="grid min-h-[34px] min-w-[34px] place-items-center rounded-md text-slate-400 hover:bg-white/5 hover:text-white">{light?<Moon size={14}/>:<Sun size={14}/>}</button><button type="button" aria-label="Dźwięk" onClick={()=>{setSound(v=>!v);localStorage.setItem('bb-sound',!sound?'on':'off')}} className="hidden sm:grid min-h-[34px] min-w-[34px] place-items-center rounded-md text-slate-400 hover:bg-white/5 hover:text-white">{sound?<Volume2 size={14}/>:<VolumeX size={14}/>}</button></div>}
+export function AppShell({children}:{children:ReactNode}){const {dataset,engine,phase,refresh,lastRefreshedAt,nowTick}=useIntelligence();const navigate=useNavigate();const pending=useRef(false);useEffect(()=>{const fn=(e:KeyboardEvent)=>{if(['INPUT','TEXTAREA','SELECT'].includes((e.target as HTMLElement)?.tagName))return;if(e.key.toLowerCase()==='g'){pending.current=true;window.setTimeout(()=>pending.current=false,900);return}if(pending.current){const n=NAV.find(x=>x.key===e.key.toLowerCase());if(n){e.preventDefault();navigate(n.to)}pending.current=false}if(e.key.toLowerCase()==='r'&&!e.ctrlKey&&!e.metaKey)void refresh()};window.addEventListener('keydown',fn);return()=>window.removeEventListener('keydown',fn)},[navigate,refresh]);const live=dataset?.events.filter(e=>e.status==='live').length??0;const mode=dataset?.mode??'SYNC';const age=dataset?(nowTick-new Date(dataset.normalizedAt).getTime())/60000:0;return <div className="bb-shell"><header className="bb-topbar"><div className="bb-topbar-inner"><NavLink to="/" className="bb-brand"><span className="bb-brand-mark"><Zap size={15}/></span><span><span className="bb-brand-name">BET BUILDER</span><span className="bb-brand-sub">SPORTS INTELLIGENCE · DECISION CENTER</span></span></NavLink><nav className="bb-nav" aria-label="Główna nawigacja">{NAV.map(n=><NavLink key={n.to} to={n.to} end={n.end} className={({isActive})=>isActive?'active':''}><n.icon size={13}/>{n.label}<kbd className="hidden xl:inline text-[7px] text-slate-600">{n.key}</kbd></NavLink>)}</nav><div className="bb-status"><span className="bb-status-dot"/>{mode==='LIVE'?'LIVE DATA':mode==='DEMO'?'DEMO MODE':mode} · {live} LIVE</div><Controls/><button type="button" onClick={()=>void refresh()} aria-label="Odśwież dane" className="grid min-h-[34px] min-w-[34px] place-items-center rounded-md border border-white/10 text-slate-400 hover:text-white"><RefreshCw size={13} className={phase==='loading'?'animate-spin':''}/></button></div></header><main className="bb-workspace"><div className="mb-4 flex items-center justify-between gap-3 text-[8px] font-mono uppercase tracking-[.12em] text-slate-600"><span className="flex items-center gap-2"><ShieldCheck size={11} className="text-emerald-400"/> Human approval required before execution</span><span>{lastRefreshedAt?'Sync '+relativeTime(lastRefreshedAt,nowTick):age>0?'Data '+Math.round(age)+'m':'Syncing…'}</span></div>{children}</main></div>}
