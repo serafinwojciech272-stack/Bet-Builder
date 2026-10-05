@@ -22,7 +22,7 @@ describe('application smoke tests', () => {
     const { container, root } = await mount('/');
     const text = container.textContent ?? '';
     for (const section of ['Dzisiejsza inteligencja', 'Szukaj wydarzenia', 'Wszystkie sporty', 'Najważniejsze okazje', 'Decision Center', 'Human']) expect(text).toContain(section);
-    expect(text).toContain('Bet Builder');
+    expect(text).toContain('BET BUILDER');
     expect(text).toContain('Execution');
     root.unmount();
   }, 25_000);
