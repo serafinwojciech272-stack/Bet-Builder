@@ -1,161 +1,107 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Eye, Filter, Search, Swords, Trophy, Zap as ZapIcon } from 'lucide-react';
+import { Activity, BarChart3, Search, Zap } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { buildEventIntel } from '../state/selectors';
-import { canonicalSportKey, MARKET_LABELS, SPORT_LABELS } from '../domain/feed/normalization';
-import type { SportKey } from '../domain/types';
-import { Chip, EmptyState, ErrorState, LoadingState, Panel, SectionHeading, Stat } from '../components/ui';
-import { dateTime, relativeTime } from '../lib/format';
-import { AICommandCenter } from '../components/AICommandCenter';
+import { canonicalSportKey, SPORT_LABELS } from '../domain/feed/normalization';
+import type { Selection, SportKey } from '../domain/types';
+import { LoadingState, ErrorState } from '../components/ui';
 
-type SortKey = 'start' | 'edge' | 'movement';
+const pct=(v:number)=>Math.round(v*100)+'%';
+const edge=(v:number)=> (v>=0?'+':'')+v.toFixed(1)+'%';
+const riskClass=(r:string)=>r==='LOW'?'text-[#5ee6a5]':r==='HIGH'?'text-[#ff6675]':'text-[#f5b95c]';
 
-function localDateValue(date = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+function Telemetry({dataset,count}:{dataset:ReturnType<typeof useIntelligence>['dataset'];count:number}){
+ const live=dataset?.events.filter(e=>e.status==='live').length??0;
+ return <div className="bb-telemetry" aria-label="Live intelligence telemetry">
+  <div><small>Feed</small><strong>{dataset?.mode==='LIVE'?'LIVE':dataset?.mode==='DEMO'?'DEMO MODE':'SYNCING'}</strong></div>
+  <div><small>Events</small><strong>{count}</strong></div>
+  <div><small>Markets</small><strong>{dataset?.snapshots.length??'N/A'}</strong></div>
+  <div><small>Live</small><strong>{live}</strong></div>
+  <div><small>Core Engine</small><strong>{dataset?'READY':'N/A'}</strong></div>
+  <div><small>Execution</small><strong>GATED</strong></div>
+ </div>;
 }
 
-export function EventsPage() {
-  const { dataset, phase, error, refresh, nowTick, analyses, selectedDate } = useIntelligence();
-  const [query, setQuery] = useState('');
-  const [sport, setSport] = useState<SportKey | 'all'>('all');
-  const [monitoredOnly, setMonitoredOnly] = useState(false);
-  const [sort, setSort] = useState<SortKey>('start');
+function EventCard({intel,onAdd}:{intel:ReturnType<typeof buildEventIntel>[number];onAdd:(s:Selection)=>void}){
+ const {event,quality,value,risk}=intel;
+ const signals=value.signals.filter(s=>s.bestPrice.value>1).sort((a,b)=>b.edgePct.value-a.edgePct.value).slice(0,3);
+ const lead=signals[0];
+ const ranking=Number.isFinite(value.bestEdgePct.value)?value.bestEdgePct.value*quality.score.value:null;
+ const leadFair=lead&&lead.fairProbability.value>0?(1/lead.fairProbability.value).toFixed(2):'N/A';
+ return <article className="bb-event">
+  <div className="bb-event-head">
+   <div>
+    <div className="bb-event-meta"><span>{SPORT_LABELS[event.sportKey]}</span><span>·</span><span>{event.league.name}</span><span className={event.status==='live'?'bb-live':''}>{event.status==='live'?'LIVE':'PRE-MATCH'}</span></div>
+    <div className="bb-event-title">{event.homeTeam.name} <span className="text-slate-600">vs</span> {event.awayTeam.name}</div>
+   </div>
+   <div className="bb-time">{event.status==='live'?'LIVE':new Date(event.startTime).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</div>
+  </div>
+  <div className="bb-intel-strip">
+   <div><small>Edge</small><strong>{lead?edge(lead.edgePct.value):'N/A'}</strong></div>
+   <div><small>Confidence</small><strong>{lead?pct(lead.modelProbability.value):'N/A'}</strong></div>
+   <div><small>Data quality</small><strong>{quality.score.value?Math.round(quality.score.value*100)+'%':'N/A'}</strong></div>
+   <div><small>Risk</small><strong className={riskClass(risk.level)}>{risk.level}</strong></div>
+   <div><small>Opportunity rank</small><strong>{ranking===null?'N/A':ranking.toFixed(1)}</strong></div>
+  </div>
+  <div className="bb-insight">{lead?<><b>Core Engine signal:</b> {lead.label} · edge {edge(lead.edgePct.value)} · fair {leadFair} · {quality.grade} data.</>:<><b>Core Engine:</b> brak kwalifikowanego sygnału dla głównego rynku.</>}</div>
+  <div className="bb-markets">
+   {signals.map(s=><div className="bb-market" key={s.selectionId}><span>{s.label}</span><button type="button" onClick={()=>onAdd({id:s.selectionId,marketId:intel.market,eventId:event.id,name:s.label,shortName:s.label,odds:s.bestPrice.value,probability:s.modelProbability.value,impliedProbability:s.impliedProbability.value,value:s.edgePct.value/100,ev:s.evPerUnit.value,confidence:s.modelProbability.value,risk:risk.level==='HIGH'?'HIGH':risk.level==='ELEVATED'?'MEDIUM':'LOW',correlationGroup:intel.market})}>{s.bestPrice.value?s.bestPrice.value.toFixed(2):'N/A'}</button></div>)}
+  </div>
+  <div className="bb-actions">
+   <Link className="bb-action" to={'/analysis/'+event.id}><BarChart3 size={13}/> Analiza</Link>
+   <Link className="bb-action" to={'/sports/'+event.id}><Activity size={13}/> Event</Link>
+   <Link className="bb-action primary" to="/builder"><Zap size={13}/> Builder</Link>
+  </div>
+ </article>;
+}
 
-  const intel = useMemo(() => (dataset ? buildEventIntel(dataset, new Date(nowTick)) : []), [dataset, nowTick]);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const rows = intel.filter((i) => {
-      if (monitoredOnly && !i.event.monitored) return false;
-      if (sport !== 'all' && i.event.sportKey !== sport) return false;
-      return !q || i.event.homeTeam.name.toLowerCase().includes(q) || i.event.awayTeam.name.toLowerCase().includes(q) || i.event.league.name.toLowerCase().includes(q);
-    });
-    const bestEdge = (x: typeof rows[number]) => Math.max(...x.value.signals.map((s) => s.edgePct.value), -99);
-    return rows.sort((a, b) => sort === 'edge' ? bestEdge(b) - bestEdge(a) : sort === 'movement' ? (b.movement?.maxAbsChangePct.value ?? 0) - (a.movement?.maxAbsChangePct.value ?? 0) : a.event.startTime.localeCompare(b.event.startTime));
-  }, [intel, query, sport, monitoredOnly, sort]);
-  const sports = useMemo(() => {
-    const fromCatalog = (dataset?.availableSports ?? [])
-      .map((s) => canonicalSportKey(s.key, s.group, s.title))
-      .filter((s): s is SportKey => Boolean(s));
-    return [...new Set(fromCatalog.length ? fromCatalog : intel.map((i) => i.event.sportKey))];
-  }, [dataset?.availableSports, intel]);
-  const sportLabel = (key: SportKey) => ({ soccer: 'Piłka nożna', basketball: 'Koszykówka', americanfootball: 'Futbol amerykański', icehockey: 'Hokej', baseball: 'Baseball', tennis: 'Tenis', volleyball: 'Siatkówka', golf: 'Golf', handball: 'Piłka ręczna', rugby: 'Rugby', tabletennis: 'Tenis stołowy', darts: 'Dart', cricket: 'Krykiet', aussierules: 'Aussie Rules' } satisfies Record<SportKey,string>)[key];
-  const onSportChange = (next: SportKey | 'all') => { setSport(next); void refresh(selectedDate, true, next); };
+function DecisionPanel({dataset}:{dataset:ReturnType<typeof useIntelligence>['dataset']}){
+ const live=dataset?.events.filter(e=>e.status==='live').length??0;
+ const status=dataset?.mode==='LIVE'?'READY':dataset?.mode==='DEMO'?'REVIEW':'SYNCING';
+ const statusClass=status==='READY'?'bb-verdict-ready':'bb-verdict-review';
+ return <section className="bb-decision-panel" aria-label="Decision Center">
+  <div className="bb-decision-head"><div className="bb-decision-label">Decision Center</div><div className="bb-decision-verdict"><div><div className="text-[9px] text-slate-500">DECISION</div><strong className={statusClass}>{status}</strong></div><span className="text-[8px] font-mono text-slate-600">Core state</span></div></div>
+  <div className="bb-decision-metrics">
+   <div><small>Data freshness</small><strong>{dataset?.mode==='LIVE'?'LIVE':'N/A'}</strong></div>
+   <div><small>Live events</small><strong>{live}</strong></div>
+   <div><small>Source health</small><strong>{dataset?.providerHealth?.state??'N/A'}</strong></div>
+   <div><small>Source quality</small><strong>{dataset?.providerHealth?.successfulSports??'N/A'}</strong></div>
+  </div>
+  <div className="bb-gate">
+   <div className="bb-kicker">Approval Gate</div>
+   <div className="bb-gate-row"><span className="bb-gate-dot ok"/><span>Decision</span><b>CORE</b></div>
+   <div className="bb-gate-row"><span className="bb-gate-dot wait"/><span>Approval</span><b>HUMAN</b></div>
+   <div className="bb-gate-row"><span className="bb-gate-dot"/><span>Execution permission</span><b>GATED</b></div>
+   <div className="bb-gate-row"><span className="bb-gate-dot"/><span>Outcome</span><b>LEARNING</b></div>
+  </div>
+  <div className="p-3 text-[9px] leading-5 text-slate-500">UI pokazuje stan Control Plane. Żaden przycisk nie omija bramy akceptacji.</div>
+ </section>;
+}
 
-  if (phase === 'loading' || phase === 'idle') return <LoadingState label="Ładowanie wydarzeń…" rows={5} />;
-  if (phase === 'error') return <ErrorState title="Nie udało się pobrać wydarzeń" detail={error ?? undefined} onRetry={() => void refresh()} retryLabel="Spróbuj ponownie" />;
-
-  return (
-    <div className="space-y-7">
-      <section className="bb-command-hero rise">
-        <div className="bb-hero-grid" aria-hidden="true" />
-        <div className="bb-hero-orb" aria-hidden="true"><span /><span /><span /></div>
-        <div className="bb-hero-copy">
-          <div className="bb-eyebrow"><span className="club-spark" /> BET BUILDER · PRIVATE INTELLIGENCE CLUB <span className="bb-live-pill"><span className="live-dot" /> LIVE ENGINE</span></div>
-          <h1 className="bb-hero-title">Od kursu do decyzji.<br/><span>Bez chaosu. Z inteligencją.</span></h1>
-          <p className="bb-hero-lead">Jedna powierzchnia łączy live markets, deterministic intelligence, AI analysis i mission execution. Zbuduj kupon jak operator, nie jak przypadkowy gracz.</p>
-          <div className="bb-hero-actions">
-            <Link to="/builder" className="club-primary-cta"><ZapIcon /> Otwórz Bet Builder</Link>
-            <Link to="/analysis" className="club-secondary-cta"><Eye size={14} /> Intelligence Center</Link>
-          </div>
-          <div className="bb-proof-row">
-            <span><b>{filtered.length || '—'}</b> events monitored</span><i /> <span><b>{dataset?.snapshots.length ?? '—'}</b> market snapshots</span><i /> <span><b>{dataset?.mode === 'LIVE' ? 'LIVE' : 'DEMO'}</b> feed integrity</span>
-          </div>
-        </div>
-        <div className="bb-hero-console">
-          <div className="bb-console-top"><span><span className="club-signal-dot" /> CORE ENGINE</span><span>v1.0</span></div>
-          <div className="bb-console-ring"><div><strong>READY</strong><small>decision layer</small></div></div>
-          <div className="bb-console-lines"><span><b>01</b> INGEST <em>OK</em></span><span><b>02</b> NORMALIZE <em>OK</em></span><span><b>03</b> INTELLIGENCE <em>READY</em></span><span><b>04</b> EXECUTION <em>GATED</em></span></div>
-        </div>
-      </section>
-
-      <section className="bb-decision-ribbon rise" aria-label="Łańcuch inteligencji">
-        <div className="bb-decision-node" data-tone="ai"><small>01 · INGEST</small><strong>LIVE FEED</strong><span>kursy, eventy, snapshoty</span></div>
-        <div className="bb-decision-node" data-tone="ai"><small>02 · NORMALIZE</small><strong>ONE MODEL</strong><span>spójny kontrakt danych</span></div>
-        <div className="bb-decision-node" data-tone="gold"><small>03 · INTELLIGENCE</small><strong>EDGE ENGINE</strong><span>value · risk · movement</span></div>
-        <div className="bb-decision-node" data-tone="green"><small>04 · DECISION</small><strong>CONTROL GATE</strong><span>evidence przed akcją</span></div>
-        <div className="bb-decision-node" data-tone="red"><small>05 · MISSION</small><strong>HUMAN APPROVAL</strong><span>execute → measure → learn</span></div>
-      </section>
-
-      <AICommandCenter />
-
-      <SectionHeading title="Wydarzenia sportowe" subtitle="Wybierz wydarzenie. Silnik przeprowadzi Cię od danych rynkowych przez analizę do decyzji." icon={<Eye size={18} className="text-ai" aria-hidden />} />
-      <Panel className="p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="min-w-[220px] flex-1 text-[11px] text-faint">Szukaj drużyny lub ligi
-            <span className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-2.5 py-2">
-              <Search size={13} className="text-faint" aria-hidden /><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="np. Arsenal, NBA…" className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-faint" />
-            </span>
-          </label>
-          <label className="text-[11px] text-faint">Data
-            <span className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-2.5 py-1.5">
-              <CalendarDays size={13} className="text-ai" aria-hidden /><input type="date" value={selectedDate} onChange={(e) => { if (e.target.value) void refresh(e.target.value, true); }} className="bg-transparent text-xs text-foreground outline-none" />
-            </span>
-          </label>
-          <button type="button" onClick={() => void refresh(localDateValue(), true)} className="rounded-lg border border-ai/30 bg-ai/10 px-3 py-2 text-[11px] font-medium text-ai">Dzisiaj</button>
-          <label className="text-[11px] text-faint">Dyscyplina
-            <select value={sport} onChange={(e) => onSportChange(e.target.value as SportKey | 'all')} className="mt-1 block rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs text-foreground">
-              <option value="all">Wszystkie dyscypliny</option>{sports.map((s) => <option key={s} value={s}>{sportLabel(s)}</option>)}
-            </select>
-          </label>
-          <label className="text-[11px] text-faint">Sortuj
-            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="mt-1 block rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs text-foreground">
-              <option value="start">Godzina</option><option value="edge">Wartość</option><option value="movement">Ruch kursu</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11px] text-muted"><input type="checkbox" checked={monitoredOnly} onChange={(e) => setMonitoredOnly(e.target.checked)} /> <Filter size={12} /> Tylko monitorowane</label>
-          <span className="ml-auto text-[11px] text-faint">{filtered.length} wydarzeń</span>
-        </div>
-      </Panel>
-
-      <div className="flex items-center justify-between">
-        <div><h2 className="text-lg font-semibold text-foreground">{selectedDate}</h2><p className="text-xs text-muted">{dataset?.mode === 'LIVE' ? 'Dane z aktualnego źródła kursów' : 'Tryb demonstracyjny — źródło live niedostępne'}</p></div>
-        <Chip tone={dataset?.mode === 'LIVE' ? 'positive' : 'warn'}>{dataset?.mode === 'LIVE' ? 'LIVE' : 'DEMO'}</Chip>
-      </div>
-
-      {filtered.length === 0 ? <EmptyState title="Brak wydarzeń dla wybranych filtrów" detail="Zmień datę, dyscyplinę albo wyszukiwanie." /> : (
-        <ul className="space-y-3">{filtered.map((i) => {
-          const best = [...i.value.signals].sort((a, b) => b.edgePct.value - a.edgePct.value)[0];
-          const hasAnalysis = analyses.some((a) => a.eventId === i.event.id);
-          const isLive = i.event.status === 'live';
-          return <li key={i.event.id}><Panel className="p-4 transition-colors hover:border-ai/40">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Chip tone="neutral">{SPORT_LABELS[i.event.sportKey]}</Chip>
-                  <Chip tone={isLive ? 'negative' : 'positive'}>{isLive ? 'NA ŻYWO' : 'NADCHODZĄCE'}</Chip>
-                  {hasAnalysis ? <Chip tone="ai">ANALIZA GOTOWA</Chip> : null}
-                </div>
-                <Link to={`/analysis/${i.event.id}`} className="mt-2 block text-lg font-semibold text-foreground hover:text-ai">{i.event.homeTeam.name} <span className="text-faint">vs</span> {i.event.awayTeam.name}</Link>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
-                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-faint"><Trophy size={11} className="text-ai" /> League</div>
-                    <div className="mt-1 text-xs font-semibold text-foreground">{i.event.league.name}</div>
-                  </div>
-                  <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
-                    <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.12em] text-faint"><Swords size={11} className="text-market" /> Event</div>
-                    <div className="mt-1 text-xs font-semibold text-foreground">{isLive ? 'Live event' : 'Scheduled event'}</div>
-                  </div>
-                  <div className="rounded-lg border border-line bg-surface-2 px-3 py-2">
-                    <div className="text-[9px] uppercase tracking-[0.12em] text-faint">Market</div>
-                    <div className="mt-1 text-xs font-semibold text-market">{MARKET_LABELS[i.market]}</div>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs font-medium text-foreground"><CalendarDays size={12} className="mr-1 inline text-ai" />{dateTime(i.event.startTime)} <span className="text-faint">· {relativeTime(i.event.startTime, nowTick)}</span></p>
-              </div>
-              <div className="flex flex-col justify-between gap-3 lg:w-[280px]">
-                <div className="grid grid-cols-3 gap-2">
-                  <Stat label="Najlepszy kurs" value={best?.bestPrice.formatted ?? '—'} tone="market" />
-                  <Stat label="Wartość" value={best?.edgePct.formatted ?? '—'} tone={(best?.edgePct.value ?? 0) > 0 ? 'positive' : 'default'} />
-                  <Stat label="Ryzyko" value={i.risk.level === 'LOW' ? 'NISKIE' : i.risk.level === 'ELEVATED' ? 'PODWYŻSZONE' : i.risk.level === 'HIGH' ? 'WYSOKIE' : 'KRYTYCZNE'} mono={false} />
-                </div>
-                <Link to={`/analysis/${i.event.id}`} className="inline-flex items-center justify-center rounded-lg border border-ai/30 bg-ai/10 px-3 py-2 text-[11px] font-semibold text-ai hover:bg-ai/15">Analyze event →</Link>
-              </div>
-            </div>
-          </Panel></li>;
-        })}</ul>
-      )}
-      {dataset?.mode === 'DEMO' ? <Panel className="border-warn/30 bg-warn/[.05] p-4"><p className="text-xs text-warn"><strong>Uwaga:</strong> pokazany zestaw jest demonstracyjny. Aplikacja nie będzie udawać danych live, jeśli API kursów nie odpowiada.</p></Panel> : null}
-    </div>
-  );
+export function EventsPage(){
+ const {dataset,phase,error,refresh,nowTick}=useIntelligence();
+ const [sport,setSport]=useState<SportKey|'all'>('all');
+ const [query,setQuery]=useState('');
+ const [liveOnly,setLiveOnly]=useState(false);
+ const intel=useMemo(()=>dataset?buildEventIntel(dataset,new Date(nowTick)):[],[dataset,nowTick]);
+ const sports=useMemo(()=>{const list=(dataset?.availableSports??[]).map(s=>canonicalSportKey(s.key,s.group,s.title)).filter((x):x is SportKey=>Boolean(x));return [...new Set(list.length?list:intel.map(i=>i.event.sportKey))]},[dataset?.availableSports,intel]);
+ const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return intel.filter(i=>(sport==='all'||i.event.sportKey===sport)&&(!liveOnly||i.event.status==='live')&&(!q||i.event.homeTeam.name.toLowerCase().includes(q)||i.event.awayTeam.name.toLowerCase().includes(q)||i.event.league.name.toLowerCase().includes(q))).sort((a,b)=>b.value.bestEdgePct.value*b.quality.score.value-a.value.bestEdgePct.value*a.quality.score.value)},[intel,sport,liveOnly,query]);
+ if(phase==='loading'&&!dataset)return <LoadingState label="Synchronizacja danych sportowych…" rows={6}/>;
+ if(phase==='error'&&!dataset)return <ErrorState title="Źródło danych niedostępne" detail={error??'Live bookmaker data is unavailable.'} onRetry={()=>void refresh()} retryLabel="Ponów synchronizację"/>;
+ return <div className="bb-grid">
+  <section className="bb-main">
+   <div className="bb-page-head"><div><div className="bb-kicker">BET BUILDER · SPORTS INTELLIGENCE</div><h1 className="bb-page-title">Dzisiejsza inteligencja</h1><span className="sr-only">Wydarzenia sportowe</span><p className="bb-page-lead">Core Engine filtruje dostępne wydarzenia i porządkuje sygnały według edge, jakości danych i ryzyka. Ranking pomaga znaleźć obszary do analizy. Nie zastępuje decyzji silnika.</p></div><Link className="bb-action primary" to="/builder"><Zap size={14}/> Otwórz Builder</Link></div>
+   <Telemetry dataset={dataset} count={filtered.length}/>
+   <div className="bb-filterbar">
+    <label className="sr-only" htmlFor="event-search">Szukaj wydarzenia</label><div className="flex min-h-[38px] flex-1 items-center gap-2 rounded-lg border border-white/[.07] bg-[#0c101a] px-3"><Search size={13} className="text-slate-500"/><input id="event-search" className="w-full border-0 bg-transparent p-0 outline-none" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Szukaj drużyny lub ligi"/></div>
+    <select aria-label="Sport" value={sport} onChange={e=>setSport(e.target.value as SportKey|'all')}><option value="all">Wszystkie sporty</option>{sports.map(s=><option key={s} value={s}>{SPORT_LABELS[s]}</option>)}</select>
+    <button type="button" className={liveOnly?'active':''} onClick={()=>setLiveOnly(v=>!v)}>{liveOnly?'LIVE':'Wszystkie'}</button>
+   </div>
+   <div className="bb-section-title"><h2>Najważniejsze okazje</h2><span>{filtered.length} wydarzeń · edge × jakość danych</span></div>
+   <div className="bb-events">{filtered.map(i=><EventCard key={i.event.id} intel={i} onAdd={()=>{}}/>)}{!filtered.length?<div className="bb-event"><strong>Brak kwalifikowanych okazji</strong><p className="mt-2 text-xs text-slate-400">Core Engine sprawdził dostępne wydarzenia, lecz bieżące filtry nie zwróciły kwalifikowanego sygnału.</p></div>:null}</div>
+  </section>
+  <aside className="bb-side"><DecisionPanel dataset={dataset}/></aside>
+  <div className="bb-sticky-mobile"><Link className="bb-action primary" to="/builder">Builder</Link><Link className="bb-action" to="/analysis">Decyzje</Link></div>
+ </div>;
 }
