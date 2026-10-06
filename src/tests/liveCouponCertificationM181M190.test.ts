@@ -42,7 +42,21 @@ describe('M181-M190 live coupon certification', () => {
     expect(c.legs[0].bookmakerCount).toBe(2);
     expect(c.gate.humanApprovalRequired).toBe(true);
     expect(c.gate.executionAllowed).toBe(false);
-    expect(c.evidenceHash).toHaveLength(8);
+    expect(c.evidenceHash).toHaveLength(16);
+  });
+
+  it('blocks provider-stale state even when snapshot age is fresh', () => {
+    const degraded = { ...dataset, providerHealth: { ...dataset.providerHealth, state: 'STALE' } } as any;
+    const c = certifyCoupon(degraded, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
+    expect(c.status).toBe('BLOCKED');
+    expect(c.reasons).toContain('PROVIDER_STALE');
+  });
+
+  it('blocks future-dated market snapshots', () => {
+    const future = { ...dataset, snapshots: dataset.snapshots.map(s => ({ ...s, capturedAt: '2026-10-06T19:05:00.000Z' })) } as any;
+    const c = certifyCoupon(future, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
+    expect(c.status).toBe('BLOCKED');
+    expect(c.reasons).toContain('FUTURE_CAPTURE_TIMESTAMP');
   });
 
   it('blocks stale live data', () => {
