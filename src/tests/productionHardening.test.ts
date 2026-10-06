@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {M45_M100} from '../core/monetizationStages';import {validateHardeningEvidence} from '../core/productionHardening';import {snapshotPrediction,settlePrediction} from '../core/predictionLedger';import {acceptBillingWebhook} from '../core/billingGate';import {evaluateRiskPolicy} from '../core/riskPolicy';
+describe('M45-M100 production hardening',()=>{
+ it('contains exactly 56 ordered stages',()=>{expect(M45_M100).toHaveLength(56);expect(M45_M100[0].id).toBe('M45');expect(M45_M100[55].id).toBe('M100');});
+ it('does not release without evidence',()=>expect(validateHardeningEvidence([]).releaseCandidate).toBe(false));
+ it('rejects duplicate prediction settlement',()=>{const r=snapshotPrediction({id:'p',createdAt:'2026-10-06T10:00:00Z',eventId:'e',selection:'x',probability:.7,odds:2,modelVersion:'v1',outcome:'PENDING',capturedAt:'2026-10-06T10:00:00Z'});const s=settlePrediction(r,{id:'p',outcome:'WON',settledAt:'2026-10-06T12:00:00Z'});expect(()=>settlePrediction(s,{id:'p',outcome:'LOST',settledAt:'2026-10-06T13:00:00Z'})).toThrow('OUTCOME_ALREADY_SETTLED');});
+ it('is idempotent at billing boundary',()=>{const seen=new Set<string>();const event={id:'1',type:'CHECKOUT_COMPLETED' as const,customerId:'c',productId:'pro-monthly',occurredAt:'2026-10-06T10:00:00Z',providerEventId:'evt-1'};expect(acceptBillingWebhook({providerEventId:'evt-1',signatureValid:true,event},seen).accepted).toBe(true);expect(acceptBillingWebhook({providerEventId:'evt-1',signatureValid:true,event},seen).reason).toBe('DUPLICATE_EVENT');});
+ it('keeps live execution blocked by default',()=>expect(evaluateRiskPolicy({selections:[],dataFreshness:1,evidenceQuality:1,providerState:'HEALTHY'}).decision).toBe('BLOCKED'));
+});
