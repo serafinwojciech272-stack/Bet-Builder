@@ -154,7 +154,6 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
     const bestOdds = books[0]?.odds ?? leg.marketOdds;
     const avg = books.length ? books.reduce((a, b) => a + b.odds, 0) / books.length : leg.marketOdds;
     const fairProbability = fairProbabilityForSelection(dataset, leg.eventId, leg.label, leg.probability);
-    const independentEdge = leg.probability - fairProbability;
     const legReasons: string[] = [];
     if (!books.length) legReasons.push('NO_BOOKMAKER_SNAPSHOT');
     if (books.length < 2) legReasons.push('SINGLE_BOOKMAKER');
