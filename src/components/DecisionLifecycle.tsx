@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CircleDot, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
-import { DECISION_STAGES, decisionLabel, isGate, stageIndex, type DecisionStage } from '../core/decisionLifecycle';
+import {
+  DECISION_STAGES,
+  decisionLabel,
+  coreStageFor,
+  coreStageLabel,
+  isGate,
+  stageIndex,
+  type DecisionStage,
+} from '../core/decisionLifecycle';
 
 type EvidenceKind = 'LIVE' | 'MODEL' | 'HUMAN' | 'HISTORICAL';
 type Evidence = { kind: EvidenceKind; title: string; detail: string; freshness: string; confidence: number };
@@ -15,19 +23,21 @@ export function DecisionLifecycle(){
   const [active,setActive]=useState<DecisionStage>('VERIFY');
   const [approved,setApproved]=useState(false);
   const index=stageIndex(active);
-  const gateReady=active==='APPROVE' && approved;
+  const coreStage=coreStageFor(active);
+  const corePermissionConfirmed=false;
+  const gateReady=active==='EXECUTE' && approved && corePermissionConfirmed;
   const executionLocked=!gateReady;
   const evidenceScore=useMemo(()=>Math.round(evidence.reduce((a,b)=>a+b.confidence,0)/evidence.length),[]);
 
   return <section className="bb-lifecycle" aria-label="Decision lifecycle and execution safety">
     <div className="bb-lifecycle-head">
       <div>
-        <span className="bb-eyebrow"><Sparkles size={11}/> CORE DECISION SPINE · M25–M42</span>
+        <span className="bb-eyebrow"><Sparkles size={11}/> CORE ENGINE STAGE CONTRACT · M43</span>
         <h2>Decision lifecycle</h2>
-        <p>Evidence → decision → human approval → controlled execution → outcome → learning.</p>
+        <p>Product stages remain compact while each stage maps to the canonical Core Engine lifecycle.</p>
       </div>
-      <div className={`bb-gate-badge ${gateReady?'ready':'locked'}`}>
-        {gateReady?<CheckCircle2 size={14}/>:<LockKeyhole size={14}/>}
+      <div className="bb-gate-badge locked">
+        <LockKeyhole size={14}/>
         {gateReady?'EXECUTION PERMISSION':'EXECUTION LOCKED'}
       </div>
     </div>
@@ -57,18 +67,20 @@ export function DecisionLifecycle(){
       </div>
 
       <div className="bb-gate-panel">
-        <div className="bb-panel-title"><LockKeyhole size={13}/> Human Approval Gate</div>
+        <div className="bb-panel-title"><LockKeyhole size={13}/> Core Engine mapping</div>
         <div className="bb-gate-copy">
-          <strong>{active==='APPROVE'?'Decision ready for human review':'Approval is intentionally downstream of verification.'}</strong>
-          <p>No client-side action can claim execution. Provider execution remains locked until the approval state is explicitly confirmed by the core execution policy.</p>
+          <strong>{coreStage} · {coreStageLabel(coreStage)}</strong>
+          <p>Current product stage <b>{active}</b> maps to the canonical Core Engine stage <b>{coreStage}</b>. Opportunity detection remains an internal intelligence result rather than a second execution pipeline.</p>
         </div>
         <label className="bb-approval-toggle">
           <input type="checkbox" checked={approved} onChange={e=>setApproved(e.target.checked)} disabled={active!=='APPROVE'}/>
           <span>Human approval confirmed</span>
         </label>
-        <div className={`bb-safety-note ${executionLocked?'locked':'ready'}`}>
-          {executionLocked?<AlertTriangle size={14}/>:<CheckCircle2 size={14}/>}
-          {executionLocked?'Execution permission unavailable — observational/safe mode remains locked.':'Approval recorded in this local UI; authoritative execution permission must still come from the Core Engine.'}
+        <div className="bb-safety-note locked">
+          <AlertTriangle size={14}/>
+          {executionLocked
+            ? 'Execution permission is separate from human approval and must be explicitly confirmed by Core Engine policy.'
+            : 'Execution permission confirmed by Core Engine.'}
         </div>
       </div>
     </div>
