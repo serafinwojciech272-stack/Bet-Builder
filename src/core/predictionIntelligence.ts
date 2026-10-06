@@ -5,7 +5,7 @@ import { summarizeLearning } from './outcomeLearning';
 export type ReplayOutcome = 'PENDING' | 'WON' | 'LOST' | 'PUSH' | 'VOID';
 export interface DecisionReplay {
   predictionId:string; eventId:string; capturedAt:string; modelVersion:string;
-  outcome:ReplayOutcome; probability:number; impliedProbability:number; edge:number;
+  outcome:ReplayOutcome; settledAt?:string; probability:number; impliedProbability:number; edge:number;
   confidence:number; risk:string; odds:number; reasons:string[];
   stages:string[];
 }
