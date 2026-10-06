@@ -72,7 +72,7 @@ export function enrichPrediction(prediction:Prediction, context:PredictionIntell
   const edge=calculateEdge({probability:probability.probability,odds:prediction.marketOdds,marketProbability:probability.impliedProbability});
   const explanation=explainPrediction({
     probability:probability.probability,
-    marketImpliedProbability:probability.impliedProbability,
+    impliedProbability:probability.impliedProbability,
     edgePct:edge.edgePct,
     confidence:confidence.band,
     risk:prediction.risk,
