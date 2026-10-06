@@ -1,0 +1,13 @@
+export type OutcomeStatus='PENDING'|'WON'|'LOST'|'PUSH'|'VOID';
+export interface PredictionRecord { id:string; createdAt:string; eventId:string; selection:string; probability:number; odds:number; modelVersion:string; outcome:OutcomeStatus; settledAt?:string; }
+export interface LearningSummary { total:number; settled:number; wins:number; losses:number; pushes:number; hitRate:number; brierScore:number; simulatedRoi:number; calibration:number; }
+const validProbability=(p:number)=>Number.isFinite(p)&&p>=0&&p<=1;
+export function summarizeLearning(records:PredictionRecord[]):LearningSummary {
+ const valid=records.filter(r=>validProbability(r.probability)&&Number.isFinite(r.odds)&&r.odds>1);
+ const settled=valid.filter(r=>r.outcome!=='PENDING'&&r.outcome!=='VOID'),wins=settled.filter(r=>r.outcome==='WON').length,losses=settled.filter(r=>r.outcome==='LOST').length,pushes=settled.filter(r=>r.outcome==='PUSH').length;
+ const hitRate=settled.length?wins/settled.length:0;
+ const brier=settled.length?settled.reduce((s,r)=>s+(r.probability-(r.outcome==='WON'?1:r.outcome==='LOST'?0:.5))**2,0)/settled.length:0;
+ const roi=settled.length?settled.reduce((s,r)=>s+(r.outcome==='WON'?r.odds-1:r.outcome==='LOST'?-1:0),0)/settled.length:0;
+ const calibration=settled.length?Math.max(0,1-Math.abs(settled.reduce((s,r)=>s+r.probability,0)/settled.length-hitRate)):0;
+ return {total:records.length,settled:settled.length,wins,losses,pushes,hitRate,brierScore:brier,simulatedRoi:roi,calibration};
+}

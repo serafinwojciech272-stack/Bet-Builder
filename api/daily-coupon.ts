@@ -82,6 +82,9 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
   const stake = Math.max(0, numberQuery(req, 'stake', 20));
   const maxLegs = Math.max(1, Math.min(12, Math.round(numberQuery(req, 'maxLegs', 5))));
   const sport = req.query?.sport ?? 'all';
+  const targetOdds = Math.max(0, numberQuery(req, 'targetOdds', 0));
+  const minOdds = Math.max(1.01, numberQuery(req, 'minOdds', 1.25));
+  const maxOdds = Math.max(minOdds, numberQuery(req, 'maxOdds', 4.5));
   const port = Number(process.env.PORT ?? 10000);
 
   try {
@@ -94,8 +97,9 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
       bookmakers,
       stake,
       maxLegs,
-      minOdds: 1.25,
-      maxOdds: 4.5,
+      minOdds,
+      maxOdds,
+      targetCombinedOdds: targetOdds || undefined,
       providerHealth: dataset.providerHealth ? {
         provider: dataset.providerHealth.provider,
         state: dataset.providerHealth.state,
