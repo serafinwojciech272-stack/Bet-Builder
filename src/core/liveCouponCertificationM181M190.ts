@@ -1,5 +1,6 @@
 import type { CanonicalDataset } from '../domain/repositories';
 import type { CouponResult } from './couponEngine';
+import { devigMarket } from './marketDevig';
 
 export type LiveCertificationStatus = 'CERTIFIED' | 'REVIEW' | 'BLOCKED' | 'NO_LIVE_DATA';
 export type FreshnessBand = 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN';
@@ -113,10 +114,28 @@ function snapshotQuotes(dataset: CanonicalDataset, eventId: string, selectionLab
     .sort((a, b) => b.odds - a.odds);
 }
 
-function proportionalFair(odds: number[]): number {
-  const implied = odds.map(o => 1 / o);
-  const total = implied.reduce((a, b) => a + b, 0);
-  return total > 0 ? clamp(1 / (odds[0] ?? 1) / total) : 0;
+function fairProbabilityForSelection(dataset: CanonicalDataset, eventId: string, selectionLabel: string, fallback: number): number {
+  const labelKey = selectionLabel.trim().toLowerCase();
+  const bestByLabel = new Map<string, { selectionId: string; odds: number }>();
+  for (const snapshot of dataset.snapshots) {
+    if (snapshot.eventId !== eventId) continue;
+    for (const quote of snapshot.quotes) {
+      if (!finite(quote.decimalOdds) || quote.decimalOdds <= 1) continue;
+      const key = quote.label.trim().toLowerCase();
+      const current = bestByLabel.get(key);
+      if (!current || quote.decimalOdds > current.odds) {
+        bestByLabel.set(key, { selectionId: key || quote.selectionId, odds: quote.decimalOdds });
+      }
+    }
+  }
+  const market = [...bestByLabel.values()];
+  if (market.length < 2) return clamp(fallback);
+  try {
+    const result = devigMarket(market);
+    return result.prices.find(p => p.selectionId === labelKey)?.fairProbability ?? clamp(fallback);
+  } catch {
+    return clamp(fallback);
+  }
 }
 
 export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, now = Date.now()): CouponCertification {
@@ -134,7 +153,7 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
     const books = snapshotQuotes(dataset, leg.eventId, leg.label);
     const bestOdds = books[0]?.odds ?? leg.marketOdds;
     const avg = books.length ? books.reduce((a, b) => a + b.odds, 0) / books.length : leg.marketOdds;
-    const fairProbability = books.length ? proportionalFair(books.map(b => b.odds)) : clamp(leg.probability);
+    const fairProbability = fairProbabilityForSelection(dataset, leg.eventId, leg.label, leg.probability);
     const independentEdge = leg.probability - fairProbability;
     const legReasons: string[] = [];
     if (!books.length) legReasons.push('NO_BOOKMAKER_SNAPSHOT');
