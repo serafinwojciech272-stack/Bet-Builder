@@ -1,7 +1,17 @@
 import type { Selection } from '../domain/types';
 export type PolicyDecision='CLEAR'|'REVIEW'|'BLOCKED';
-export type RiskReason='STALE_DATA'|'LOW_CONFIDENCE'|'HIGH_CORRELATION'|'CRITICAL_RISK'|'NEGATIVE_EV'|'INVALID_PRICE'|'INVALID_PROBABILITY'|'INSUFFICIENT_EVIDENCE'|'SOURCE_DEGRADED'|'DUPLICATE_EVENT'|'LIVE_EVENT';
-export interface RiskPolicyInput { selections:Selection[]; dataFreshness:number; evidenceQuality:number; providerState:'HEALTHY'|'DEGRADED'|'STALE'|'OFFLINE'; allowLive?:boolean; }
+export type RiskReason='STALE_DATA'|'LOW_CONFIDENCE'|'HIGH_CORRELATION'|'CRITICAL_RISK'|'NEGATIVE_EV'|'INVALID_PRICE'|'INVALID_PROBABILITY'|'INSUFFICIENT_EVIDENCE'|'SOURCE_DEGRADED'|'DUPLICATE_EVENT'|'LIVE_EVENT'|'POINT_IN_TIME_FAILURE'|'REFERENCE_MARKET_INELIGIBLE'|'DATA_LEAKAGE'|'MODEL_DRIFT'|'PROVIDER_DISCREPANCY'|'STRESS_BREACH'|'EXPOSURE_CONCENTRATION';
+export interface RiskIntelligenceInput {
+ pointInTimeValid?:boolean;
+ referenceMarketEligible?:boolean;
+ dataLeakageFree?:boolean;
+ driftSeverity?:'NONE'|'LOW'|'MEDIUM'|'HIGH';
+ providerReconciled?:boolean;
+ stressBreached?:boolean;
+ maxCorrelation?:number;
+ exposureConcentration?:number;
+}
+export interface RiskPolicyInput { selections:Selection[]; dataFreshness:number; evidenceQuality:number; providerState:'HEALTHY'|'DEGRADED'|'STALE'|'OFFLINE'; allowLive?:boolean; riskIntelligence?:RiskIntelligenceInput; }
 export interface RiskPolicyResult { decision:PolicyDecision; score:number; reasons:RiskReason[]; trace:string[]; }
 const clamp=(v:number)=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0));
 export function evaluateRiskPolicy(input:RiskPolicyInput):RiskPolicyResult {
@@ -16,11 +26,20 @@ export function evaluateRiskPolicy(input:RiskPolicyInput):RiskPolicyResult {
  if(s.some(x=>!Number.isFinite(x.probability)||x.probability<=0||x.probability>=1))reasons.push('INVALID_PROBABILITY');
  if(new Set(s.map(x=>x.eventId)).size<s.length)reasons.push('DUPLICATE_EVENT');
  if(s.some(x=>x.eventId.startsWith('live:'))&&!input.allowLive)reasons.push('LIVE_EVENT');
+ const ri=input.riskIntelligence;
+ if(ri?.pointInTimeValid===false)reasons.push('POINT_IN_TIME_FAILURE');
+ if(ri?.referenceMarketEligible===false)reasons.push('REFERENCE_MARKET_INELIGIBLE');
+ if(ri?.dataLeakageFree===false)reasons.push('DATA_LEAKAGE');
+ if(ri?.driftSeverity==='MEDIUM'||ri?.driftSeverity==='HIGH')reasons.push('MODEL_DRIFT');
+ if(ri?.providerReconciled===false)reasons.push('PROVIDER_DISCREPANCY');
+ if(ri?.stressBreached===true)reasons.push('STRESS_BREACH');
+ if(typeof ri?.maxCorrelation==='number'&&ri.maxCorrelation>=.8)reasons.push('HIGH_CORRELATION');
+ if(typeof ri?.exposureConcentration==='number'&&ri.exposureConcentration>=.5)reasons.push('EXPOSURE_CONCENTRATION');
  const probability=s.reduce((p,x)=>p*x.probability,1),odds=s.reduce((p,x)=>p*x.odds,1);
  if(s.length&&probability*odds-1<0)reasons.push('NEGATIVE_EV');
  const unique=[...new Set(reasons)]; const confidence=s.length?s.reduce((a,x)=>a+x.confidence,0)/s.length:0;
  const score=clamp(input.dataFreshness*.3+input.evidenceQuality*.3+confidence*.25+(input.providerState==='HEALTHY'?.15:0));
- const hard=['CRITICAL_RISK','INVALID_PRICE','INVALID_PROBABILITY','INSUFFICIENT_EVIDENCE','DUPLICATE_EVENT'].some(x=>unique.includes(x as RiskReason));
+ const hard=['CRITICAL_RISK','INVALID_PRICE','INVALID_PROBABILITY','INSUFFICIENT_EVIDENCE','DUPLICATE_EVENT','POINT_IN_TIME_FAILURE','REFERENCE_MARKET_INELIGIBLE','DATA_LEAKAGE','STRESS_BREACH'].some(x=>unique.includes(x as RiskReason));
  const decision=hard||input.providerState==='OFFLINE'?'BLOCKED':unique.length?'REVIEW':'CLEAR';
  return {decision,score,reasons:unique,trace:[`Risk score ${(score*100).toFixed(0)}%; policy ${decision}.`,...unique.map(x=>`reason=${x}`)]};
 }
