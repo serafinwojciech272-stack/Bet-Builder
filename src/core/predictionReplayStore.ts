@@ -32,7 +32,7 @@ export class BrowserPredictionReplayRepository implements ReplayRepository {
     const index=this.rows.findIndex(r=>r.predictionId===id);
     if(index<0) throw new Error('PREDICTION_REPLAY_NOT_FOUND');
     if(this.rows[index].outcome!=='PENDING') throw new Error('PREDICTION_REPLAY_ALREADY_SETTLED');
-    const next={...this.rows[index],outcome,stages:[...this.rows[index].stages],capturedAt:this.rows[index].capturedAt};
+    const next={...this.rows[index],outcome,stages:[...this.rows[index].stages],capturedAt:this.rows[index].capturedAt,settledAt};
     this.rows=[...this.rows.slice(0,index),next,...this.rows.slice(index+1)];
     safeWrite(this.rows);
     return next;
