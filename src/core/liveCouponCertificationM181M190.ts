@@ -17,6 +17,8 @@ export interface CouponDataProvenance {
   realData: boolean;
   liveOdds: boolean;
   warnings: string[];
+  couponBookmakerCount: number;
+  couponBookmakers: string[];
 }
 
 export interface CouponFreshness {
@@ -90,6 +92,8 @@ export function couponDataProvenance(dataset: CanonicalDataset): CouponDataProve
     realData: dataset.provider !== 'demo' && dataset.mode !== 'DEMO',
     liveOdds,
     warnings: dataset.providerHealth?.warnings ?? dataset.issues.map(i => i.message).slice(0, 6),
+    couponBookmakerCount: 0,
+    couponBookmakers: [],
   };
 }
 
@@ -109,13 +113,14 @@ function snapshotQuotes(dataset: CanonicalDataset, eventId: string, selectionId:
   return dataset.snapshots
     .filter(s => s.eventId === eventId)
     .flatMap(s => s.quotes
-      .filter(q => q.label.trim().toLowerCase() === key || q.selectionId.trim().toLowerCase() === idKey || q.selectionId.trim().toLowerCase().endsWith(':' + key))
+      .filter(q => (idKey && q.selectionId.trim().toLowerCase() === idKey) || (!q.selectionId && q.label.trim().toLowerCase() === key) || (!idKey && q.selectionId.trim().toLowerCase().endsWith(':' + key)))
       .map(q => ({ bookmaker: String(s.bookmaker), odds: q.decimalOdds, capturedAt: s.capturedAt })))
     .filter(q => finite(q.odds) && q.odds > 1)
     .sort((a, b) => b.odds - a.odds);
 }
 
-function fairProbabilityForSelection(dataset: CanonicalDataset, eventId: string, selectionLabel: string, fallback: number): number {
+function fairProbabilityForSelection(dataset: CanonicalDataset, eventId: string, selectionId: string, selectionLabel: string, fallback: number): number {
+  const idKey = selectionId.trim().toLowerCase();
   const labelKey = selectionLabel.trim().toLowerCase();
   const bestByLabel = new Map<string, { selectionId: string; odds: number }>();
   for (const snapshot of dataset.snapshots) {
@@ -133,7 +138,7 @@ function fairProbabilityForSelection(dataset: CanonicalDataset, eventId: string,
   if (market.length < 2) return clamp(fallback);
   try {
     const result = devigMarket(market);
-    return result.prices.find(p => p.selectionId === labelKey)?.fairProbability ?? clamp(fallback);
+    return result.prices.find(p => p.selectionId.trim().toLowerCase() === idKey)?.fairProbability ?? result.prices.find(p => p.selectionId.trim().toLowerCase() === labelKey)?.fairProbability ?? clamp(fallback);
   } catch {
     return clamp(fallback);
   }
@@ -157,14 +162,14 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
     const books = snapshotQuotes(dataset, leg.eventId, leg.selectionId, leg.label);
     const bestOdds = books[0]?.odds ?? leg.marketOdds;
     const avg = books.length ? books.reduce((a, b) => a + b.odds, 0) / books.length : leg.marketOdds;
-    const fairProbability = fairProbabilityForSelection(dataset, leg.eventId, leg.label, leg.probability);
+    const fairProbability = fairProbabilityForSelection(dataset, leg.eventId, leg.selectionId, leg.label, leg.probability);
     const legReasons: string[] = [];
     if (!books.length) legReasons.push('NO_BOOKMAKER_SNAPSHOT');
     if (books.length < 2) legReasons.push('SINGLE_BOOKMAKER');
     if (!finite(leg.probability) || leg.probability <= 0 || leg.probability >= 1) legReasons.push('INVALID_PROBABILITY');
     if (!finite(bestOdds) || bestOdds <= 1) legReasons.push('INVALID_ODDS');
     return {
-      eventId: leg.eventId, selectionId: leg.selectionId, label: leg.label, odds: leg.marketOdds,
+      eventId: leg.eventId, selectionId: leg.selectionId, label: leg.label, odds: bestOdds,
       probability: leg.probability, ev: leg.ev, bookmakers: books, bookmakerCount: books.length,
       bestOdds, consensusOdds: avg, fairProbability, correlationGroup: leg.marketId,
       valid: legReasons.length === 0, reasons: legReasons,
@@ -175,6 +180,9 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
   for (const leg of coupon.legs) groups.set(leg.marketId, (groups.get(leg.marketId) ?? 0) + 1);
   const duplicated = [...groups.values()].some(n => n > 1);
   const correlationPenalty = duplicated ? 0.25 : 0;
+  const contributingBookmakers = [...new Set(legs.flatMap(l => l.bookmakers.map(b => b.bookmaker)))].sort();
+  provenance.couponBookmakerCount = contributingBookmakers.length;
+  provenance.couponBookmakers = contributingBookmakers;
   const meanIndependentEdge = legs.length ? legs.reduce((a, l) => a + (l.probability - l.fairProbability), 0) / legs.length : 0;
   const independentEdge = meanIndependentEdge - correlationPenalty;
   if (duplicated) reasons.push('CORRELATED_OR_DUPLICATE_MARKET');
