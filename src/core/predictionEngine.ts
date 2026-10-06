@@ -28,6 +28,7 @@ export interface PredictionIntelligence {
   ensembleProbability:number;
   modelAgreement:number;
   ensembleMode:'SINGLE_MODEL_FALLBACK'|'MULTI_MODEL';
+  confidenceScore:number;
   confidenceBand:'LOW'|'MEDIUM'|'HIGH'|'VERY_HIGH';
   confidenceReasons:string[];
   edgePct:number;
@@ -79,7 +80,7 @@ export function enrichPrediction(prediction:Prediction, context:PredictionIntell
     factors:[{id:'ensemble',direction:ensemble.agreement>=.75?'SUPPORTING':'NEUTRAL',label:'Model agreement',weight:ensemble.agreement}],
   });
   return {
-    ensembleProbability:probability.probability,modelAgreement:ensemble.agreement,ensembleMode:multiModel?'MULTI_MODEL':'SINGLE_MODEL_FALLBACK',confidenceBand:confidence.band,
+    ensembleProbability:probability.probability,modelAgreement:ensemble.agreement,ensembleMode:multiModel?'MULTI_MODEL':'SINGLE_MODEL_FALLBACK',confidenceScore:confidence.score,confidenceBand:confidence.band,
     confidenceReasons:confidence.reasons,edgePct:edge.edgePct,expectedValue:edge.expectedValue,fairOdds:edge.fairOdds,
     lineMovement:context.oddsHistory?.length?analyzeLineMovement(context.oddsHistory):undefined,
     closingLine:context.closingOdds&&context.closingReferenceSource&&context.closingReferenceTimestamp
