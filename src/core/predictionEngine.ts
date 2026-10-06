@@ -27,6 +27,7 @@ export interface PredictionIntelligenceContext {
 export interface PredictionIntelligence {
   ensembleProbability:number;
   modelAgreement:number;
+  ensembleMode:'SINGLE_MODEL_FALLBACK'|'MULTI_MODEL';
   confidenceBand:'LOW'|'MEDIUM'|'HIGH'|'VERY_HIGH';
   confidenceReasons:string[];
   edgePct:number;
@@ -51,6 +52,7 @@ export function predictSelection(s:Selection):Prediction {
 
 export function enrichPrediction(prediction:Prediction, context:PredictionIntelligenceContext={}):PredictionIntelligence {
   if(!(prediction.marketOdds>1)) throw new Error('PREDICTION_ODDS_INVALID');
+  const multiModel=Boolean(context.modelVotes?.length && context.modelVotes.length>1);
   const votes=context.modelVotes?.length?context.modelVotes:[{modelVersion:prediction.modelVersion,probability:prediction.probability,weight:1}];
   const ensemble=buildEnsemble(votes);
   const probability=deriveProbability({
@@ -77,7 +79,7 @@ export function enrichPrediction(prediction:Prediction, context:PredictionIntell
     factors:[{id:'ensemble',direction:ensemble.agreement>=.75?'SUPPORTING':'NEUTRAL',label:'Model agreement',weight:ensemble.agreement}],
   });
   return {
-    ensembleProbability:probability.probability,modelAgreement:ensemble.agreement,confidenceBand:confidence.band,
+    ensembleProbability:probability.probability,modelAgreement:ensemble.agreement,ensembleMode:multiModel?'MULTI_MODEL':'SINGLE_MODEL_FALLBACK',confidenceBand:confidence.band,
     confidenceReasons:confidence.reasons,edgePct:edge.edgePct,expectedValue:edge.expectedValue,fairOdds:edge.fairOdds,
     lineMovement:context.oddsHistory?.length?analyzeLineMovement(context.oddsHistory):undefined,
     closingLine:context.closingOdds&&context.closingReferenceSource&&context.closingReferenceTimestamp
