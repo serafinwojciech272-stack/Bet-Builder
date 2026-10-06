@@ -6,8 +6,8 @@ import { certifyCoupon, couponDataProvenance, couponFreshness } from '../core/li
 const dataset = {
   events: [{ id: 'e1', sportKey: 'soccer', league: { id: 'l1', name: 'Test League', sportKey: 'soccer' }, homeTeam: { id: 'h', name: 'Home' }, awayTeam: { id: 'a', name: 'Away' }, startTime: '2026-10-06T19:00:00.000Z', status: 'scheduled' }],
   snapshots: [
-    { id: 's1', eventId: 'e1', market: 'match-winner', bookmaker: 'book_a', capturedAt: '2026-10-06T18:59:30.000Z', quotes: [{ label: 'Home', decimalOdds: 2.1, selectionId: 'sel1' }], feedLatencyMs: 1000, provider: 'parlay-api' },
-    { id: 's2', eventId: 'e1', market: 'match-winner', bookmaker: 'book_b', capturedAt: '2026-10-06T18:59:40.000Z', quotes: [{ label: 'Home', decimalOdds: 2.2, selectionId: 'sel1' }], feedLatencyMs: 1000, provider: 'parlay-api' },
+    { id: 's1', eventId: 'e1', market: 'match-winner', bookmaker: 'book_a', capturedAt: '2026-10-06T18:59:30.000Z', quotes: [{ label: 'Home', decimalOdds: 2.1, selectionId: 'sel1' }, { label: 'Away', decimalOdds: 3.2, selectionId: 'sel2' }], feedLatencyMs: 1000, provider: 'parlay-api' },
+    { id: 's2', eventId: 'e1', market: 'match-winner', bookmaker: 'book_b', capturedAt: '2026-10-06T18:59:40.000Z', quotes: [{ label: 'Home', decimalOdds: 2.2, selectionId: 'sel1' }, { label: 'Away', decimalOdds: 3.1, selectionId: 'sel2' }], feedLatencyMs: 1000, provider: 'parlay-api' },
   ],
   issues: [], droppedRecords: 0, normalizedAt: '2026-10-06T18:59:40.000Z', provider: 'parlay-api', mode: 'LIVE',
   bookmakers: ['book_a', 'book_b'],
@@ -64,8 +64,6 @@ describe('M181-M190 live coupon certification', () => {
     expect(c.status).toBe('BLOCKED');
     expect(c.reasons).toContain('STALE_OR_UNKNOWN_FRESHNESS');
   });
-});
-
 
   it('matches bookmaker quotes by selectionId before label', () => {
     const renamed = {
@@ -86,3 +84,5 @@ describe('M181-M190 live coupon certification', () => {
     expect(c.legs[0].bestOdds).toBe(2.2);
     expect(c.legs[0].odds).toBe(2.2);
   });
+
+});
