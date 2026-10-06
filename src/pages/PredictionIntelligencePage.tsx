@@ -2,7 +2,7 @@ import {useMemo,useState} from 'react';
 import {BrainCircuit,ChevronRight,Clock3,GitCompareArrows,RefreshCw,ShieldCheck,Target,Trophy,Workflow} from 'lucide-react';
 import {useIntelligence} from '../state/IntelligenceProvider';
 import {liveEvents} from '../services/liveAdapter';
-import {predictSelection} from '../core/predictionEngine';
+import {enrichPrediction,predictSelection} from '../core/predictionEngine';
 import {explainPrediction,buildModelTournament,type DecisionReplay} from '../core/predictionIntelligence';
 import {BrowserPredictionReplayRepository} from '../core/predictionReplayStore';
 import {Panel,SectionHeading,Chip,Stat,Meter,Button,EmptyState} from '../components/ui';
@@ -18,6 +18,8 @@ export default function PredictionIntelligencePage(){
  const replayRepo=useMemo(()=>new BrowserPredictionReplayRepository(),[]);
  const [replay,setReplay]=useState<DecisionReplay|null>(()=>null);
  const selected=predictions.find(p=>p.selectionId===selectedId)??predictions[0]??null;
+ const settledSample=tournament.reduce((s,x)=>s+x.settled,0);
+ const intelligence=selected?enrichPrediction(selected,{sampleSize:settledSample,evidenceQuality:1,dataFreshness:1}):null;
  const explanation=selected?explainPrediction(selected):null;
  const tournament=useMemo(()=>buildModelTournament(analyses.flatMap(r=>{if(!r.outcome)return [];const estimate=r.analysis.probabilityEstimates[0]?.modelProbability.value??0.5;const value=r.analysis.valueSignals[0];const odds=value?.bestPrice.value??2;return [{id:r.id,createdAt:r.analysis.generatedAt,eventId:r.eventId,selection:value?.selectionId??r.eventId,probability:estimate,odds,modelVersion:r.analysis.meta.modelVersion,outcome:r.outcome?.outcome===1?'WON':'LOST' as const}];}),20),[analyses]);
  const inspect=async()=>{if(!selected)return;setReplay(replayRepo.snapshot(selected));await runAnalysis(selected.eventId,{depth:'deep'});};
@@ -53,7 +55,7 @@ export default function PredictionIntelligencePage(){
    <Panel tone="ai" className="p-5">
     <SectionHeading index="02" title="Why AI thinks so" subtitle="Argumenty wspierające, neutralne i przeciwne — bez narracji o pewnej wygranej." icon={<BrainCircuit size={16} className="text-ai"/>}/>
     {selected&&explanation?<div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4"><Stat label="Probability" value={pct(selected.probability)} tone="ai"/><Stat label="Market implied" value={pct(1/selected.marketOdds)} tone="market"/><Stat label="Edge" value={(selected.edge*100).toFixed(1)+'%'} tone={selected.edge>0?'positive':'negative'}/><Stat label="Confidence" value={pct(selected.confidence)} /></div>
+      <div className="grid gap-3 sm:grid-cols-4"><Stat label="Probability" value={pct(intelligence?.ensembleProbability??selected.probability)} tone="ai"/><Stat label="Market implied" value={pct(1/selected.marketOdds)} tone="market"/><Stat label="Edge" value={(intelligence?.edgePct??selected.edge*100).toFixed(1)+'%'} tone={(intelligence?.edgePct??selected.edge*100)>0?'positive':'negative'}/><Stat label="Confidence" value={pct(intelligence?.confidenceBand==='VERY_HIGH'?0.9:intelligence?.confidenceBand==='HIGH'?0.8:intelligence?.confidenceBand==='MEDIUM'?0.6:0.35)} /></div>
       <div className="rounded-xl border border-ai/20 bg-ai/[.06] p-4"><div className="flex flex-wrap items-center justify-between gap-2"><b>{explanation.headline}</b><Chip tone={selected.risk==='LOW'?'positive':selected.risk==='MEDIUM'?'warn':'negative'}>{selected.risk} RISK</Chip></div><div className="mt-3"><Meter value={selected.confidence} label="confidence"/></div></div>
       <div className="grid gap-3 md:grid-cols-3">
        <Factor title="SUPPORTING" tone="positive" items={explanation.supporting}/>
