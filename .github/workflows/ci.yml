@@ -57,3 +57,5 @@ jobs:
         run: npm run test:persistence-e2e
 
 # QA persistence E2E gate: push-triggered verification.
+
+# Dependency install intentionally skips lifecycle scripts; build runs in the explicit production-build gate.
