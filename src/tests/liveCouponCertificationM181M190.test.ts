@@ -1,3 +1,5 @@
+import type { CanonicalDataset } from '../domain/repositories';
+import type { CouponResult } from '../core/couponEngine';
 import { describe, expect, it } from 'vitest';
 import { certifyCoupon, couponDataProvenance, couponFreshness } from '../core/liveCouponCertificationM181M190';
 
@@ -10,13 +12,13 @@ const dataset = {
   issues: [], droppedRecords: 0, normalizedAt: '2026-10-06T18:59:40.000Z', provider: 'parlay-api', mode: 'LIVE',
   bookmakers: ['book_a', 'book_b'],
   providerHealth: { provider: 'parlay-api', state: 'HEALTHY', fetchedAt: '2026-10-06T18:59:40.000Z', ageSeconds: 0, staleAfterSeconds: 120, catalogCount: 1, queriedSports: 1, successfulSports: 1, failedSports: 0, eventCount: 1, snapshotCount: 2, bookmakerCount: 2, warnings: [] },
-} as any;
+} as unknown as CanonicalDataset;
 
 const coupon = {
   status: 'READY', targetOdds: 2, combinedOdds: 2.1, stake: 20, potentialReturn: 42, potentialProfit: 22,
   estimatedProbability: .55, estimatedEv: .155, blockers: [], warnings: [], rationale: [],
   legs: [{ eventId: 'e1', selectionId: 'sel1', label: 'Home', league: 'Test League', startTime: '2026-10-06T19:00:00.000Z', marketId: 'e1:match-winner', marketOdds: 2.1, probability: .55, impliedProbability: 1/2.1, value: .155, ev: .155, confidence: .8, risk: 'LOW', correlationGroup: 'e1:match-winner' }],
-} as any;
+} as unknown as CouponResult;
 
 describe('M181-M190 live coupon certification', () => {
   it('marks non-demo live data and exposes bookmakers', () => {
