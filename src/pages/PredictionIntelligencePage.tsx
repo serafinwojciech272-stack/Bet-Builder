@@ -99,7 +99,7 @@ function TrustLayerCard({layer,sampleSize}:{layer:ReturnType<typeof buildCockpit
    <Stat label="Evidence" value={trustLayerEvidenceScore(layer).toFixed(2)} hint="weighted evidence quality"/>
    <Stat label="Uncertainty" value={layer.decision.confidence.toFixed(2)} hint={layer.uncertainty}/>
    <Stat label="Sample" value={trustLayerSampleLabel(sampleSize)} hint="ranking never promoted from thin data"/>
-   <Stat label="Risk" value={d.risk} tone={d.risk==='LOW'?'positive':d.risk==='CRITICAL'?'negative':'warn'}/>
+   <Stat label="Risk" value={d.risk} tone={d.risk==='LOW'?'positive':d.risk==='CRITICAL'?'negative':'default'}/>
   </div>
   <div className="mt-4 grid gap-3 md:grid-cols-3">
    <div className="rounded-xl border border-line bg-surface-2 p-3"><div className="text-[9px] uppercase tracking-widest text-faint">Decision evidence</div><div className="mt-2 space-y-2">{d.evidence.map(e=><div key={e.id} className="flex justify-between gap-3 text-[10px]"><span className="text-muted">{e.label}</span><b>{e.value}</b></div>)}</div></div>
