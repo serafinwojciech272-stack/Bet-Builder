@@ -73,7 +73,6 @@ export function enrichPrediction(prediction:Prediction, context:PredictionIntell
   const explanation=explainPrediction({
     probability:probability.probability,
     impliedProbability:probability.impliedProbability,
-    edgePct:edge.edgePct,
     confidence:confidence.band,
     risk:prediction.risk,
     factors:[{id:'ensemble',direction:ensemble.agreement>=.75?'SUPPORTING':'NEUTRAL',label:'Model agreement',weight:ensemble.agreement}],
