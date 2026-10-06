@@ -2,9 +2,9 @@ import {useMemo,useState} from 'react';
 import {BrainCircuit,ChevronRight,Clock3,GitCompareArrows,RefreshCw,ShieldCheck,Target,Trophy,Workflow} from 'lucide-react';
 import {useIntelligence} from '../state/IntelligenceProvider';
 import {liveEvents} from '../services/liveAdapter';
-import {predictSelection,type Prediction} from '../core/predictionEngine';
+import {predictSelection} from '../core/predictionEngine';
 import {createDecisionReplay,explainPrediction,buildModelTournament,type DecisionReplay} from '../core/predictionIntelligence';
-import {Panel,SectionHeading,Chip,Stat,Meter,Button,OriginTag,EmptyState} from '../components/ui';
+import {Panel,SectionHeading,Chip,Stat,Meter,Button,EmptyState} from '../components/ui';
 import {cx} from '../lib/format';
 
 function pct(v:number){return (v*100).toFixed(0)+'%';}
