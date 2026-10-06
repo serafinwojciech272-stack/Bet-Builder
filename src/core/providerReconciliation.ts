@@ -1,0 +1,7 @@
+export interface ProviderQuote { provider:string; eventId:string; selectionId:string; odds:number; capturedAt:string; }
+export interface ReconciliationResult { eventId:string; selectionId:string; providers:string[]; minOdds:number; maxOdds:number; spreadPct:number; timestampsAligned:boolean; status:'MATCH'|'DISCREPANCY'|'INVALID'; }
+export function reconcileProviderQuotes(quotes:ProviderQuote[],maxTimestampSkewSeconds=30):ReconciliationResult[]{
+ const groups=new Map<string,ProviderQuote[]>();
+ for(const q of quotes){if(!q.provider||!q.eventId||!q.selectionId||!Number.isFinite(q.odds)||q.odds<=1||Number.isNaN(Date.parse(q.capturedAt)))continue;const k=q.eventId+'|'+q.selectionId;const a=groups.get(k)??[];a.push(q);groups.set(k,a);}
+ return [...groups].map(([key,qs])=>{const [eventId,selectionId]=key.split('|');const odds=qs.map(q=>q.odds),minOdds=Math.min(...odds),maxOdds=Math.max(...odds),spreadPct=minOdds>0?(maxOdds-minOdds)/minOdds:1;const ts=qs.map(q=>Date.parse(q.capturedAt));const timestampsAligned=Math.max(...ts)-Math.min(...ts)<=maxTimestampSkewSeconds*1000;const status=!timestampsAligned?'INVALID':spreadPct<=.05?'MATCH':'DISCREPANCY';return {eventId,selectionId,providers:[...new Set(qs.map(q=>q.provider))],minOdds,maxOdds,spreadPct,timestampsAligned,status};});
+}
