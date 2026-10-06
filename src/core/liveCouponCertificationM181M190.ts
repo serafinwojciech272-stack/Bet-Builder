@@ -128,6 +128,7 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
   if (!provenance.liveOdds) reasons.push('NO_LIVE_ODDS');
   if (freshness.band === 'STALE' || freshness.band === 'UNKNOWN') reasons.push('STALE_OR_UNKNOWN_FRESHNESS');
   if (dataset.providerHealth?.state === 'OFFLINE') reasons.push('PROVIDER_OFFLINE');
+  if (dataset.providerHealth?.state === 'DEGRADED') reasons.push('SOURCE_DEGRADED');
 
   const legs: LegCertification[] = coupon.legs.map(leg => {
     const books = snapshotQuotes(dataset, leg.eventId, leg.label);
