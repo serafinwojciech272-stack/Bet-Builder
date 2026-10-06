@@ -8,3 +8,4 @@ Decision Center target-odds optimization is type-safe and ready for Vercel produ
 
 <!-- Vercel deployment trigger: 2026-09-18T07:05:00Z -->
 <!-- CI retry: 2026-10-02 free-source hardening -->
+<!-- M45-M100 production hardening: 2026-10-06 -->
