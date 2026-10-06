@@ -103,12 +103,13 @@ export function couponFreshness(dataset: CanonicalDataset, now = Date.now()): Co
   return { band, ageSeconds, staleAfterSeconds, score: clamp(1 - ageSeconds / Math.max(1, staleAfterSeconds * 2)) };
 }
 
-function snapshotQuotes(dataset: CanonicalDataset, eventId: string, selectionLabel: string): BookmakerPrice[] {
+function snapshotQuotes(dataset: CanonicalDataset, eventId: string, selectionId: string, selectionLabel: string): BookmakerPrice[] {
   const key = selectionLabel.trim().toLowerCase();
+  const idKey = selectionId.trim().toLowerCase();
   return dataset.snapshots
     .filter(s => s.eventId === eventId)
     .flatMap(s => s.quotes
-      .filter(q => q.label.trim().toLowerCase() === key)
+      .filter(q => q.label.trim().toLowerCase() === key || q.selectionId.trim().toLowerCase() === idKey || q.selectionId.trim().toLowerCase().endsWith(':' + key))
       .map(q => ({ bookmaker: String(s.bookmaker), odds: q.decimalOdds, capturedAt: s.capturedAt })))
     .filter(q => finite(q.odds) && q.odds > 1)
     .sort((a, b) => b.odds - a.odds);
@@ -147,10 +148,13 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
   if (!provenance.liveOdds) reasons.push('NO_LIVE_ODDS');
   if (freshness.band === 'STALE' || freshness.band === 'UNKNOWN') reasons.push('STALE_OR_UNKNOWN_FRESHNESS');
   if (dataset.providerHealth?.state === 'OFFLINE') reasons.push('PROVIDER_OFFLINE');
+  if (dataset.providerHealth?.state === 'STALE') reasons.push('PROVIDER_STALE');
+  const capturedTimes = dataset.snapshots.map(s => Date.parse(s.capturedAt)).filter(Number.isFinite);
+  if (capturedTimes.some(t => t > now + 30_000)) reasons.push('FUTURE_CAPTURE_TIMESTAMP');
   if (dataset.providerHealth?.state === 'DEGRADED') reasons.push('SOURCE_DEGRADED');
 
   const legs: LegCertification[] = coupon.legs.map(leg => {
-    const books = snapshotQuotes(dataset, leg.eventId, leg.label);
+    const books = snapshotQuotes(dataset, leg.eventId, leg.selectionId, leg.label);
     const bestOdds = books[0]?.odds ?? leg.marketOdds;
     const avg = books.length ? books.reduce((a, b) => a + b.odds, 0) / books.length : leg.marketOdds;
     const fairProbability = fairProbabilityForSelection(dataset, leg.eventId, leg.label, leg.probability);
@@ -177,7 +181,7 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
   for (const leg of legs) reasons.push(...leg.reasons.map(r => leg.selectionId + ':' + r));
 
   const blocked = !coupon.legs.length || reasons.includes('NO_LIVE_ODDS') || reasons.includes('DEMO_DATA') ||
-    freshness.band === 'STALE' || dataset.providerHealth?.state === 'OFFLINE' || legs.some(l => !l.valid);
+    freshness.band === 'STALE' || dataset.providerHealth?.state === 'OFFLINE' || dataset.providerHealth?.state === 'STALE' || reasons.includes('FUTURE_CAPTURE_TIMESTAMP') || legs.some(l => !l.valid);
   const status: LiveCertificationStatus = blocked ? (!provenance.liveOdds ? 'NO_LIVE_DATA' : 'BLOCKED')
     : reasons.length || coupon.status !== 'READY' || freshness.band === 'AGING' ? 'REVIEW' : 'CERTIFIED';
 
@@ -185,13 +189,21 @@ export function certifyCoupon(dataset: CanonicalDataset, coupon: CouponResult, n
     generatedAt, provenance, freshness, legs, targetOdds: coupon.targetOdds, combinedOdds: coupon.combinedOdds,
     independentEdge, correlationPenalty, reasons,
   });
-  let hash = 0;
-  for (let i = 0; i < evidence.length; i++) hash = ((hash << 5) - hash + evidence.charCodeAt(i)) | 0;
+  let hashHigh = 0xcbf29ce4;
+  let hashLow = 0x84222325;
+  for (let i = 0; i < evidence.length; i++) {
+    const code = evidence.charCodeAt(i);
+    hashLow ^= code;
+    hashLow = Math.imul(hashLow, 0x01000193);
+    hashHigh ^= (code + i) & 0xff;
+    hashHigh = Math.imul(hashHigh, 0x01000193);
+  }
+  const fingerprint = (BigInt(hashHigh >>> 0) << 32n) | BigInt(hashLow >>> 0);
 
   return {
     status, generatedAt, provenance, freshness, legs, targetOdds: coupon.targetOdds, combinedOdds: coupon.combinedOdds,
     independentEdge, correlationPenalty, reasons, gate: { humanApprovalRequired: true, executionAllowed: false, monetaryExecution: false },
-    evidenceHash: Math.abs(hash).toString(16).padStart(8, '0'),
+    evidenceHash: fingerprint.toString(16).padStart(16, '0'),
   };
 }
 
