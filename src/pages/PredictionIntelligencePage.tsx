@@ -3,7 +3,8 @@ import {BrainCircuit,ChevronRight,Clock3,GitCompareArrows,RefreshCw,ShieldCheck,
 import {useIntelligence} from '../state/IntelligenceProvider';
 import {liveEvents} from '../services/liveAdapter';
 import {predictSelection} from '../core/predictionEngine';
-import {createDecisionReplay,explainPrediction,buildModelTournament,type DecisionReplay} from '../core/predictionIntelligence';
+import {explainPrediction,buildModelTournament,type DecisionReplay} from '../core/predictionIntelligence';
+import {BrowserPredictionReplayRepository} from '../core/predictionReplayStore';
 import {Panel,SectionHeading,Chip,Stat,Meter,Button,EmptyState} from '../components/ui';
 import {cx} from '../lib/format';
 
@@ -14,12 +15,14 @@ export default function PredictionIntelligencePage(){
  const {dataset,analyses,runAnalysis,refresh,phase}=useIntelligence();
  const predictions=useMemo(()=>dataset?liveEvents(dataset).flatMap(e=>e.markets.flatMap(m=>m.selections.map(predictSelection))).filter(p=>p.ev>0).sort((a,b)=>b.ev-a.ev):[],[dataset]);
  const [selectedId,setSelectedId]=useState('');
- const [replay,setReplay]=useState<DecisionReplay|null>(null);
+ const replayRepo=useMemo(()=>new BrowserPredictionReplayRepository(),[]);
+ const [replay,setReplay]=useState<DecisionReplay|null>(()=>null);
  const selected=predictions.find(p=>p.selectionId===selectedId)??predictions[0]??null;
  const explanation=selected?explainPrediction(selected):null;
  const tournament=useMemo(()=>buildModelTournament(analyses.flatMap(r=>{if(!r.outcome)return [];const estimate=r.analysis.probabilityEstimates[0]?.modelProbability.value??0.5;const value=r.analysis.valueSignals[0];const odds=value?.bestPrice.value??2;return [{id:r.id,createdAt:r.analysis.generatedAt,eventId:r.eventId,selection:value?.selectionId??r.eventId,probability:estimate,odds,modelVersion:r.analysis.meta.modelVersion,outcome:r.outcome?.outcome===1?'WON':'LOST' as const}];}),20),[analyses]);
- const inspect=async()=>{if(!selected)return;setReplay(createDecisionReplay(selected));await runAnalysis(selected.eventId,{depth:'deep'});};
+ const inspect=async()=>{if(!selected)return;setReplay(replayRepo.snapshot(selected));await runAnalysis(selected.eventId,{depth:'deep'});};
  const eventLabel=selected&&dataset?liveEvents(dataset).find(e=>e.id===selected.eventId):null;
+ const storedReplays=replayRepo.list();
  return <div className="space-y-5">
   <div className="bb-cockpit-hero rounded-2xl border border-ai/20 bg-gradient-to-br from-ai/[.10] via-surface to-market/[.04] p-5 md:p-7">
    <div className="flex flex-wrap items-start justify-between gap-4">
@@ -57,7 +60,7 @@ export default function PredictionIntelligencePage(){
        <Factor title="NEUTRAL" tone="neutral" items={explanation.neutral}/>
        <Factor title="CONTRA" tone="negative" items={explanation.opposing}/>
       </div>
-      <div className="flex flex-wrap gap-2"><Button icon={<Workflow size={13}/>} onClick={inspect} loading={!!selected&&phase==='loading'}>Uruchom Decision Replay</Button>{eventLabel?<span className="self-center text-[10px] text-faint">{eventLabel.homeTeam} vs {eventLabel.awayTeam}</span>:null}</div>
+      <div className="flex flex-wrap gap-2"><Button icon={<Workflow size={13}/>} onClick={inspect} loading={!!selected&&phase==='loading'}>Zapisz Decision Replay</Button><Chip tone={replay?'positive':'neutral'}>{storedReplays.length} SNAPSHOTS</Chip>{eventLabel?<span className="self-center text-[10px] text-faint">{eventLabel.homeTeam} vs {eventLabel.awayTeam}</span>:null}</div>
     </div>:<EmptyState title="Wybierz prediction" detail="Cockpit wygeneruje pełne wyjaśnienie dopiero dla konkretnej decyzji."/>}
    </Panel>
   </div>
