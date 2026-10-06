@@ -32,12 +32,14 @@ export function evaluateModelPerformance(records:PredictionRecord[], minimumSamp
     const confidence=grades.filter(x=>x.confidenceAccurate!==null).map(x=>x.confidenceAccurate?1:0);
     let equity=0,peak=0,maxDrawdown=0;
     for(const grade of grades){equity+=grade.roi??0;peak=Math.max(peak,equity);maxDrawdown=Math.max(maxDrawdown,peak-equity);}
+    const logLoss=grades.reduce<number>((sum,x)=>sum+(x.logLoss??0),0);
+    const confidenceCorrect=confidence.reduce<number>((sum,x)=>sum+x,0);
     return {
       modelVersion,sampleSize:items.length,settled:summary.settled,hitRate:summary.hitRate,brierScore:summary.brierScore,
-      logLoss:settled.length?grades.reduce((s,x)=>s+(x.logLoss??0),0)/settled.length:0,
+      logLoss:settled.length?logLoss/settled.length:0,
       simulatedRoi:summary.simulatedRoi,meanClvPct:clv.length?clv.reduce((a,b)=>a+b,0)/clv.length:null,
       positiveClvRate:clv.length?clv.filter(x=>x>0).length/clv.length:null,
-      confidenceAccuracy:confidence.length?confidence.reduce((a,b)=>a+b,0)/confidence.length:null,
+      confidenceAccuracy:confidence.length?confidenceCorrect/confidence.length:null,
       maxDrawdown,eligible:summary.settled>=minimumSample,
     };
   }).sort((a,b)=>(b.simulatedRoi-a.simulatedRoi)||(a.brierScore-b.brierScore));
