@@ -53,7 +53,7 @@ describe('M181-M190 live coupon certification', () => {
   });
 
   it('blocks future-dated market snapshots', () => {
-    const future = { ...dataset, snapshots: dataset.snapshots.map(s => ({ ...s, capturedAt: '2026-10-06T19:05:00.000Z' })) } as any;
+    const future = { ...dataset, snapshots: dataset.snapshots.map(s => ({ ...s, capturedAt: '2026-10-06T19:05:00.000Z' })) } as unknown as CanonicalDataset;
     const c = certifyCoupon(future, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
     expect(c.status).toBe('BLOCKED');
     expect(c.reasons).toContain('FUTURE_CAPTURE_TIMESTAMP');
