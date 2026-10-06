@@ -122,19 +122,19 @@ function snapshotQuotes(dataset: CanonicalDataset, eventId: string, selectionId:
 function fairProbabilityForSelection(dataset: CanonicalDataset, eventId: string, selectionId: string, selectionLabel: string, fallback: number): number {
   const idKey = selectionId.trim().toLowerCase();
   const labelKey = selectionLabel.trim().toLowerCase();
-  const bestByLabel = new Map<string, { selectionId: string; odds: number }>();
+  const bestBySelection = new Map<string, { selectionId: string; odds: number }>();
   for (const snapshot of dataset.snapshots) {
     if (snapshot.eventId !== eventId) continue;
     for (const quote of snapshot.quotes) {
       if (!finite(quote.decimalOdds) || quote.decimalOdds <= 1) continue;
-      const key = quote.label.trim().toLowerCase();
-      const current = bestByLabel.get(key);
+      const key = quote.selectionId?.trim().toLowerCase() || quote.label.trim().toLowerCase();
+      const current = bestBySelection.get(key);
       if (!current || quote.decimalOdds > current.odds) {
-        bestByLabel.set(key, { selectionId: key || quote.selectionId, odds: quote.decimalOdds });
+        bestBySelection.set(key, { selectionId: quote.selectionId?.trim() || quote.label.trim(), odds: quote.decimalOdds });
       }
     }
   }
-  const market = [...bestByLabel.values()];
+  const market = [...bestBySelection.values()];
   if (market.length < 2) return clamp(fallback);
   try {
     const result = devigMarket(market);
