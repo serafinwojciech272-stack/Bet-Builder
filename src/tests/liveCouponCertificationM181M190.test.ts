@@ -46,7 +46,7 @@ describe('M181-M190 live coupon certification', () => {
   });
 
   it('blocks provider-stale state even when snapshot age is fresh', () => {
-    const degraded = { ...dataset, providerHealth: { ...dataset.providerHealth, state: 'STALE' } } as any;
+    const degraded = { ...dataset, providerHealth: { ...dataset.providerHealth, state: 'STALE' } } as unknown as CanonicalDataset;
     const c = certifyCoupon(degraded, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
     expect(c.status).toBe('BLOCKED');
     expect(c.reasons).toContain('PROVIDER_STALE');
@@ -65,3 +65,24 @@ describe('M181-M190 live coupon certification', () => {
     expect(c.reasons).toContain('STALE_OR_UNKNOWN_FRESHNESS');
   });
 });
+
+
+  it('matches bookmaker quotes by selectionId before label', () => {
+    const renamed = {
+      ...dataset,
+      snapshots: dataset.snapshots.map(s => ({
+        ...s,
+        quotes: s.quotes.map(q => ({ ...q, label: 'Different display label', selectionId: 'sel1' })),
+      })),
+    } as unknown as CanonicalDataset;
+    const c = certifyCoupon(renamed, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
+    expect(c.legs[0].bookmakerCount).toBe(2);
+    expect(c.provenance.couponBookmakerCount).toBe(2);
+    expect(c.provenance.couponBookmakers).toEqual(['book_a', 'book_b']);
+  });
+
+  it('uses the best bookmaker price for the certified leg', () => {
+    const c = certifyCoupon(dataset, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
+    expect(c.legs[0].bestOdds).toBe(2.2);
+    expect(c.legs[0].odds).toBe(2.2);
+  });
