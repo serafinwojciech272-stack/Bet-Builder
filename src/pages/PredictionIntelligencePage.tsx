@@ -98,7 +98,7 @@ function TrustLayerCard({layer}:{layer:ReturnType<typeof buildCockpitTrustLayer>
    <Stat label="State" value={d.state} hint="policy/data state"/>
    <Stat label="Evidence" value={trustLayerEvidenceScore(layer).toFixed(2)} hint="weighted evidence quality"/>
    <Stat label="Uncertainty" value={layer.decision.confidence.toFixed(2)} hint={layer.uncertainty}/>
-   <Stat label="Sample" value={trustLayerSampleLabel(0)} hint="ranking never promoted from thin data"/>
+   <Stat label="Sample" value={trustLayerSampleLabel(settledSample)} hint="ranking never promoted from thin data"/>
    <Stat label="Risk" value={d.risk} tone={d.risk==='LOW'?'positive':d.risk==='CRITICAL'?'negative':'warn'}/>
   </div>
   <div className="mt-4 grid gap-3 md:grid-cols-3">
