@@ -1,0 +1,5 @@
+import type { Selection, EventWithMarkets } from '../domain/types';
+export interface Prediction { selectionId:string; eventId:string; marketId:string; label:string; probability:number; confidence:number; fairOdds:number; marketOdds:number; edge:number; ev:number; risk:Selection['risk']; modelVersion:string; reasons:string[]; }
+const clamp=(v:number)=>Math.max(0,Math.min(.98,Number.isFinite(v)?v:0));
+export function predictSelection(s:Selection):Prediction { const probability=clamp(s.probability); return {selectionId:s.id,eventId:s.eventId,marketId:s.marketId,label:s.shortName,probability,confidence:s.confidence,fairOdds:probability>0?1/probability:99,marketOdds:s.odds,edge:probability-s.impliedProbability,ev:probability*s.odds-1,risk:s.risk,modelVersion:'core-sports-v1',reasons:['market-implied baseline','multi-book consensus','risk-adjusted confidence']}; }
+export function rankPredictions(events:EventWithMarkets[]):Prediction[] { return events.flatMap(e=>e.markets.flatMap(m=>m.selections.map(predictSelection))).filter(p=>p.ev>0&&p.risk!=='CRITICAL').sort((a,b)=>(b.ev*.45+b.confidence*.35+b.edge*.2)-(a.ev*.45+a.confidence*.35+a.edge*.2)); }
