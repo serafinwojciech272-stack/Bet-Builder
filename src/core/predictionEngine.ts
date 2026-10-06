@@ -74,8 +74,7 @@ export function enrichPrediction(prediction:Prediction, context:PredictionIntell
     probability:probability.probability,
     marketImpliedProbability:probability.impliedProbability,
     edgePct:edge.edgePct,
-    confidence:confidence.score,
-    confidenceBand:confidence.band,
+    confidence:confidence.band,
     risk:prediction.risk,
     factors:[{id:'ensemble',direction:ensemble.agreement>=.75?'SUPPORTING':'NEUTRAL',label:'Model agreement',weight:ensemble.agreement}],
   });
@@ -84,7 +83,7 @@ export function enrichPrediction(prediction:Prediction, context:PredictionIntell
     confidenceReasons:confidence.reasons,edgePct:edge.edgePct,expectedValue:edge.expectedValue,fairOdds:edge.fairOdds,
     lineMovement:context.oddsHistory?.length?analyzeLineMovement(context.oddsHistory):undefined,
     closingLine:context.closingOdds&&context.closingReferenceSource&&context.closingReferenceTimestamp
-      ?benchmarkClosingLine({takenOdds:prediction.marketOdds,closingOdds:context.closingOdds,referenceSource:context.closingReferenceSource,referenceTimestamp:context.closingReferenceTimestamp})
+      ?benchmarkClosingLine({takenOdds:prediction.marketOdds,closingOdds:context.closingOdds,referenceSource:context.closingReferenceSource,capturedAt:context.closingReferenceTimestamp})
       :undefined,
     explanation
   };
