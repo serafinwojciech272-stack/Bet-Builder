@@ -16,7 +16,7 @@ export function devigMarket(prices:MarketPrice[],method:DevigMethod='PROPORTIONA
   if(prices.some(p=>!p.selectionId||!valid(p))) throw new Error('DEVIG_PRICE_INVALID');
   const implied=prices.map(p=>1/p.odds);
   const total=implied.reduce((a,b)=>a+b,0);
-  if(total<=1) throw new Error('DEVIG_NO_OVERROUND');
+  if(total<1) throw new Error('DEVIG_INVALID_TOTAL_PROBABILITY');
   const fair=method==='PROPORTIONAL'
     ? implied.map(p=>p/total)
     : (()=>{ const excess=total-1; const n=implied.length; return implied.map(p=>Math.max(0,p-excess/n)); })();
