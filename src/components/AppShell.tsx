@@ -4,6 +4,7 @@ import { Activity, BarChart3, Clock3, History, LayoutDashboard, ListChecks, Moon
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { cx, relativeTime } from '../lib/format';
 import { LANGS, type Lang, applyLanguage, detectBrowserLang } from '../i18n';
+import { DecisionLifecycle } from './DecisionLifecycle';
 
 const NAV = [
   {to:'/',label:'Home',icon:LayoutDashboard,key:'h',end:true},

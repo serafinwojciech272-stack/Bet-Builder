@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { IntelligenceProvider } from './state/IntelligenceProvider';
 import { AppShell } from './components/AppShell';
+import { ErrorBoundary } from './components/ErrorBoundary';
 const EventsPage = lazy(() => import('./pages/EventsPage').then(m => ({ default: m.EventsPage })));
 const SportsPage = lazy(() => import('./pages/SportsPage'));
 const LivePage = lazy(() => import('./pages/LivePage'));
@@ -23,6 +24,7 @@ export default function App() {
     <HashRouter>
       <IntelligenceProvider>
         <AppShell>
+          <ErrorBoundary>
           <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3 font-mono text-[10px] uppercase tracking-[.18em] text-white/50">Loading Bet Builder intelligence…</div></div>}>
             <Routes>
               <Route path="/" element={<EventsPage />} />
@@ -39,6 +41,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          </ErrorBoundary>
         </AppShell>
       </IntelligenceProvider>
     </HashRouter>
