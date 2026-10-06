@@ -17,7 +17,7 @@ export default function PredictionIntelligencePage(){
  const [replay,setReplay]=useState<DecisionReplay|null>(null);
  const selected=predictions.find(p=>p.selectionId===selectedId)??predictions[0]??null;
  const explanation=selected?explainPrediction(selected):null;
- const tournament=useMemo(()=>buildModelTournament(analyses.flatMap(r=>{if(!r.outcome)return [];const estimate=r.analysis.probabilityEstimates[0]?.modelProbability.value??0.5;const value=r.analysis.valueSignals[0];const odds=value?.bestPrice.value??2;return [{id:r.id,createdAt:r.analysis.generatedAt,eventId:r.eventId,selection:value?.selectionId??r.eventId,probability:estimate,odds,modelVersion:r.analysis.analysisModelVersion??'analysis-model',outcome:r.outcome?.outcome===1?'WON':'LOST' as const}];}),20),[analyses]);
+ const tournament=useMemo(()=>buildModelTournament(analyses.flatMap(r=>{if(!r.outcome)return [];const estimate=r.analysis.probabilityEstimates[0]?.modelProbability.value??0.5;const value=r.analysis.valueSignals[0];const odds=value?.bestPrice.value??2;return [{id:r.id,createdAt:r.analysis.generatedAt,eventId:r.eventId,selection:value?.selectionId??r.eventId,probability:estimate,odds,modelVersion:r.analysis.meta.modelVersion,outcome:r.outcome?.outcome===1?'WON':'LOST' as const}];}),20),[analyses]);
  const inspect=async()=>{if(!selected)return;setReplay(createDecisionReplay(selected));await runAnalysis(selected.eventId,{depth:'deep'});};
  const eventLabel=selected&&dataset?liveEvents(dataset).find(e=>e.id===selected.eventId):null;
  return <div className="space-y-5">
