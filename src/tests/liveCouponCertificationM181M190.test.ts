@@ -70,7 +70,7 @@ describe('M181-M190 live coupon certification', () => {
       ...dataset,
       snapshots: dataset.snapshots.map(s => ({
         ...s,
-        quotes: s.quotes.map(q => ({ ...q, label: 'Different display label', selectionId: 'sel1' })),
+        quotes: s.quotes.map(q => ({ ...q, label: 'Different display label' })),
       })),
     } as unknown as CanonicalDataset;
     const c = certifyCoupon(renamed, coupon, Date.parse('2026-10-06T19:00:00.000Z'));
