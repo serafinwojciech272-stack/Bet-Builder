@@ -500,7 +500,7 @@ export function HistoryPage() {
             )}
           </Panel>
         </div>
-      )}
+      ))}
     </div>
   );
 }
