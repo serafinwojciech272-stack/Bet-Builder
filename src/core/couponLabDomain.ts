@@ -146,6 +146,7 @@ export function parseNaturalLanguageIntent(input:string) {
   const stake=text.match(/(\d+(?:[.,]\d+)?)\s*(?:zł|zl|pln|złotych)/i);
   const risk=text.match(/(bezpiecz|nisk\w* ryzyk|mniej ryzyk|bardzo ryzykown|ryzykown)/i)?'LOW':text.match(/(agresyw|wysok\w* ryzyk)/i)?'HIGH':undefined;
   const sport=text.match(/(piłk\w*|football|soccer|koszyk\w*|basketball|tenis|tennis)/i)?.[1] ?? undefined;
+  const dateRange=/(dziś|dzisiaj|today)\s*(?:i|oraz|,)\s*(jutro|tomorrow)|(?:dziś|dzisiaj|today)\s*(?:\+|oraz)\s*(?:jutro|tomorrow)/i.test(text) ? 'TODAY_AND_TOMORROW' : /(jutro|tomorrow)/i.test(text) ? 'TOMORROW' : /(dziś|dzisiaj|today)/i.test(text) ? 'TODAY' : undefined;
   const targetOdds=odds?Number(odds[1].replace(',','.')):undefined;
   const stakeValue=stake?Number(stake[1].replace(',','.')):undefined;
   return {targetOdds:targetOdds&&targetOdds>1?targetOdds:undefined,stake:stakeValue&&stakeValue>=0?stakeValue:undefined,riskPreference:risk,sport,raw:text,needsConfirmation:true};
