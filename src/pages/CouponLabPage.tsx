@@ -54,6 +54,15 @@ export default function CouponLabPage() {
   const avgEv = intelligence ? intelligence.ev / intelligenceCount : 0;
   const avgImplied = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + (1 / leg.marketOdds), 0) / result.legs.length : 0;
   const avgProbability = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + leg.probability, 0) / result.legs.length : 0;
+  const rankedLegs = result ? [...result.legs].map((leg) => {
+    const riskPenalty = leg.risk === 'CRITICAL' ? .35 : leg.risk === 'HIGH' ? .15 : leg.risk === 'MEDIUM' ? .07 : 0;
+    const score = Math.max(0, Math.min(100, (leg.confidence * 55) + (Math.max(0, leg.edge) * 300) + (Math.max(0, leg.ev) * 150) - (riskPenalty * 100)));
+    const recommendation = score >= 72 && leg.risk !== 'CRITICAL' ? 'KEEP' : score >= 52 && leg.risk !== 'CRITICAL' ? 'REVIEW' : 'BLOCK';
+    return { leg, score, recommendation };
+  }).sort((a, b) => b.score - a.score) : [];
+  const weakest = rankedLegs.length ? rankedLegs[rankedLegs.length - 1] : null;
+  const intelligenceScore = rankedLegs.length ? rankedLegs.reduce((sum, item) => sum + item.score, 0) / rankedLegs.length : 0;
+  const couponRecommendation = intelligenceScore >= 72 && !rankedLegs.some((item) => item.recommendation === 'BLOCK') ? 'KEEP' : intelligenceScore >= 52 && !rankedLegs.some((item) => item.recommendation === 'BLOCK') ? 'REVIEW' : 'BLOCK';
 
   const generate = async () => {
     setBusy(true);
@@ -303,9 +312,31 @@ export default function CouponLabPage() {
                 </div>
 
                 <aside className="insight-panel">
-                  <div className="section-kicker"><Sparkles size={13} /> AI INTELLIGENCE</div>
+                  <div className="section-kicker"><Sparkles size={13} /> AI INTELLIGENCE 3.0</div>
                   <h3>Decyzja oparta na danych.</h3>
                   <p>Każda selekcja przechodzi przez analizę rynku, dostępnego kursu i spójności całego kuponu.</p>
+                  <div className="coupon-intelligence-score">
+                    <div><span>AI CONFIDENCE SCORE</span><strong>{intelligenceScore.toFixed(0)}<small>/100</small></strong></div>
+                    <span className={`recommendation-badge ${couponRecommendation.toLowerCase()}`}>{couponRecommendation}</span>
+                  </div>
+                  {weakest && (
+                    <div className="weakest-link">
+                      <div className="weakest-head"><span>NAJSŁABSZE OGNIWO</span><b>{weakest.score.toFixed(0)}/100</b></div>
+                      <strong>{weakest.leg.eventLabel}</strong>
+                      <p>{weakest.leg.label} · confidence {pct(weakest.leg.confidence)} · edge {signedPct(weakest.leg.edge)}</p>
+                      <span className={`weakest-action ${weakest.recommendation.toLowerCase()}`}>{weakest.recommendation === 'KEEP' ? 'UTRZYMAJ' : weakest.recommendation === 'REVIEW' ? 'ZWERYFIKUJ' : 'ZABLOKUJ'}</span>
+                    </div>
+                  )}
+                  <div className="ranking-list">
+                    {rankedLegs.map((item, index) => (
+                      <div className="ranking-row" key={item.leg.selectionId}>
+                        <span className="ranking-number">{index + 1}</span>
+                        <div><strong>{item.leg.eventLabel}</strong><small>{item.leg.label}</small></div>
+                        <b>{item.score.toFixed(0)}</b>
+                        <span className={`ranking-recommendation ${item.recommendation.toLowerCase()}`}>{item.recommendation}</span>
+                      </div>
+                    ))}
+                  </div>
                   <div className="insight-bars">
                     <div><span>DATA QUALITY</span><b>LIVE</b><i><em style={{ width: '92%' }} /></i></div>
                     <div><span>MARKET SIGNAL</span><b>CHECKED</b><i><em style={{ width: '78%' }} /></i></div>
