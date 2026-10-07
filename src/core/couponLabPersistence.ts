@@ -3,7 +3,7 @@ import type { CouponSnapshot } from './couponLabDomain';
 type Config={url:string;serviceRoleKey:string};
 const memory=new Map<string,CouponSnapshot>();
 const config=():Config|null=>{const url=process.env.SUPABASE_URL?.trim(),serviceRoleKey=process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();return url&&serviceRoleKey?{url,serviceRoleKey}:null};
-const endpoint=(c:Config)=>c.url.replace(/\\/$/,'')+'/rest/v1/bb_coupon_snapshots';
+const endpoint=(c:Config)=>(c.url.endsWith('/')?c.url.slice(0,-1):c.url)+'/rest/v1/bb_coupon_snapshots';
 export async function saveCouponSnapshot(snapshot:CouponSnapshot){
   const c=config();
   if(!c){memory.set(snapshot.id,snapshot);return {backend:'MEMORY' as const,id:snapshot.id};}
