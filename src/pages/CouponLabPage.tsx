@@ -99,8 +99,10 @@ export default function CouponLabPage() {
         minConfidence: .50,
         strategy: 'TARGET_ODDS',
       });
+      const cert = certifyCoupon(source, coupon);
       setResult(coupon);
-      setCertification(certifyCoupon(source, coupon));
+      setCertification(cert);
+      if (coupon.status !== 'BLOCKED') { const response = await fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', coupon, certification: cert, provenance: cert.provenance, sport }) }); if (response.ok) { const saved = await response.json() as CouponSnapshot; setSnapshot(saved); setVariants(buildVariants(coupon)); } }
       if (coupon.status === 'BLOCKED') setError(coupon.blockers.join(' · ') || 'Nie znaleziono kwalifikowanych wydarzeń.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nie udało się wygenerować kuponu.');
