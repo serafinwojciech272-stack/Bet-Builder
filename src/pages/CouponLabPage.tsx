@@ -49,6 +49,7 @@ export default function CouponLabPage() {
   const [feedback, setFeedback] = useState<'idle'|'sending'|'done'>('idle');
   const [nlInput, setNlInput] = useState('');
   const [nlIntent, setNlIntent] = useState<ReturnType<typeof parseNaturalLanguageIntent> | null>(null);
+  const [requestDateRange, setRequestDateRange] = useState<'TODAY'|'TOMORROW'|'TODAY_AND_TOMORROW'>('TODAY');
 
   const events = useMemo(() => dataset ? liveEvents(dataset) : [], [dataset]);
   const candidateLegs = useMemo(() => rankPredictions(events).map((p) => { const e=events.find((item)=>item.id===p.eventId); return e ? {...p,eventLabel:e.homeTeam+' vs '+e.awayTeam,league:e.league,startTime:e.startTime} : null; }).filter(Boolean), [events]);
@@ -80,12 +81,24 @@ export default function CouponLabPage() {
     setBusy(true);
     setError('');
     try {
-      const source = await refresh(selectedDate, true, sport);
-      if (!source) {
-        setError('Brak danych sportowych. Odśwież stronę i spróbuj ponownie.');
-        return;
+      const today = selectedDate;
+      const tomorrow = (() => {
+        const d = new Date(today + 'T12:00:00');
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      const dates = requestDateRange === 'TODAY_AND_TOMORROW' ? [today, tomorrow] : requestDateRange === 'TOMORROW' ? [tomorrow] : [today];
+      const loaded = [];
+      for (const date of dates) {
+        const data = await refresh(date, true, sport);
+        if (!data) {
+          setError('Brak danych sportowych dla ' + date + '. Odśwież stronę i spróbuj ponownie.');
+          return;
+        }
+        loaded.push(data);
       }
-      const sourceEvents = liveEvents(source);
+      const source = loaded[loaded.length - 1];
+      const sourceEvents = loaded.flatMap((item) => liveEvents(item));
       const numericTarget = Math.max(1.01, Number(targetOdds) || 10);
       const numericStakeValue = Math.max(0, Number(stake) || 0);
       const coupon = generateCoupon({
@@ -200,7 +213,7 @@ export default function CouponLabPage() {
               <input aria-label="Powiedz AI, czego szukasz" value={nlInput} onChange={(e) => setNlInput(e.target.value)} placeholder="Mam 30 zł. Chcę kupon około 10x, ale bez bardzo ryzykownych rynków." />
               <button type="button" onClick={() => setNlIntent(parseNaturalLanguageIntent(nlInput))}>INTERPRETUJ</button>
             </div>
-            {nlIntent && <div className="nl-confirm"><strong>Rozumiem, że chcesz:</strong> kurs {nlIntent.targetOdds ?? 'do ustalenia'} · stawka {nlIntent.stake ?? 'do ustalenia'} PLN · ryzyko {nlIntent.riskPreference ?? 'bez preferencji'} · sport {nlIntent.sport ?? 'dowolny'}. <button type="button" onClick={() => { if (nlIntent.targetOdds) setTargetOdds(String(nlIntent.targetOdds)); if (nlIntent.stake !== undefined) setStake(String(nlIntent.stake)); setNlIntent(null); }}>ZASTOSUJ</button></div>}
+            {nlIntent && <div className="nl-confirm"><strong>Rozumiem, że chcesz:</strong> kurs {nlIntent.targetOdds ?? 'do ustalenia'} · stawka {nlIntent.stake ?? 'do ustalenia'} PLN · ryzyko {nlIntent.riskPreference ?? 'bez preferencji'} · sport {nlIntent.sport ?? 'dowolny'} · zakres {nlIntent.dateRange === 'TODAY_AND_TOMORROW' ? 'dziś + jutro' : nlIntent.dateRange === 'TOMORROW' ? 'jutro' : nlIntent.dateRange === 'TODAY' ? 'dziś' : 'domyślny'}. <button type="button" onClick={() => { if (nlIntent.targetOdds) setTargetOdds(String(nlIntent.targetOdds)); if (nlIntent.stake !== undefined) setStake(String(nlIntent.stake)); if (nlIntent.sport) setSport(/piłk|football|soccer/i.test(nlIntent.sport) ? 'soccer' : /koszyk|basketball/i.test(nlIntent.sport) ? 'basketball' : /tenis|tennis/i.test(nlIntent.sport) ? 'tennis' : 'all'); if (nlIntent.dateRange) setRequestDateRange(nlIntent.dateRange); setNlIntent(null); }}>ZASTOSUJ</button></div>}
           </div>
 
           <div className="builder-fields">
