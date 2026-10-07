@@ -65,6 +65,7 @@ export default function CouponLabPage() {
   const avgEv = intelligence ? intelligence.ev / intelligenceCount : 0;
   const avgImplied = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + (1 / leg.marketOdds), 0) / result.legs.length : 0;
   const avgProbability = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + leg.probability, 0) / result.legs.length : 0;
+  const risk = result ? (snapshot?.risk ?? assessCouponRisk(result)) : null;
   const rankedLegs = result ? [...result.legs].map((leg) => {
     const riskPenalty = leg.risk === 'CRITICAL' ? .35 : leg.risk === 'HIGH' ? .15 : leg.risk === 'MEDIUM' ? .07 : 0;
     const score = Math.max(0, Math.min(100, (leg.confidence * 55) + (Math.max(0, leg.edge) * 300) + (Math.max(0, leg.ev) * 150) - (riskPenalty * 100)));
