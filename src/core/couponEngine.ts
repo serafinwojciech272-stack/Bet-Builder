@@ -8,7 +8,7 @@ export interface CouponResult {status:CouponStatus;targetOdds:number;combinedOdd
 const finite=(n:number)=>Number.isFinite(n);
 export function generateCoupon(input:CouponRequest):CouponResult {
  const strategy=input.strategy??'TARGET_ODDS';
- const target=finite(input.targetOdds)&&input.targetOdds>1?input.targetOdds:strategy==='BEST_TODAY'?10:0,stake=finite(input.stake)&&input.stake>=0?input.stake:0,tolerance=Math.max(.01,Math.min(.5,input.tolerance??.2)),maxLegs=Math.min(12,Math.max(1,Math.floor(input.maxLegs??8)));
+ const target=finite(input.targetOdds)&&input.targetOdds>1?input.targetOdds:strategy==='BEST_TODAY'?10:0,stake=finite(input.stake)&&input.stake>=0?input.stake:0,tolerance=Math.max(.01,Math.min(.5,input.tolerance??.2)),maxLegs=Math.min(12,Math.max(1,Math.floor(input.maxLegs ?? Math.min(12, Math.max(2, Math.ceil(Math.log(target || 2) / Math.log(1.7)))))));
  if(!target)return {status:'BLOCKED',targetOdds:0,combinedOdds:0,stake,potentialReturn:0,potentialProfit:0,estimatedProbability:0,estimatedEv:0,legs:[],blockers:['TARGET_ODDS_INVALID'],warnings:[],rationale:[]};
  const ranked=rankPredictions(input.events).filter(p=>finite(p.marketOdds)&&p.marketOdds>=(input.minLegOdds??1.2)&&p.marketOdds<=(input.maxLegOdds??6)&&p.confidence>=(input.minConfidence??.55)&&p.probability>0&&p.probability<=1).map(p=>({...p,selectionScore:p.ev*1.4+p.confidence*.9-(p.risk==='HIGH'?0.18:p.risk==='MEDIUM'?0.08:0)}));
  const selected:CouponLeg[]=[],usedEvents=new Set<string>(),usedMarkets=new Set<string>();let combined=1;
@@ -27,5 +27,5 @@ export function generateCoupon(input:CouponRequest):CouponResult {
  if(stake<=0)warnings.push('ZERO_STAKE');
  if(selected.length&&combined<target*(1-tolerance))warnings.push('TARGET_NOT_REACHED');
  const probability=selected.reduce((p,s)=>p*s.probability,1),ev=combined*probability-1;
- return {status:blockers.length?'BLOCKED':warnings.length?'REVIEW':'READY',targetOdds:target,combinedOdds:combined,stake,potentialReturn:stake*combined,potentialProfit:Math.max(0,stake*combined-stake),estimatedProbability:probability,estimatedEv:ev,legs:selected,blockers,warnings,rationale:[`Core Engine ranked ${ranked.length} qualified selections using ${strategy==='BEST_TODAY'?'BEST_TODAY score: EV + confidence − risk.':'target-odds optimization.'}`,`Target ${target.toFixed(2)} · generated ${combined.toFixed(2)}.`,`Probability ${(probability*100).toFixed(1)}% · model EV ${(ev*100).toFixed(1)}%.`]};
+ return {status:blockers.length?'BLOCKED':warnings.length?'REVIEW':'READY',targetOdds:target,combinedOdds:combined,stake,potentialReturn:stake*combined,potentialProfit:Math.max(0,stake*combined-stake),estimatedProbability:probability,estimatedEv:ev,legs:selected,blockers,warnings,rationale:[`Core Engine ranked ${ranked.length} qualified selections using ${strategy==='BEST_TODAY'?'BEST_TODAY score: EV + confidence - risk.':'adaptive target-odds optimization.'}`,`Target ${target.toFixed(2)} · generated ${combined.toFixed(2)}.`,`Probability ${(probability*100).toFixed(1)}% · model EV ${(ev*100).toFixed(1)}%.`]};
 }
