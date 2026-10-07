@@ -176,6 +176,15 @@ export default function CouponLabPage() {
             <div className="builder-note"><Sparkles size={13} /> AI dobiera liczbę zdarzeń automatycznie</div>
           </div>
 
+          <div className="nl-builder no-print">
+            <div className="section-kicker"><Sparkles size={13} /> POWIEDZ AI, CZEGO SZUKASZ</div>
+            <div className="nl-row">
+              <input aria-label="Powiedz AI, czego szukasz" value={nlInput} onChange={(e) => setNlInput(e.target.value)} placeholder="Mam 30 zł. Chcę kupon około 10x, ale bez bardzo ryzykownych rynków." />
+              <button type="button" onClick={() => setNlIntent(parseNaturalLanguageIntent(nlInput))}>INTERPRETUJ</button>
+            </div>
+            {nlIntent && <div className="nl-confirm"><strong>Rozumiem, że chcesz:</strong> kurs {nlIntent.targetOdds ?? 'do ustalenia'} · stawka {nlIntent.stake ?? 'do ustalenia'} PLN · ryzyko {nlIntent.riskPreference ?? 'bez preferencji'} · sport {nlIntent.sport ?? 'dowolny'}. <button type="button" onClick={() => { if (nlIntent.targetOdds) setTargetOdds(String(nlIntent.targetOdds)); if (nlIntent.stake !== undefined) setStake(String(nlIntent.stake)); setNlIntent(null); }}>ZASTOSUJ</button></div>}
+          </div>
+
           <div className="builder-fields">
             <label className="premium-field">
               <span>Docelowy kurs</span>
@@ -282,6 +291,17 @@ export default function CouponLabPage() {
                   <div><span>MODEL / IMPLIED</span><strong>{pct(avgProbability)} / {pct(avgImplied)}</strong></div>
                 </div>
               </div>
+
+              <section className="coupon-analysis-grid no-print">
+                <div className="analysis-card">
+                  <div className="section-kicker"><Sparkles size={13} /> DLACZEGO AI WYBRAŁO TE ZDARZENIA?</div>
+                  <h3>Wyjaśnienie powiązane z rzeczywistym snapshotem.</h3>
+                  {(snapshot?.explanation ?? (result ? buildCouponExplanation(result) : [])).slice(0, fullExplanation ? 20 : 2).map((item) => <article key={item.selectionId} className="explanation-item"><strong>{result?.legs.find((l) => l.selectionId === item.selectionId)?.eventLabel ?? item.selectionId}</strong><p>{fullExplanation ? item.full : item.short}</p></article>)}
+                  <button type="button" className="analysis-link" onClick={() => setFullExplanation((v) => !v)}>{fullExplanation ? 'Pokaż krótką analizę' : 'Pokaż pełną analizę'}</button>
+                </div>
+                {risk && <div className="analysis-card risk-card"><div className="section-kicker"><ShieldCheck size={13} /> PROFIL RYZYKA</div><div className="risk-profile">{risk.profile}</div><div className="risk-metrics"><span>PROBABILITY <b>{pct(risk.probability)}</b></span><span>VALUE <b>{signedPct(result.estimatedEv)}</b></span><span>CORRELATION <b>{pct(risk.correlation)}</b></span><span>VOLATILITY <b>{pct(risk.volatility)}</b></span></div>{risk.reasons.map((x) => <div key={x} className="risk-reason">{x}</div>)}</div>}
+              </section>
+              {variants.length > 0 && <section className="variant-panel no-print"><div className="section-kicker"><Gauge size={13} /> WARIANTY</div><div className="variant-tabs">{variants.map((v) => <button key={v.key} type="button" className={activeVariant === v.key ? 'active' : ''} onClick={() => { setResult(v.coupon); setActiveVariant(v.key); }}><strong>{v.label}</strong><span>x{v.coupon.combinedOdds.toFixed(2)} · {v.coupon.legs.length} zdarzeń · {v.risk}</span><small>{v.description}</small></button>)}</div></section>}
 
               <div className="trust-strip">
                 <div><CheckCircle2 size={15} /><span>{liveStatus}</span></div>
