@@ -116,7 +116,8 @@ export default function CouponLabPage() {
   const requestSwap = (selectionId: string) => {
     setSwapTarget(selectionId);
     const candidates = candidateLegs.filter((x) => Boolean(x)).map((x) => x as CouponResult['legs'][number]);
-    setSimilarLegs(result ? findSimilarLegs(result, selectionId, candidates) as CouponLegExplanation[] : []);
+    const alternatives = result ? findSimilarLegs(result, selectionId, candidates) : [];
+    setSimilarLegs(alternatives.map((x) => ({ selectionId:x.selectionId, short:x.label, full:x.label, primaryArgument:x.reasons[0] ?? 'Kandydat z aktualnych danych.', primaryRisk:x.risk, couponImpact:'Kurs x' + x.marketOdds.toFixed(2) + ' · EV ' + (x.ev*100).toFixed(1) + '%', correlation:x.marketId, evidenceBacked:true })));
   };
   const applySwap = (selectionId: string) => {
     const replacement = candidateLegs.find((x) => x && x.selectionId === selectionId);
