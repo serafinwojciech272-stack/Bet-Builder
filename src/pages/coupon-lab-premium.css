@@ -110,3 +110,34 @@
 .ranking-row>b{color:#aeb8c6;font:900 8px/1 var(--font-mono,ui-monospace);text-align:right}
 .ranking-recommendation{text-align:center;padding:4px 2px;border-radius:5px;font-size:6px}
 @media(max-width:640px){.coupon-intelligence-score strong{font-size:19px}.ranking-row{grid-template-columns:20px minmax(0,1fr) 24px 43px}}
+
+.nl-builder{margin-top:18px;padding:14px;border:1px solid var(--cl-border);border-radius:16px;background:rgba(255,255,255,.025)}
+.nl-row{display:flex;gap:10px;margin-top:10px}
+.nl-row input{flex:1;min-width:0;background:#0b1120;border:1px solid var(--cl-border);color:var(--cl-text);border-radius:10px;padding:11px 13px}
+.nl-row button,.nl-confirm button,.swap-button,.feedback-box button,.gate-box a{border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.12);color:var(--cl-text);border-radius:9px;padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.08em}
+.nl-confirm{margin-top:10px;padding:10px;border-radius:10px;background:rgba(34,197,94,.06);color:var(--cl-muted);font-size:11px;line-height:1.6}
+.coupon-analysis-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:14px;margin:16px 0}
+.analysis-card,.variant-panel,.swap-panel{border:1px solid var(--cl-border);border-radius:18px;background:rgba(15,23,42,.72);padding:18px;backdrop-filter:blur(14px)}
+.analysis-card h3,.variant-panel h3,.swap-panel h3{margin:6px 0 12px;font-size:16px}
+.explanation-item{padding:11px 0;border-top:1px solid rgba(148,163,184,.12)}
+.explanation-item p{margin:5px 0 0;color:var(--cl-muted);font-size:12px;line-height:1.6}
+.analysis-link{margin-top:10px;border:0;background:none;color:var(--cl-lime);font-size:11px;font-weight:700}
+.risk-profile{font-size:26px;font-weight:800;margin:10px 0}
+.risk-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.risk-metrics span{padding:9px;border-radius:10px;background:rgba(255,255,255,.03);font-size:9px;color:var(--cl-muted)}
+.risk-metrics b{display:block;margin-top:4px;color:var(--cl-text);font-size:13px}
+.risk-reason{font-size:10px;color:var(--cl-muted);margin-top:7px}
+.variant-panel{margin:16px 0}
+.variant-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:10px}
+.variant-tabs button{padding:12px;text-align:left;border:1px solid var(--cl-border);border-radius:12px;background:rgba(255,255,255,.02);color:var(--cl-text)}
+.variant-tabs button.active{border-color:rgba(167,139,250,.65);background:rgba(167,139,250,.1)}
+.variant-tabs strong,.variant-tabs span,.variant-tabs small{display:block}.variant-tabs span{margin-top:5px;font-size:10px;color:var(--cl-lime)}.variant-tabs small{margin-top:6px;color:var(--cl-muted);font-size:10px;line-height:1.4}
+.selection-odds{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.swap-button{font-size:8px;padding:6px 8px}
+.swap-panel{margin:12px 0}
+.swap-panel button{display:flex;justify-content:space-between;gap:12px;width:100%;margin-top:8px;padding:10px;border:1px solid var(--cl-border);border-radius:10px;background:rgba(255,255,255,.025);color:var(--cl-text);text-align:left}
+.swap-panel button span{color:var(--cl-muted);font-size:10px}
+.feedback-box,.gate-box{margin-top:12px;padding:12px;border:1px solid var(--cl-border);border-radius:12px;background:rgba(255,255,255,.025)}
+.feedback-box strong,.gate-box strong{display:block;font-size:10px;letter-spacing:.1em}.feedback-box div{display:flex;gap:8px;margin-top:8px}.feedback-box small{display:block;margin-top:8px;color:var(--cl-green);font-size:10px}
+.gate-box span{display:block;margin:7px 0;color:var(--cl-muted);font-size:10px}.gate-box a{display:inline-block;text-decoration:none}
+@media(max-width:800px){.coupon-analysis-grid,.variant-tabs{grid-template-columns:1fr}.nl-row{flex-direction:column}}
