@@ -39,7 +39,7 @@ export function appendAuditEvent(
   events: AuditEvent[],
   input: Omit<AuditEvent, 'id' | 'previousHash' | 'hash'>,
 ): AuditEvent {
-  const previousHash = events.at(-1)?.hash ?? null;
+  const previousHash = events.length ? events[events.length - 1]?.hash : undefined ?? null;
   const id = `${input.runId}-${events.length + 1}`;
   const unsigned = { ...input, id, previousHash };
   const event = { ...unsigned, hash: hashEvent(unsigned) };
