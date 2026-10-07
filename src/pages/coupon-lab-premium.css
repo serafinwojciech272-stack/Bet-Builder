@@ -36,3 +36,13 @@
 @media(max-width:640px){.coupon-sport-atmosphere:before{opacity:.18}.coupon-sport-atmosphere:after{opacity:.065}.coupon-sport-action{opacity:.045;inset:22% -18% -5% 25%}}
 @media(prefers-reduced-motion:reduce){.coupon-sport-atmosphere:before,.coupon-sport-atmosphere:after,.coupon-sport-action{animation:none!important;transform:none!important}}
 @media print{.coupon-sport-atmosphere{display:none!important}}
+
+.selection-reason{margin-top:12px;padding:10px 12px;border:1px solid rgba(167,139,250,.12);border-radius:12px;background:rgba(10,14,24,.46)}
+.selection-reason span{display:block;font-size:9px;letter-spacing:.16em;color:#a78bfa;font-weight:800;margin-bottom:5px}
+.selection-reason p{margin:0;font-size:11px;line-height:1.55;color:rgba(226,232,240,.68)}
+.selection-card{transition:transform .28s ease,border-color .28s ease,background .28s ease,box-shadow .28s ease}
+.selection-card:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.28);background:rgba(20,27,43,.72);box-shadow:0 16px 42px rgba(0,0,0,.2)}
+.coupon-data-pill,.trust-strip,.target-chip,.generate-button,.result-actions button{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.coupon-hero:after{content:"";position:absolute;left:0;right:42%;bottom:-24px;height:1px;background:linear-gradient(90deg,rgba(167,139,250,.35),transparent);opacity:.7}
+@media(max-width:640px){.selection-reason p{font-size:10px}.selection-reason{padding:9px 10px}}
+@media(prefers-reduced-motion:reduce){.selection-card{transition:none}.selection-card:hover{transform:none}}
