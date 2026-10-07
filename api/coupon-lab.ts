@@ -16,7 +16,7 @@ export default async function handler(req:Req,res:Res){
     const body=req.body??{};
     if(body.action==='pdf'){
       const snapshot=await getCouponSnapshot(String(body.id)); if(!snapshot)return res.status(404).json({error:'COUPON_NOT_FOUND'});
-      return res.status(200).json({status:'READY',artifactId:`pdf_${snapshot.id}`,contentType:'application/pdf',base64:pdfBase64(snapshot)});
+      const artifactId=`pdf_${snapshot.id}`; const ready=await appendCouponAudit(snapshot.id,{id:id(),type:'PDF_READY',at:new Date().toISOString(),actor:'SYSTEM',payload:{artifactId}}); ready.pdf={status:'READY',artifactId,generatedAt:new Date().toISOString()}; await saveCouponSnapshot(ready); return res.status(200).json({status:'READY',artifactId,contentType:'application/pdf',base64:pdfBase64(ready)});
     }
     if(body.action==='save'){
       const coupon=body.coupon as CouponResult; const certification=body.certification;
