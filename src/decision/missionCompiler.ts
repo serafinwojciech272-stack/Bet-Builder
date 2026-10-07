@@ -1,6 +1,6 @@
-import type { DecisionCenterResult } from '../core/decisionCenter';
-import type { EvidenceGraph } from './evidenceGraph';
-import type { AIReasoningResult } from './aiReasoning';
+import type { DecisionCenterResult } from '../core/decisionCenter.js';
+import type { EvidenceGraph } from './evidenceGraph.js';
+import type { AIReasoningResult } from './aiReasoning.js';
 
 export interface MissionPlan { version:'1.0'; eligible:boolean; status:'READY'|'REVIEW'|'BLOCKED'; objective:string; preconditions:string[]; actions:Array<{id:string;kind:string;description:string}>; measurement:string[]; learning:string[]; evidenceDigest:string; }
 export function compileMission(decision:DecisionCenterResult,graph:EvidenceGraph,reasoning:AIReasoningResult):MissionPlan{
