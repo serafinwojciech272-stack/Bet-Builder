@@ -75,7 +75,7 @@ export default function CouponLabPage() {
 
   const liveStatus = certification?.status === 'CERTIFIED' ? 'KURSY AKTUALNE' : certification?.status === 'REVIEW' ? 'WYMAGA WERYFIKACJI' : certification ? 'BRAK WYSTARCZAJĄCYCH KURSÓW' : 'GOTOWY';
   const statusReady = result?.status === 'READY';
-  const dataTime = certification?.provenance?.timestamp ? new Date(certification.provenance.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : null;
+  const dataTime = dataset?.normalizedAt ? new Date(dataset.normalizedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : null;
 
   return (
     <>
