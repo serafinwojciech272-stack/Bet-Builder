@@ -127,6 +127,7 @@ export default function CouponLabPage() {
     setSwapTarget(null);
     setSimilarLegs([]);
   };
+  const createMission = async () => { if (!snapshot) return; const response = await fetch('/api/coupon-lab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mission',id:snapshot.id})}); if (response.ok) setSnapshot(await response.json() as CouponSnapshot); };
   const submitFeedback = async (helpful: boolean) => {
     if (!snapshot) return;
     setFeedback('sending');
@@ -397,7 +398,7 @@ export default function CouponLabPage() {
                   </div>
                   <div className="insight-note"><ShieldCheck size={14} /><span>Kupon pozostaje propozycją analityczną. Zewnętrzne działanie wymaga osobnej zgody. OBSERVATIONAL_ONLY.</span></div>
                   {snapshot && <div className="feedback-box no-print"><strong>Czy ta analiza była pomocna?</strong><div><button type="button" onClick={() => void submitFeedback(true)} disabled={feedback==='sending'}>TAK</button><button type="button" onClick={() => void submitFeedback(false)} disabled={feedback==='sending'}>NIE</button></div>{feedback==='done' && <small>Zapisano jako sygnał dla Learning Engine.</small>}</div>}
-                  <div className="gate-box no-print"><strong>APPROVAL GATE</strong><span>Automatyczne obstawianie pozostaje wyłączone.</span><a href="#/missions">OTWÓRZ MISSION CONTROL</a></div>
+                  <div className="gate-box no-print"><strong>APPROVAL GATE</strong><span>Automatyczne obstawianie pozostaje wyłączone.</span>{snapshot?.missionPlan ? <span className="mission-status">MISSION: {String((snapshot.missionPlan as {status?:string}).status ?? 'READY')}</span> : <button type="button" onClick={() => void createMission()}>UTWÓRZ MISSION</button>}<a href="#/missions">OTWÓRZ MISSION CONTROL</a></div>
                 </aside>
               </div>
             </motion.section>
