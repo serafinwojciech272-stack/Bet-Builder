@@ -46,3 +46,19 @@
 .coupon-hero:after{content:"";position:absolute;left:0;right:42%;bottom:-24px;height:1px;background:linear-gradient(90deg,rgba(167,139,250,.35),transparent);opacity:.7}
 @media(max-width:640px){.selection-reason p{font-size:10px}.selection-reason{padding:9px 10px}}
 @media(prefers-reduced-motion:reduce){.selection-card{transition:none}.selection-card:hover{transform:none}}
+
+/* Sport-aware atmosphere: the visual layer changes subtly with the selected sport while preserving data readability. */
+.coupon-lab[data-sport="soccer"]{--sport-glow:rgba(184,255,74,.10);--sport-image-opacity:.24}
+.coupon-lab[data-sport="basketball"]{--sport-glow:rgba(255,181,71,.10);--sport-image-opacity:.20}
+.coupon-lab[data-sport="tennis"]{--sport-glow:rgba(103,217,255,.10);--sport-image-opacity:.19}
+.coupon-lab[data-sport="all"]{--sport-glow:rgba(124,108,255,.08);--sport-image-opacity:.24}
+.coupon-lab[data-sport] .coupon-builder-card:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(420px 180px at 88% 0%,var(--sport-glow),transparent 72%);opacity:.7}
+.coupon-lab[data-sport] .coupon-sport-atmosphere:before{opacity:var(--sport-image-opacity)}
+.selection-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:11px}
+.selection-metrics>div{min-width:0;padding:6px 7px;border:1px solid rgba(255,255,255,.045);border-radius:7px;background:rgba(0,0,0,.13)}
+.selection-metrics span{display:block;color:#596575;font:800 6px/1 var(--font-mono,ui-monospace);letter-spacing:.08em}
+.selection-metrics strong{display:block;margin-top:4px;color:#aeb8c6;font:900 9px/1 var(--font-mono,ui-monospace);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selection-metrics .positive strong{color:var(--cl-green)}
+.selection-metrics .negative strong{color:#ff8d99}
+@media(max-width:640px){.selection-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.selection-metrics>div{padding:6px}.selection-metrics strong{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.coupon-lab[data-sport] .coupon-sport-atmosphere:before{animation:none}}
