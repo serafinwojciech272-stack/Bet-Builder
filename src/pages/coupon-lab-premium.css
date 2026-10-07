@@ -141,3 +141,266 @@
 .feedback-box strong,.gate-box strong{display:block;font-size:10px;letter-spacing:.1em}.feedback-box div{display:flex;gap:8px;margin-top:8px}.feedback-box small{display:block;margin-top:8px;color:var(--cl-green);font-size:10px}
 .gate-box span{display:block;margin:7px 0;color:var(--cl-muted);font-size:10px}.gate-box a{display:inline-block;text-decoration:none}
 @media(max-width:800px){.coupon-analysis-grid,.variant-tabs{grid-template-columns:1fr}.nl-row{flex-direction:column}}
+
+
+/* FINAL VISUAL POLISH
+   Premium sports atmosphere, sport-aware photography, cinematic lighting,
+   restrained motion, glass depth, focus states and mobile-safe rendering.
+*/
+.coupon-lab{
+  --sport-glow:rgba(124,108,255,.08);
+  --sport-accent:#7c6cff;
+  --sport-accent-soft:rgba(124,108,255,.16);
+}
+.coupon-sport-atmosphere{
+  isolation:isolate;
+  filter:saturate(.92);
+}
+.coupon-sport-atmosphere:before{
+  transition:opacity .55s ease,filter .55s ease,background-position .8s ease;
+  transform-origin:center;
+}
+.coupon-sport-atmosphere:after{
+  transition:opacity .55s ease,filter .55s ease;
+}
+.coupon-sport-action{
+  transition:opacity .55s ease,filter .55s ease;
+}
+
+/* Each sport gets its own cinematic visual identity while the dark overlay
+   keeps every data surface readable. Images are loaded from free Pexels assets. */
+.coupon-lab[data-sport="soccer"]{
+  --sport-glow:rgba(184,255,74,.11);
+  --sport-accent:#b8ff4a;
+  --sport-accent-soft:rgba(184,255,74,.18);
+}
+.coupon-lab[data-sport="soccer"] .coupon-sport-atmosphere:before{
+  background-image:
+    linear-gradient(90deg,rgba(5,7,11,.99) 0%,rgba(5,7,11,.84) 27%,rgba(5,7,11,.48) 58%,rgba(5,7,11,.86) 100%),
+    url("https://images.pexels.com/photos/9946854/pexels-photo-9946854.jpeg?auto=compress&cs=tinysrgb&w=2400");
+  background-position:center top;
+}
+.coupon-lab[data-sport="soccer"] .coupon-sport-action{
+  background-image:
+    linear-gradient(90deg,rgba(5,7,11,1),rgba(5,7,11,.62) 30%,rgba(5,7,11,.12) 72%,rgba(5,7,11,.76)),
+    url("https://images.pexels.com/photos/61135/pexels-photo-61135.jpeg?auto=compress&cs=tinysrgb&w=2200");
+}
+
+.coupon-lab[data-sport="basketball"]{
+  --sport-glow:rgba(255,181,71,.12);
+  --sport-accent:#ffb547;
+  --sport-accent-soft:rgba(255,181,71,.18);
+}
+.coupon-lab[data-sport="basketball"] .coupon-sport-atmosphere:before{
+  background-image:
+    linear-gradient(90deg,rgba(5,7,11,.99) 0%,rgba(5,7,11,.86) 25%,rgba(5,7,11,.48) 58%,rgba(5,7,11,.88) 100%),
+    url("https://images.pexels.com/photos/15729336/pexels-photo-15729336.jpeg?auto=compress&cs=tinysrgb&w=2400");
+  background-position:center center;
+}
+.coupon-lab[data-sport="basketball"] .coupon-sport-action{
+  background-image:
+    linear-gradient(90deg,rgba(5,7,11,1),rgba(5,7,11,.66) 32%,rgba(5,7,11,.12) 72%,rgba(5,7,11,.8)),
+    url("https://images.pexels.com/photos/15828942/pexels-photo-15828942.jpeg?auto=compress&cs=tinysrgb&w=2200");
+}
+
+.coupon-lab[data-sport="tennis"]{
+  --sport-glow:rgba(103,217,255,.12);
+  --sport-accent:#67d9ff;
+  --sport-accent-soft:rgba(103,217,255,.18);
+}
+.coupon-lab[data-sport="tennis"] .coupon-sport-atmosphere:before{
+  background-image:
+    linear-gradient(90deg,rgba(5,7,11,.99) 0%,rgba(5,7,11,.86) 25%,rgba(5,7,11,.48) 58%,rgba(5,7,11,.9) 100%),
+    url("https://images.pexels.com/photos/793176/pexels-photo-793176.jpeg?auto=compress&cs=tinysrgb&w=2400");
+  background-position:center center;
+}
+.coupon-lab[data-sport="tennis"] .coupon-sport-action{
+  background-image:
+    linear-gradient(90deg,rgba(5,7,11,1),rgba(5,7,11,.68) 32%,rgba(5,7,11,.12) 72%,rgba(5,7,11,.8)),
+    url("https://images.pexels.com/photos/13710123/pexels-photo-13710123.jpeg?auto=compress&cs=tinysrgb&w=2200");
+}
+
+/* Cinematic light wash and subtle scan texture. */
+.coupon-lab[data-sport] .coupon-sport-atmosphere{
+  box-shadow:
+    inset 0 0 180px rgba(0,0,0,.72),
+    inset 0 -180px 240px rgba(0,0,0,.74);
+}
+.coupon-lab[data-sport] .coupon-sport-atmosphere:after{
+  background-blend-mode:normal;
+}
+.coupon-lab[data-sport] .coupon-sport-atmosphere:global{}
+.coupon-lab[data-sport]:before{
+  background:
+    radial-gradient(520px 260px at 8% 16%,var(--sport-glow),transparent 70%),
+    radial-gradient(420px 260px at 92% 34%,rgba(124,108,255,.045),transparent 72%),
+    radial-gradient(760px 340px at 52% 92%,rgba(0,0,0,.48),transparent 72%);
+}
+
+/* Hero becomes a visual focal point without becoming a giant card. */
+.coupon-hero{
+  position:relative;
+  padding:5px 2px 30px;
+}
+.coupon-hero:before{
+  content:"";
+  position:absolute;
+  width:360px;
+  height:220px;
+  left:-120px;
+  top:-95px;
+  border-radius:50%;
+  background:radial-gradient(circle,var(--sport-glow),transparent 68%);
+  filter:blur(8px);
+  pointer-events:none;
+  animation:clHeroBreathe 8s ease-in-out infinite;
+}
+@keyframes clHeroBreathe{
+  0%,100%{opacity:.55;transform:scale(.96)}
+  50%{opacity:1;transform:scale(1.05)}
+}
+.coupon-title{
+  text-shadow:0 12px 50px rgba(0,0,0,.32);
+}
+.coupon-data-pill{
+  border-color:rgba(255,255,255,.11);
+  background:linear-gradient(135deg,rgba(18,25,35,.78),rgba(7,10,16,.66));
+  box-shadow:0 12px 35px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.065);
+}
+
+/* More depth on the main controls. */
+.coupon-builder-card{
+  border-color:rgba(255,255,255,.105);
+  background:
+    linear-gradient(145deg,rgba(19,26,37,.94),rgba(7,10,16,.95)),
+    radial-gradient(500px 240px at 90% 0%,var(--sport-glow),transparent 72%);
+  box-shadow:
+    0 34px 110px rgba(0,0,0,.38),
+    0 0 0 1px rgba(255,255,255,.012),
+    inset 0 1px rgba(255,255,255,.07);
+}
+.coupon-builder-card:before{
+  content:"";
+  position:absolute;
+  left:24px;
+  right:24px;
+  top:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--sport-accent-soft),transparent);
+  opacity:.9;
+}
+.premium-input,.premium-select{
+  background:linear-gradient(135deg,rgba(5,8,13,.7),rgba(12,17,25,.54));
+}
+.premium-input:hover,.premium-select:hover{
+  border-color:rgba(255,255,255,.14);
+}
+.generate-button{
+  position:relative;
+  overflow:hidden;
+}
+.generate-button:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.34) 48%,transparent 72%);
+  transform:translateX(-120%);
+  transition:transform .7s ease;
+}
+.generate-button:hover:before{
+  transform:translateX(120%);
+}
+.generate-button>*{
+  position:relative;
+  z-index:1;
+}
+.target-chip{
+  backdrop-filter:blur(10px);
+}
+.target-chip:focus-visible,
+.generate-button:focus-visible,
+.nl-row button:focus-visible,
+.nl-confirm button:focus-visible,
+.swap-button:focus-visible,
+.feedback-box button:focus-visible,
+.result-actions button:focus-visible{
+  outline:2px solid var(--sport-accent);
+  outline-offset:3px;
+}
+
+/* Result state gets a subtle stadium-light halo. */
+.coupon-result-wrap{
+  position:relative;
+}
+.coupon-result-wrap:before{
+  content:"";
+  position:absolute;
+  width:520px;
+  height:300px;
+  right:-220px;
+  top:-110px;
+  border-radius:50%;
+  background:radial-gradient(circle,var(--sport-glow),transparent 68%);
+  filter:blur(12px);
+  pointer-events:none;
+  animation:clResultGlow 10s ease-in-out infinite alternate;
+}
+@keyframes clResultGlow{
+  from{opacity:.35;transform:translate3d(0,0,0) scale(.96)}
+  to{opacity:.7;transform:translate3d(-16px,10px,0) scale(1.04)}
+}
+.decision-card,.analysis-card,.variant-panel,.swap-panel,.selections-panel,.insight-panel{
+  box-shadow:
+    0 24px 80px rgba(0,0,0,.22),
+    inset 0 1px rgba(255,255,255,.045);
+}
+.decision-card{
+  border-color:color-mix(in srgb,var(--sport-accent) 24%,transparent);
+}
+.decision-orbit{
+  background:radial-gradient(circle,var(--sport-glow),rgba(103,217,255,.035) 44%,transparent 68%);
+  animation:clOrbit 12s ease-in-out infinite alternate;
+}
+@keyframes clOrbit{
+  from{transform:translate3d(0,0,0) scale(.96)}
+  to{transform:translate3d(-24px,12px,0) scale(1.08)}
+}
+.selection-card:before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:9px;
+  bottom:9px;
+  width:2px;
+  border-radius:2px;
+  background:linear-gradient(180deg,var(--sport-accent),transparent);
+  opacity:.22;
+  transition:opacity .25s ease;
+}
+.selection-card:hover:before{
+  opacity:.9;
+}
+.selection-card{
+  position:relative;
+  overflow:hidden;
+}
+
+/* Better mobile composition: keep the imagery atmospheric, never dominant. */
+@media(max-width:640px){
+  .coupon-hero{padding-bottom:25px}
+  .coupon-hero:before{width:260px;height:180px;left:-100px;top:-70px}
+  .coupon-sport-atmosphere:before{
+    background-position:center center;
+    filter:saturate(.5) contrast(.92) brightness(.54);
+  }
+  .coupon-sport-action{display:none}
+  .coupon-builder-card:before{left:17px;right:17px}
+  .coupon-result-wrap:before{width:300px;height:220px;right:-170px;top:-80px}
+}
+@media(prefers-reduced-motion:reduce){
+  .coupon-hero:before,.coupon-result-wrap:before,.decision-orbit{animation:none!important}
+  .generate-button:before{display:none}
+}
+@supports not (color:color-mix(in srgb,red 50%,transparent)){
+  .decision-card{border-color:rgba(124,108,255,.24)}
+}
