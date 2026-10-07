@@ -105,7 +105,7 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
         packet_id: run.packet.id,
         fingerprint: run.packet.id,
         input_digest: run.audit[0]?.payloadDigest ?? null,
-        output_digest: run.audit.at(-1)?.payloadDigest ?? null,
+        output_digest: run.audit.length ? run.audit[run.audit.length - 1]?.payloadDigest : null ?? null,
         audit_valid: run.auditIntegrity.valid,
         calibration_state: run.calibration.state,
       }),
