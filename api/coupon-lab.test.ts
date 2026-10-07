@@ -9,6 +9,7 @@ describe('Coupon Lab API E2E contract',()=>{
    expect(save.statusCode).toBe(200); const id=save.get().id; expect(id).toMatch(/^cp_/);
    const read=response(); await handler({method:'GET',query:{id},body:{}},read as any); expect(read.get().id).toBe(id); expect(read.get().coupon.legs[0].selectionId).toBe('e2');
    const pdf=response(); await handler({method:'POST',query:{},body:{action:'pdf',id}},pdf as any); expect(pdf.get().status).toBe('READY'); expect(pdf.get().base64.length).toBeGreaterThan(100);
+   const mission=response(); await handler({method:'POST',query:{},body:{action:'mission',id}},mission as any); expect(mission.get().missionPlan.status).toMatch(/READY|REVIEW|BLOCKED/); expect(mission.get().auditEvents.at(-1).type).toBe('MISSION_CREATED');
    const feedback=response(); await handler({method:'POST',query:{},body:{action:'feedback',id,helpful:true}},feedback as any); expect(feedback.get().auditEvents.at(-1).type).toBe('FEEDBACK_RECORDED');
  });
 });
