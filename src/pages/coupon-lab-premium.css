@@ -62,3 +62,25 @@
 .selection-metrics .negative strong{color:#ff8d99}
 @media(max-width:640px){.selection-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.selection-metrics>div{padding:6px}.selection-metrics strong{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.coupon-lab[data-sport] .coupon-sport-atmosphere:before{animation:none}}
+
+.intelligence-summary{margin-top:10px;padding:17px;border:1px solid rgba(124,108,255,.16);border-radius:16px;background:linear-gradient(120deg,rgba(124,108,255,.055),rgba(103,217,255,.025));box-shadow:inset 0 1px rgba(255,255,255,.035)}
+.intelligence-summary-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.intelligence-summary-head h3{margin:7px 0 0;color:#eef2f7;font-size:15px;letter-spacing:-.02em}
+.intelligence-grade{padding:5px 8px;border:1px solid rgba(255,255,255,.06);border-radius:7px;font:900 7px/1 var(--font-mono,ui-monospace);letter-spacing:.1em}
+.intelligence-grade.positive{color:var(--cl-green);border-color:rgba(49,209,124,.16);background:rgba(49,209,124,.045)}
+.intelligence-grade.negative{color:#ff8d99;border-color:rgba(255,92,108,.16);background:rgba(255,92,108,.045)}
+.intelligence-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:14px}
+.intelligence-summary-grid>div{padding:10px;border:1px solid rgba(255,255,255,.045);border-radius:10px;background:rgba(0,0,0,.12)}
+.intelligence-summary-grid span{display:block;color:#5f6b7c;font:800 6px/1.2 var(--font-mono,ui-monospace);letter-spacing:.08em}
+.intelligence-summary-grid strong{display:block;margin-top:6px;color:#cdd5df;font:900 12px/1 var(--font-mono,ui-monospace)}
+.intelligence-summary-grid .positive strong{color:var(--cl-green)}
+.intelligence-summary-grid .negative strong{color:#ff8d99}
+.selection-probability{margin-top:11px;padding:9px 10px;border:1px solid rgba(103,217,255,.08);border-radius:10px;background:rgba(103,217,255,.018)}
+.probability-head,.probability-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.probability-head span,.probability-foot span{color:#596677;font:800 6px/1 var(--font-mono,ui-monospace);letter-spacing:.08em}
+.probability-head b{color:#aeb8c6;font:900 8px/1 var(--font-mono,ui-monospace)}
+.probability-track{position:relative;height:5px;margin:8px 0;border-radius:99px;background:#1a2230;overflow:visible}
+.probability-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6f62e8,#67d9ff);box-shadow:0 0 12px rgba(103,217,255,.16)}
+.probability-track em{position:absolute;top:-3px;width:2px;height:11px;border-radius:2px;background:var(--cl-lime);box-shadow:0 0 8px rgba(184,255,74,.55)}
+.probability-foot span:last-child{color:#718096}
+@media(max-width:640px){.intelligence-summary{padding:14px}.intelligence-summary-grid{grid-template-columns:repeat(2,1fr)}.intelligence-summary-head{align-items:flex-start}.intelligence-grade{white-space:nowrap}.probability-foot{font-size:6px}}
