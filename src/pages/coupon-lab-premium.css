@@ -93,7 +93,7 @@
 .recommendation-badge{padding:7px 9px;border-radius:7px}
 .keep{color:var(--cl-green);background:rgba(49,209,124,.07);border:1px solid rgba(49,209,124,.14)}
 .review{color:#ffd166;background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.14)}
-.block{color:#ff8d99;background:rgba(255,92,108,.06);border:1px solid rgba(255,92,108,.14)}
+.ci-block{color:#ff8d99;background:rgba(255,92,108,.06);border:1px solid rgba(255,92,108,.14)}
 .weakest-link{position:relative;margin:10px 0;padding:12px;border:1px solid rgba(255,255,255,.055);border-radius:11px;background:rgba(0,0,0,.13)}
 .weakest-head{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}
 .weakest-head b{color:#8d9aab;font:900 8px/1 var(--font-mono,ui-monospace)}
