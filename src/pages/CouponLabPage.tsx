@@ -87,7 +87,7 @@ export default function CouponLabPage() {
         .no-print { display: none !important; }
       }`}</style>
 
-      <main className="coupon-lab mx-auto w-full max-w-[1180px] px-4 py-7 md:px-6 md:py-10">
+      <main className="coupon-lab mx-auto w-full max-w-[1180px] px-4 py-7 md:px-6 md:py-10" data-sport={sport}>\n        <div className="coupon-sport-atmosphere" aria-hidden="true"><div className="coupon-sport-action" /></div>
         <motion.header
           className="coupon-hero mb-7"
           initial={{ opacity: 0, y: 14 }}
