@@ -112,7 +112,7 @@ export default function CouponLabPage() {
     }
   };
 
-  const printPdf = () => window.print();
+  const printPdf = async () => { if (!snapshot) return window.print(); const response = await fetch('/api/coupon-lab', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'pdf',id:snapshot.id}) }); if (!response.ok) return; const pdf = await response.json() as {base64:string}; const bytes=Uint8Array.from(atob(pdf.base64),(ch)=>ch.charCodeAt(0)); const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})); const link=document.createElement('a'); link.href=url; link.download='bet-builder-'+snapshot.id+'.pdf'; link.click(); URL.revokeObjectURL(url); };
   const requestSwap = (selectionId: string) => {
     setSwapTarget(selectionId);
     const candidates = candidateLegs.filter((x) => Boolean(x)).map((x) => x as CouponResult['legs'][number]);
@@ -136,12 +136,6 @@ export default function CouponLabPage() {
     } catch { setFeedback('idle'); }
   };
 
-  useEffect(() => {
-    if (!result || busy || autoPrintRef.current) return;
-    autoPrintRef.current = true;
-    const timer = window.setTimeout(() => window.print(), 700);
-    return () => window.clearTimeout(timer);
-  }, [result, busy]);
   if (phase === 'loading' && !dataset) {
     return <div className="mx-auto max-w-5xl px-5 py-16 text-center text-slate-400">Pobieram aktualne wydarzenia i kursy…</div>;
   }
