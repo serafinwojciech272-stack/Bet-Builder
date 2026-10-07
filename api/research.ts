@@ -1,3 +1,4 @@
+export {};
 type VercelRequest={method?:string;query:Record<string,string|string[]|undefined>};type VercelResponse={status:(n:number)=>VercelResponse;setHeader:(n:string,v:string)=>VercelResponse;json:(b:unknown)=>VercelResponse;end:(b?:string)=>VercelResponse};
 
 type VercelRequest = { method?: string; query: Record<string, string | string[] | undefined> };
