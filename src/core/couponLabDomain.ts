@@ -49,6 +49,7 @@ export interface CouponSnapshot {
   certification: unknown;
   pdf?: { status: 'GENERATING' | 'READY' | 'FAILED'; artifactId?: string; generatedAt?: string; error?: string };
   approvalState: 'PENDING';
+  missionPlan?: unknown;
   executionPolicy: 'OBSERVATIONAL_ONLY';
   auditEvents: CouponAuditEvent[];
 }
