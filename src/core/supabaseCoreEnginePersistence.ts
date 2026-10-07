@@ -73,22 +73,11 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
   constructor(private readonly config: SupabaseRestConfig) {}
 
   async append(entry: DecisionLedgerEntry) {
-    await request(this.config, 'bb_decision_ledger', {
-      method: 'POST',
-      body: JSON.stringify(ledgerRow(entry)),
-    }, 'id');
+    await request(this.config, 'bb_decision_ledger', { method: 'POST', body: JSON.stringify(ledgerRow(entry)) }, 'id');
   }
 
   async list() {
-    const response = await fetch(
-      endpoint(this.config.url, 'bb_decision_ledger') + '?select=*&order=recorded_at.desc',
-      {
-        headers: {
-          apikey: this.config.serviceRoleKey,
-          Authorization: `Bearer ${this.config.serviceRoleKey}`,
-        },
-      },
-    );
+    const response = await fetch(endpoint(this.config.url, 'bb_decision_ledger') + '?select=*&order=recorded_at.desc', { headers: { apikey: this.config.serviceRoleKey, Authorization: `Bearer ${this.config.serviceRoleKey}` } });
     if (!response.ok) throw new Error(`SUPABASE_PERSISTENCE_FAILED:bb_decision_ledger:LIST:${response.status}`);
     const rows = await response.json() as SupabaseRow[];
     return rows.map(fromLedgerRow);
@@ -105,7 +94,7 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
         packet_id: run.packet.id,
         fingerprint: run.packet.id,
         input_digest: run.audit[0]?.payloadDigest ?? null,
-        output_digest: run.audit.length ? run.audit[run.audit.length - 1]?.payloadDigest : null ?? null,
+        output_digest: run.audit.length ? (run.audit[run.audit.length - 1]?.payloadDigest ?? null) : null,
         audit_valid: run.auditIntegrity.valid,
         calibration_state: run.calibration.state,
       }),
@@ -114,19 +103,7 @@ export class SupabaseCoreEngineLedgerStore implements CoreEngineLedgerStore {
 
   async persistAudit(events: AuditEvent[]) {
     if (!events.length) return;
-    await request(this.config, 'bb_audit_events', {
-      method: 'POST',
-      body: JSON.stringify(events.map((event) => ({
-        id: event.id,
-        run_id: event.runId,
-        event_type: event.type,
-        at: event.at,
-        actor: event.actor,
-        payload_digest: event.payloadDigest,
-        previous_hash: event.previousHash,
-        hash: event.hash,
-      }))),
-    }, 'id');
+    await request(this.config, 'bb_audit_events', { method: 'POST', body: JSON.stringify(events.map((event) => ({ id: event.id, run_id: event.runId, event_type: event.type, at: event.at, actor: event.actor, payload_digest: event.payloadDigest, previous_hash: event.previousHash, hash: event.hash }))) }, 'id');
   }
 }
 
