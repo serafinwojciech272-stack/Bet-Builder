@@ -1,3 +1,6 @@
+type VercelRequest = { method?: string; query: Record<string, string | string[] | undefined> };
+type VercelResponse = { status:(code:number)=>VercelResponse; setHeader:(name:string,value:string)=>VercelResponse; json:(body:unknown)=>VercelResponse; end:(body?:string)=>VercelResponse };
+
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { buildResearchQueries, normalizeResearchSources, synthesizeResearch } from '../src/research/researchEngine.js';
 import type { ResearchLanguage } from '../src/research/types.js';
