@@ -19,6 +19,14 @@ function money(value: number) {
   return value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function pct(value: number) {
+  return `${(value * 100).toFixed(0)}%`;
+}
+
+function signedPct(value: number) {
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+}
+
 const ease = [0.22, 1, 0.36, 1] as const;
 
 export default function CouponLabPage() {
@@ -248,9 +256,15 @@ export default function CouponLabPage() {
                           <div className="selection-meta">{leg.league} <span>·</span> {new Date(leg.startTime).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}</div>
                           <h4>{leg.eventLabel}</h4>
                           <div className="selection-market"><span>MARKET</span><strong>{leg.label}</strong></div>
+                          <div className="selection-metrics" aria-label="Metryki selekcji">
+                            <div><span>P(EDGE)</span><strong>{pct(leg.probability)}</strong></div>
+                            <div><span>IMPLIED</span><strong>{pct(1 / leg.marketOdds)}</strong></div>
+                            <div className={leg.edge >= 0 ? 'positive' : 'negative'}><span>EDGE</span><strong>{signedPct(leg.edge)}</strong></div>
+                            <div className={leg.risk === 'CRITICAL' ? 'negative' : ''}><span>RISK</span><strong>{leg.risk}</strong></div>
+                          </div>
                           <div className="selection-reason">
                             <span>DLACZEGO AI</span>
-                            <p>{leg.reasons.join(' · ')}. Kurs x{leg.marketOdds.toFixed(2)} przy estymowanym prawdopodobieństwie {(leg.probability * 100).toFixed(0)}% i poziomie confidence {(leg.confidence * 100).toFixed(0)}%.</p>
+                            <p>{leg.reasons.join(' · ')}. Kurs x{leg.marketOdds.toFixed(2)} oznacza implied probability {pct(1 / leg.marketOdds)}; model szacuje {pct(leg.probability)}. Confidence {pct(leg.confidence)}, edge {signedPct(leg.edge)}, EV {signedPct(leg.ev)}.</p>
                           </div>
                         </div>
                         <div className="selection-odds">x{leg.marketOdds.toFixed(2)}</div>
