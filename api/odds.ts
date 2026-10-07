@@ -302,6 +302,16 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const apiKey = process.env.PARLAY_API_KEY?.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res,400,{error:'INVALID_DATE',message:'Use date=YYYY-MM-DD.'});
   const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[];
   if (!apiKey) {
+    // No authenticated Parlay key: try the no-auth live odds feed FIRST.
+    // Event-only providers must never win over a provider that can supply bookmaker snapshots.
+    const tryFallback=await fetchParlayTryFallback(requestedSport,issues);
+    if(tryFallback.snapshots.length){
+      return json(res,200,{events:tryFallback.events,snapshots:tryFallback.snapshots,issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'parlay-api',mode:'LIVE',requestedDate,sportsQueried:tryFallback.sportsQueried,bookmakers:tryFallback.bookmakers,availableSports:[],providerHealth:{provider:'parlay-api',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:0,staleAfterSeconds:120,catalogCount:0,queriedSports:tryFallback.sportsQueried.length,successfulSports:tryFallback.sportsQueried.length,failedSports:0,eventCount:tryFallback.events.length,snapshotCount:tryFallback.snapshots.length,bookmakerCount:tryFallback.bookmakers.length,warnings:['REAL LIVE ODDS','NO-AUTH FALLBACK']}}); 
+    }
+    const oddsApi=await fetchOddsApiFallback(requestedDate,requestedSport,issues);
+    if(oddsApi.snapshots.length){
+      return json(res,200,{events:oddsApi.events,snapshots:oddsApi.snapshots,issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'the-odds-api',mode:'LIVE',requestedDate,sportsQueried:oddsApi.queriedSports,bookmakers:oddsApi.bookmakers,availableSports:oddsApi.availableSports,quota:oddsApi.quota,providerHealth:{provider:'the-odds-api',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:0,staleAfterSeconds:600,catalogCount:oddsApi.availableSports.length,queriedSports:oddsApi.queriedSports.length,successfulSports:oddsApi.queriedSports.length,failedSports:0,eventCount:oddsApi.events.length,snapshotCount:oddsApi.snapshots.length,bookmakerCount:oddsApi.bookmakers.length,warnings:['REAL EVENTS + ODDS AVAILABLE FROM THE ODDS API FALLBACK']}}); 
+    }
     const sportScore=await fetchSportScoreFallback(requestedDate,requestedSport,issues);
     if(sportScore.events.length) return json(res,200,{events:sportScore.events,snapshots:[],issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportScore.sports,bookmakers:[],availableSports:sportScore.availableSports,providerHealth:eventProviderHealth('sportscore',{eventCount:sportScore.events.length,queriedSports:sportScore.sports.length,successfulSports:sportScore.sports.length,failedSports:0,catalogCount:sportScore.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});
     const sportsDb=await fetchTheSportsDbFallback(requestedDate,requestedSport,issues);
