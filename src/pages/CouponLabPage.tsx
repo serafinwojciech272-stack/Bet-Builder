@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, ArrowUpRight, CheckCircle2, FileDown, Gauge, RefreshCw, ShieldCheck, Sparkles, Target, WalletCards, Zap } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
@@ -49,7 +49,6 @@ export default function CouponLabPage() {
   const [feedback, setFeedback] = useState<'idle'|'sending'|'done'>('idle');
   const [nlInput, setNlInput] = useState('');
   const [nlIntent, setNlIntent] = useState<ReturnType<typeof parseNaturalLanguageIntent> | null>(null);
-  const autoPrintRef = useRef(false);
 
   const events = useMemo(() => dataset ? liveEvents(dataset) : [], [dataset]);
   const candidateLegs = useMemo(() => rankPredictions(events).map((p) => { const e=events.find((item)=>item.id===p.eventId); return e ? {...p,eventLabel:e.homeTeam+' vs '+e.awayTeam,league:e.league,startTime:e.startTime} : null; }).filter(Boolean), [events]);
