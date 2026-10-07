@@ -37,9 +37,7 @@ export default function CouponLabPage() {
     setError('');
     try {
       // Always force a fresh server-side dataset before constructing a coupon.
-      await refresh(selectedDate, true, sport);
-      // refresh updates React state asynchronously; use the current dataset when available.
-      const source = dataset;
+      const source = await refresh(selectedDate, true, sport);
       if (!source) {
         setError('Brak danych sportowych. Odśwież stronę i spróbuj ponownie.');
         return;
