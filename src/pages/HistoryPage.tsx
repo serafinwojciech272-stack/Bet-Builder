@@ -174,7 +174,7 @@ export function HistoryPage() {
             </Panel>
           )}
         </div>
-      ) :  {tab === 'analyses' ? (
+      ) : (tab === 'analyses' ? (
         <div className="space-y-4">
           <p className="text-xs text-muted">
             Select up to two analyses to compare. Comparison uses only deterministic figures.
