@@ -46,7 +46,7 @@ function mergeProviderHealth(datasets: readonly CanonicalDataset[]): ProviderHea
     ...health[0],
     provider: datasets.length === 1 ? health[0].provider : 'multi-provider',
     state,
-    fetchedAt: health.map(h => h.fetchedAt).sort().at(-1) ?? health[0].fetchedAt,
+    fetchedAt: health.map(h => h.fetchedAt).sort()[health.length - 1] ?? health[0].fetchedAt,
     ageSeconds: Math.max(...health.map(h => h.ageSeconds)),
     queriedSports: Math.max(...health.map(h => h.queriedSports)),
     successfulSports: health.reduce((sum, h) => sum + h.successfulSports, 0),
