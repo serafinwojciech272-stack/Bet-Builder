@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeftRight, Brain, History, Radar, Trophy } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
@@ -16,8 +16,9 @@ import {
   Stat,
 } from '../components/ui';
 import { cx, dateTime, relativeTime } from '../lib/format';
+import type { CouponSnapshot } from '../core/couponLabDomain';
 
-type Tab = 'analyses' | 'missions';
+type Tab = 'analyses' | 'missions' | 'coupons';
 
 function bestEdge(record: AnalysisRecord): number {
   return Math.max(...record.analysis.valueSignals.map((v) => v.edgePct.value), -99);
@@ -62,6 +63,9 @@ export function HistoryPage() {
   const { analyses, missions, phase, error, refresh, nowTick } = useIntelligence();
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>((params.get('tab') as Tab) ?? 'analyses');
+  const [couponSnapshots, setCouponSnapshots] = useState<CouponSnapshot[]>([]);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  useEffect(() => { fetch('/api/coupon-lab').then((res) => res.ok ? res.json() : Promise.reject(new Error('COUPON_HISTORY_FAILED'))).then((body: {items?: CouponSnapshot[]}) => setCouponSnapshots(body.items ?? [])).catch((e) => setCouponError(e instanceof Error ? e.message : 'COUPON_HISTORY_FAILED')); }, []);
   const [selected, setSelected] = useState<string[]>(() => {
     const pre = params.get('analysis');
     return pre ? [pre] : [];
@@ -135,6 +139,7 @@ export function HistoryPage() {
           [
             { id: 'analyses' as Tab, label: 'Analysis history', icon: Brain },
             { id: 'missions' as Tab, label: 'Mission history', icon: Radar },
+            { id: 'coupons' as Tab, label: 'Coupon history', icon: Trophy },
           ]
         ).map((t) => (
           <button
@@ -156,7 +161,20 @@ export function HistoryPage() {
         ))}
       </div>
 
-      {tab === 'analyses' ? (
+      {tab === 'coupons' ? (
+        <div className="space-y-4">
+          {couponError && <p role="alert" className="text-xs text-negative">{couponError}</p>}
+          {couponSnapshots.length === 0 ? <EmptyState title="No coupon snapshots yet" detail="Generated Coupon Lab results appear here as immutable snapshots." /> : (
+            <Panel className="overflow-x-auto p-5">
+              <table className="w-full min-w-[760px] text-left">
+                <caption className="sr-only">Coupon history</caption>
+                <thead><tr className="text-[10px] uppercase tracking-[0.12em] text-faint"><th className="py-1.5">Snapshot</th><th className="py-1.5">Data</th><th className="py-1.5">Kurs</th><th className="py-1.5">Stawka</th><th className="py-1.5">Ryzyko</th><th className="py-1.5">Zdarzenia</th><th className="py-1.5">Certification</th></tr></thead>
+                <tbody>{couponSnapshots.map((s) => <tr key={s.id} className="border-t border-line-soft"><td className="py-2 font-mono text-[10px] text-ai">{s.id}</td><td className="py-2 text-xs">{dateTime(s.createdAt)}</td><td className="py-2 font-mono text-xs">x{s.coupon.combinedOdds.toFixed(2)}</td><td className="py-2 font-mono text-xs">{s.stake.toFixed(2)} PLN</td><td className="py-2"><Chip tone="warn">{s.risk.profile}</Chip></td><td className="py-2">{s.coupon.legs.length}</td><td className="py-2"><Chip tone={String((s.certification as {status?:string})?.status) === 'CERTIFIED' ? 'positive' : 'warn'}>{String((s.certification as {status?:string})?.status ?? 'UNKNOWN')}</Chip></td></tr>)}</tbody>
+              </table>
+            </Panel>
+          )}
+        </div>
+      ) : (tab === 'analyses' ? (
         <div className="space-y-4">
           <p className="text-xs text-muted">
             Select up to two analyses to compare. Comparison uses only deterministic figures.
@@ -482,7 +500,7 @@ export function HistoryPage() {
             )}
           </Panel>
         </div>
-      )}
+      ))}
     </div>
   );
 }

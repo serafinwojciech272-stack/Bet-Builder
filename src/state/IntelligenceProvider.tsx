@@ -18,7 +18,7 @@ export interface EngineStatus { aiEngineId: string; aiOnline: boolean; aiDetail:
 interface IntelligenceValue {
   phase: LoadPhase; error: string | null; dataset: CanonicalDataset | null; analyses: AnalysisRecord[]; missions: Mission[]; engine: EngineStatus | null;
   analysisJobs: Record<string, AnalysisJobState>; busyMissionIds: string[]; toasts: Toast[]; lastRefreshedAt: string | null; selectedDate: string; nowTick: number; operator: string;
-  refresh: (date?: string, forceRefresh?: boolean, sport?: string) => Promise<void>;
+  refresh: (date?: string, forceRefresh?: boolean, sport?: string) => Promise<CanonicalDataset | null>;
   runAnalysis: (eventId: string, options?: { market?: MarketKey; depth?: 'standard' | 'deep' }) => Promise<AnalysisResponse | null>;
   optimizeBuilder: (request: OptimizationRequest) => Promise<OptimizationResult | null>;
   createMission: (analysis: AnalysisResponse, action: RecommendedAction, options?: MissionDraftOptions) => Promise<Mission | null>;
@@ -40,7 +40,7 @@ export function IntelligenceProvider({ children }: { children: ReactNode }) {
   const pushToast = useCallback((toast: Omit<Toast, 'id'>) => { const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; setToasts((p) => [...p, { ...toast, id }]); window.setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 6000); }, []);
   const dismissToast = useCallback((id: string) => setToasts((p) => p.filter((t) => t.id !== id)), []);
   const syncStores = useCallback(async () => { const [a, m] = await Promise.all([workspace.analysisRepository.list(), workspace.missionRepository.list()]); setAnalyses(a); setMissions(m); }, [workspace]);
-  const refresh = useCallback(async (date = selectedDate, forceRefresh = false, sport = 'all') => {
+  const refresh = useCallback(async (date = selectedDate, forceRefresh = false, sport = 'all'): Promise<CanonicalDataset | null> => {
     setPhase('loading'); setError(null); setSelectedDate(date);
     try {
       const data = await workspace.dataRepository.loadCanonicalDataset({ date, forceRefresh, sport });
@@ -55,7 +55,8 @@ export function IntelligenceProvider({ children }: { children: ReactNode }) {
       void Promise.all([workspace.analysisService.health(), workspace.coreEngine.capabilities()])
         .then(([health, caps]) => setEngine({ aiEngineId: health.engineId, aiOnline: health.ok, aiDetail: health.detail, coreEngineId: caps.engineId, coreVersion: caps.version, monetaryExecution: caps.supportsMonetaryExecution, portfolioOptimization: caps.supportsPortfolioOptimization }))
         .catch(() => undefined);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Unknown bootstrap failure'); setPhase('error'); }
+      return data;
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unknown bootstrap failure'); setPhase('error'); return null; }
   }, [workspace, selectedDate, syncStores]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => { const id = window.setInterval(() => setNowTick(Date.now()), 30000); return () => window.clearInterval(id); }, []);

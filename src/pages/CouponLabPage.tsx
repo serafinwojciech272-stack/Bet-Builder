@@ -1,37 +1,423 @@
-import {useMemo,useState} from 'react';
-import {Sparkles,RefreshCw,ShieldCheck,Target,WalletCards,BrainCircuit} from 'lucide-react';
-import {useIntelligence} from '../state/IntelligenceProvider';
-import {liveEvents} from '../services/liveAdapter';
-import {generateCoupon,type CouponResult} from '../core/couponEngine';
-import {evaluateRiskPolicy} from '../core/riskPolicy';
+import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, FileDown, Gauge, RefreshCw, ShieldCheck, Sparkles, Target, WalletCards, Zap } from 'lucide-react';
+import { useIntelligence } from '../state/IntelligenceProvider';
+import { liveEvents } from '../services/liveAdapter';
+import { generateCoupon, type CouponResult } from '../core/couponEngine';
+import { rankPredictions } from '../core/predictionEngine';
+import { assessCouponRisk, buildCouponExplanation, buildVariants, findSimilarLegs, parseNaturalLanguageIntent, replaceLegInContext, type CouponSnapshot, type CouponVariant, type CouponLegExplanation } from '../core/couponLabDomain';
+import { certifyCoupon, type CouponCertification } from '../core/liveCouponCertificationM181M190';
+import './coupon-lab-premium.css';
 
-export default function CouponLabPage(){
- const {dataset,selectedDate,refresh,runAnalysis,phase}=useIntelligence();
- const [target,setTarget]=useState('50'); const [stake,setStake]=useState('20'); const [result,setResult]=useState<CouponResult|null>(null); const [ai,setAi]=useState<Record<string,'loading'|'ok'|'failed'>>({}); const [message,setMessage]=useState('');
- const events=useMemo(()=>dataset?liveEvents(dataset):[],[dataset]);
- const generate=async()=>{if(!dataset){setMessage('Brak datasetu danych. Odśwież źródło.');return;} const numericTarget=Number(target),numericStake=Number(stake); const coupon=generateCoupon({events,targetOdds:numericTarget,stake:numericStake,tolerance:.2,maxLegs:10,minLegOdds:1.2,maxLegOdds:6,minConfidence:.5}); setResult(coupon); if(coupon.status==='BLOCKED'){setMessage('Core Engine: BLOCKED · '+coupon.blockers.join(', '));return;} const next:Record<string,'loading'|'ok'|'failed'>={}; coupon.legs.forEach(l=>next[l.eventId]='loading');setAi(next); setMessage('Core Engine AI analizuje '+coupon.legs.length+' wybranych wydarzeń…'); await Promise.all(coupon.legs.map(async leg=>{try{const analysis=await runAnalysis(leg.eventId,{depth:'deep'});setAi(p=>({...p,[leg.eventId]:analysis?'ok':'failed'}));}catch{setAi(p=>({...p,[leg.eventId]:'failed'}));}})); setMessage('Analiza zakończona. Wynik kuponu pozostaje oznaczony jako modelowy i wymaga weryfikacji wyniku.');};
- const policy=result&&evaluateRiskPolicy({selections:result.legs.map(l=>({id:l.selectionId,marketId:l.marketId,eventId:l.eventId,name:l.label,shortName:l.label,odds:l.marketOdds,probability:l.probability,impliedProbability:1/l.marketOdds,value:l.edge,ev:l.ev,confidence:l.confidence,risk:l.risk,correlationGroup:l.marketId})),dataFreshness:dataset?.providerHealth?Math.max(0,1-dataset.providerHealth.ageSeconds/Math.max(1,dataset.providerHealth.staleAfterSeconds)):0,evidenceQuality:dataset?.providerHealth?.state==='HEALTHY'?.8:.5,providerState:dataset?.providerHealth?.state??'OFFLINE'});
- if(phase==='loading'&&!dataset)return <div className="mx-auto max-w-[1200px] px-5 py-12 text-slate-400">Ładowanie danych sportowych…</div>;
- return <main className="mx-auto w-full max-w-[1380px] px-4 py-6 md:px-6 md:py-8">
-  <section className="glass-strong overflow-hidden rounded-3xl border border-violet-400/20 p-5 md:p-8">
-   <div className="flex flex-wrap items-end justify-between gap-5"><div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.24em] text-violet-300"><Sparkles size={13}/> Core Engine · Coupon Lab</div><h1 className="mt-2 text-3xl font-black text-white md:text-5xl">Generator kuponu</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Pobierz aktualne wydarzenia i kursy, zastosuj ranking predykcyjny, wybierz rozdzielone zdarzenia pod zadany kurs i przelicz potencjalny zwrot.</p></div><button type="button" onClick={()=>void refresh(selectedDate,true)} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs font-bold text-white"><RefreshCw size={14} className="mr-2 inline"/>Odśwież dane</button></div>
-   <div className="mt-7 grid gap-3 md:grid-cols-4">
-    <label className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-500">Docelowy kurs<div className="mt-1.5 flex items-center rounded-xl border border-violet-400/25 bg-black/20 px-3"><Target size={14} className="text-violet-300"/><input value={target} onChange={e=>setTarget(e.target.value)} type="number" min="1.01" step="0.01" className="w-full bg-transparent px-2 py-3 text-lg font-black text-white outline-none"/></div></label>
-    <label className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-500">Stawka<div className="mt-1.5 flex items-center rounded-xl border border-amber-400/20 bg-black/20 px-3"><WalletCards size={14} className="text-amber-300"/><input value={stake} onChange={e=>setStake(e.target.value)} type="number" min="0" step="0.01" className="w-full bg-transparent px-2 py-3 text-lg font-black text-white outline-none"/><span className="text-xs text-slate-600">PLN</span></div></label>
-    <div className="md:col-span-2"><div className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-500">Szybki cel</div><div className="mt-1.5 grid grid-cols-5 gap-2">{['5','10','50','100','150'].map(v=><button key={v} type="button" onClick={()=>setTarget(v)} className={target===v?'rounded-xl border border-violet-300/50 bg-violet-400/15 py-3 text-sm font-black text-violet-100':'rounded-xl border border-white/10 bg-white/[.03] py-3 text-sm font-bold text-slate-300 hover:bg-white/[.06]'}>x{v}</button>)}</div></div>
-   </div>
-   <button type="button" onClick={()=>void generate()} disabled={!dataset} className="mt-5 w-full rounded-2xl border border-violet-300/30 bg-violet-500/15 px-5 py-4 text-sm font-black text-white shadow-[0_0_40px_rgba(120,80,255,.12)]"><BrainCircuit size={17} className="mr-2 inline"/>ANALIZUJ I GENERUJ KUPON</button>
-   {message&&<div role="status" className="mt-3 rounded-xl border border-white/[.08] bg-white/[.025] px-4 py-3 text-xs text-slate-300">{message}</div>}
-  </section>
-  {result&&<section className="mt-5 grid gap-4 lg:grid-cols-[1.5fr_.7fr]">
-   <div className="glass rounded-2xl border border-white/[.08] p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[9px] font-black uppercase tracking-[.2em] text-violet-300">Wygenerowany kupon · {selectedDate}</div><h2 className="mt-1 text-2xl font-black text-white">Kurs {result.combinedOdds.toFixed(2)}</h2></div><span className={result.status==='READY'?'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[9px] font-black text-emerald-300':result.status==='REVIEW'?'rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-[9px] font-black text-amber-300':'rounded-full border border-red-400/20 bg-red-400/10 px-3 py-1.5 text-[9px] font-black text-red-300'}>{result.status}</span></div>
-    <div className="mt-4 space-y-2">{result.legs.map((leg,i)=><article key={leg.selectionId} className="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><div className="flex items-start gap-3"><span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-violet-400/10 text-[10px] font-black text-violet-300">{i+1}</span><div className="min-w-0 flex-1"><div className="text-sm font-bold text-white">{leg.eventLabel}</div><div className="mt-1 text-xs text-slate-400">{leg.label} · {leg.league}</div><div className="mt-2 flex flex-wrap gap-2 text-[9px] font-bold"><span className="rounded-full bg-white/[.04] px-2 py-1 text-amber-200">kurs {leg.marketOdds.toFixed(2)}</span><span className="rounded-full bg-white/[.04] px-2 py-1 text-emerald-300">EV {(leg.ev*100).toFixed(1)}%</span><span className="rounded-full bg-white/[.04] px-2 py-1 text-violet-300">conf. {(leg.confidence*100).toFixed(0)}%</span><span className="rounded-full bg-white/[.04] px-2 py-1 text-slate-400">{ai[leg.eventId]==='loading'?'AI ANALYZING':ai[leg.eventId]==='ok'?'AI VERIFIED':'AI REVIEW'}</span></div></div></div></article>)}</div>
-   </div>
-   <aside className="space-y-3"><div className="ai-surface rounded-2xl p-5"><div className="text-[9px] font-black uppercase tracking-[.18em] text-violet-300">Potencjalna wypłata</div><div className="mt-2 text-4xl font-black text-white">{result.potentialReturn.toFixed(2)} PLN</div><div className="mt-1 text-xs text-emerald-300">zysk brutto {result.potentialProfit.toFixed(2)} PLN</div><div className="mt-4 grid grid-cols-2 gap-3"><div><div className="text-[8px] uppercase text-slate-600">Prawdopodobieństwo</div><div className="mt-1 text-lg font-black text-white">{(result.estimatedProbability*100).toFixed(1)}%</div></div><div><div className="text-[8px] uppercase text-slate-600">Model EV</div><div className="mt-1 text-lg font-black text-white">{(result.estimatedEv*100).toFixed(1)}%</div></div></div></div>
-    <div className="glass rounded-2xl p-4"><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.18em] text-emerald-300"><ShieldCheck size={13}/> Risk / Policy</div><div className="mt-2 text-sm font-bold text-white">{policy?.decision??'WAIT'}</div><div className="mt-2 text-[10px] leading-5 text-slate-500">{policy?.trace.join(' ')??'Brak oceny.'}</div></div>
-    {result.warnings.length>0&&<div className="rounded-2xl border border-amber-400/20 bg-amber-400/[.05] p-4 text-xs text-amber-200">{result.warnings.join(' · ')}</div>}
-   </aside>
-  </section>}
-  <div className="mt-5 grid gap-3 md:grid-cols-3"><div className="glass rounded-xl p-4"><div className="text-[8px] font-black uppercase tracking-[.16em] text-slate-600">Źródło danych</div><div className="mt-1 text-sm font-bold text-white">{dataset?.provider??'—'}</div><div className="mt-1 text-[10px] text-slate-500">{dataset?.mode??'—'} · {dataset?.events.length??0} events · {dataset?.snapshots.length??0} snapshots</div></div><div className="glass rounded-xl p-4"><div className="text-[8px] font-black uppercase tracking-[.16em] text-slate-600">Core Engine</div><div className="mt-1 text-sm font-bold text-white">CONTEXT → INTELLIGENCE → DECISION</div><div className="mt-1 text-[10px] text-slate-500">Predykcja nie jest gwarancją wyniku.</div></div><div className="glass rounded-xl p-4"><div className="text-[8px] font-black uppercase tracking-[.16em] text-slate-600">Weryfikacja</div><div className="mt-1 text-sm font-bold text-white">OUTCOME → LEARNING</div><div className="mt-1 text-[10px] text-slate-500">Kupony muszą być śledzone po zakończeniu wydarzeń.</div></div></div>
- </main>;
+const QUICK_TARGETS = ['2', '5', '10', '20', '50', '100'];
+const SPORTS = [
+  { value: 'all', label: 'Wszystkie sporty' },
+  { value: 'soccer', label: 'Piłka nożna' },
+  { value: 'basketball', label: 'Koszykówka' },
+  { value: 'tennis', label: 'Tenis' },
+];
+
+function money(value: number) {
+  return value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function pct(value: number) {
+  return `${(value * 100).toFixed(0)}%`;
+}
+
+function signedPct(value: number) {
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
+}
+
+const ease = [0.22, 1, 0.36, 1] as const;
+
+export default function CouponLabPage() {
+  const { dataset, selectedDate, refresh, phase } = useIntelligence();
+  const [targetOdds, setTargetOdds] = useState('10');
+  const [stake, setStake] = useState('20');
+  const [sport, setSport] = useState('all');
+  const [result, setResult] = useState<CouponResult | null>(null);
+  const [certification, setCertification] = useState<CouponCertification | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [snapshot, setSnapshot] = useState<CouponSnapshot | null>(null);
+  const [variants, setVariants] = useState<CouponVariant[]>([]);
+  const [activeVariant, setActiveVariant] = useState<'AI_SELECTED'|'SAFER'|'BALANCED'|'AGGRESSIVE'>('AI_SELECTED');
+  const [fullExplanation, setFullExplanation] = useState(false);
+  const [similarLegs, setSimilarLegs] = useState<CouponLegExplanation[]>([]);
+  const [swapTarget, setSwapTarget] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<'idle'|'sending'|'done'>('idle');
+  const [nlInput, setNlInput] = useState('');
+  const [nlIntent, setNlIntent] = useState<ReturnType<typeof parseNaturalLanguageIntent> | null>(null);
+  const [requestDateRange, setRequestDateRange] = useState<'TODAY'|'TOMORROW'|'TODAY_AND_TOMORROW'>('TODAY');
+
+  const events = useMemo(() => dataset ? liveEvents(dataset) : [], [dataset]);
+  const candidateLegs = useMemo(() => rankPredictions(events).map((p) => { const e=events.find((item)=>item.id===p.eventId); return e ? {...p,eventLabel:e.homeTeam+' vs '+e.awayTeam,league:e.league,startTime:e.startTime} : null; }).filter(Boolean), [events]);
+  const numericStake = Math.max(0, Number(stake) || 0);
+  const previewReturn = result ? numericStake * result.combinedOdds : null;
+  const intelligence = result ? result.legs.reduce((acc, leg) => ({
+    confidence: acc.confidence + leg.confidence,
+    edge: acc.edge + leg.edge,
+    ev: acc.ev + leg.ev,
+  }), { confidence: 0, edge: 0, ev: 0 }) : null;
+  const intelligenceCount = result?.legs.length || 1;
+  const avgConfidence = intelligence ? intelligence.confidence / intelligenceCount : 0;
+  const avgEdge = intelligence ? intelligence.edge / intelligenceCount : 0;
+  const avgEv = intelligence ? intelligence.ev / intelligenceCount : 0;
+  const avgImplied = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + (1 / leg.marketOdds), 0) / result.legs.length : 0;
+  const avgProbability = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + leg.probability, 0) / result.legs.length : 0;
+  const risk = result ? (snapshot?.risk ?? assessCouponRisk(result)) : null;
+  const rankedLegs = result ? [...result.legs].map((leg) => {
+    const riskPenalty = leg.risk === 'CRITICAL' ? .35 : leg.risk === 'HIGH' ? .15 : leg.risk === 'MEDIUM' ? .07 : 0;
+    const score = Math.max(0, Math.min(100, (leg.confidence * 55) + (Math.max(0, leg.edge) * 300) + (Math.max(0, leg.ev) * 150) - (riskPenalty * 100)));
+    const recommendation = score >= 72 && leg.risk !== 'CRITICAL' ? 'KEEP' : score >= 52 && leg.risk !== 'CRITICAL' ? 'REVIEW' : 'BLOCK';
+    return { leg, score, recommendation };
+  }).sort((a, b) => b.score - a.score) : [];
+  const weakest = rankedLegs.length ? rankedLegs[rankedLegs.length - 1] : null;
+  const intelligenceScore = rankedLegs.length ? rankedLegs.reduce((sum, item) => sum + item.score, 0) / rankedLegs.length : 0;
+  const couponRecommendation = intelligenceScore >= 72 && !rankedLegs.some((item) => item.recommendation === 'BLOCK') ? 'KEEP' : intelligenceScore >= 52 && !rankedLegs.some((item) => item.recommendation === 'BLOCK') ? 'REVIEW' : 'BLOCK';
+
+  const generate = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const today = selectedDate;
+      const tomorrow = (() => {
+        const d = new Date(today + 'T12:00:00');
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      const dates = requestDateRange === 'TODAY_AND_TOMORROW' ? [today, tomorrow] : requestDateRange === 'TOMORROW' ? [tomorrow] : [today];
+      const loaded = [];
+      for (const date of dates) {
+        const data = await refresh(date, true, sport);
+        if (!data) {
+          setError('Brak danych sportowych dla ' + date + '. Odśwież stronę i spróbuj ponownie.');
+          return;
+        }
+        loaded.push(data);
+      }
+      const source = loaded[loaded.length - 1];
+      const sourceEvents = loaded.flatMap((item) => liveEvents(item));
+      const numericTarget = Math.max(1.01, Number(targetOdds) || 10);
+      const numericStakeValue = Math.max(0, Number(stake) || 0);
+      const coupon = generateCoupon({
+        events: sourceEvents,
+        targetOdds: numericTarget,
+        stake: numericStakeValue,
+        tolerance: .25,
+        maxLegs: 8,
+        minLegOdds: 1.15,
+        maxLegOdds: 8,
+        minConfidence: .50,
+        strategy: 'TARGET_ODDS',
+      });
+      const cert = certifyCoupon(source, coupon);
+      setResult(coupon);
+      setCertification(cert);
+      if (coupon.status !== 'BLOCKED') { const response = await fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', coupon, certification: cert, provenance: cert.provenance, sport }) }); if (response.ok) { const saved = await response.json() as CouponSnapshot; setSnapshot(saved); setVariants(buildVariants(coupon)); void fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pdf', id: saved.id }) }).then(async (pdfResponse) => { if (!pdfResponse.ok) return; const pdf = await pdfResponse.json() as { base64: string }; const bytes = Uint8Array.from(atob(pdf.base64), (ch) => ch.charCodeAt(0)); const blob = new Blob([bytes], { type: 'application/pdf' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'bet-builder-' + saved.id + '.pdf'; link.click(); URL.revokeObjectURL(url); }).catch(() => undefined); } }
+      if (coupon.status !== 'BLOCKED' && snapshot) { fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pdf', id: snapshot.id }) }).then(async (response) => { if (!response.ok) return; const pdf = await response.json() as { base64: string }; const bytes = Uint8Array.from(atob(pdf.base64), (ch) => ch.charCodeAt(0)); const blob = new Blob([bytes], { type: 'application/pdf' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'bet-builder-' + snapshot.id + '.pdf'; link.click(); URL.revokeObjectURL(url); }).catch(() => undefined); }
+      if (coupon.status === 'BLOCKED') setError(coupon.blockers.join(' · ') || 'Nie znaleziono kwalifikowanych wydarzeń.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nie udało się wygenerować kuponu.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const printPdf = async () => { if (!snapshot) return window.print(); const response = await fetch('/api/coupon-lab', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'pdf',id:snapshot.id}) }); if (!response.ok) return; const pdf = await response.json() as {base64:string}; const bytes=Uint8Array.from(atob(pdf.base64),(ch)=>ch.charCodeAt(0)); const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})); const link=document.createElement('a'); link.href=url; link.download='bet-builder-'+snapshot.id+'.pdf'; link.click(); URL.revokeObjectURL(url); };
+  const requestSwap = (selectionId: string) => {
+    setSwapTarget(selectionId);
+    const candidates = candidateLegs.filter((x) => Boolean(x)).map((x) => x as CouponResult['legs'][number]);
+    const alternatives = result ? findSimilarLegs(result, selectionId, candidates) : [];
+    setSimilarLegs(alternatives.map((x) => ({ selectionId:x.selectionId, short:x.label, full:x.label, primaryArgument:x.reasons[0] ?? 'Kandydat z aktualnych danych.', primaryRisk:x.risk, couponImpact:'Kurs x' + x.marketOdds.toFixed(2) + ' · EV ' + (x.ev*100).toFixed(1) + '%', correlation:x.marketId, evidenceBacked:true })));
+  };
+  const applySwap = (selectionId: string) => {
+    const replacement = candidateLegs.find((x) => x && x.selectionId === selectionId);
+    if (!replacement || !result || !swapTarget) return;
+    setResult(replaceLegInContext(result, swapTarget, replacement as CouponResult['legs'][number]));
+    if (snapshot) void fetch('/api/coupon-lab', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'audit',id:snapshot.id,event:{id:'audit_'+Date.now(),type:'LEG_REPLACED',at:new Date().toISOString(),actor:'USER',payload:{from:swapTarget,to:replacement.selectionId}}}) });
+    setSwapTarget(null);
+    setSimilarLegs([]);
+  };
+  const createMission = async () => { if (!snapshot) return; const response = await fetch('/api/coupon-lab',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mission',id:snapshot.id})}); if (response.ok) setSnapshot(await response.json() as CouponSnapshot); };
+  const submitFeedback = async (helpful: boolean) => {
+    if (!snapshot) return;
+    setFeedback('sending');
+    try {
+      const response = await fetch('/api/coupon-lab', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'feedback',id:snapshot.id,helpful}) });
+      if (response.ok) { setSnapshot(await response.json() as CouponSnapshot); setFeedback('done'); }
+      else setFeedback('idle');
+    } catch { setFeedback('idle'); }
+  };
+
+  if (phase === 'loading' && !dataset) {
+    return <div className="mx-auto max-w-5xl px-5 py-16 text-center text-slate-400">Pobieram aktualne wydarzenia i kursy…</div>;
+  }
+
+  const liveStatus = certification?.status === 'CERTIFIED' ? 'KURSY AKTUALNE' : certification?.status === 'REVIEW' ? 'WYMAGA WERYFIKACJI' : certification ? 'BRAK WYSTARCZAJĄCYCH KURSÓW' : 'GOTOWY';
+  const statusReady = result?.status === 'READY';
+  const dataTime = dataset?.normalizedAt ? new Date(dataset.normalizedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : null;
+
+  return (
+    <>
+      <style>{`@media print {
+        body { background: white !important; color: black !important; }
+        body * { visibility: hidden !important; }
+        #coupon-print, #coupon-print * { visibility: visible !important; }
+        #coupon-print { position: absolute; inset: 0; width: 100%; padding: 24px; color: #111 !important; background: white !important; }
+        .no-print { display: none !important; }
+      }`}</style>
+
+      <main className="coupon-lab mx-auto w-full max-w-[1180px] px-4 py-7 md:px-6 md:py-10" data-sport={sport}>
+        <div className="coupon-sport-atmosphere" aria-hidden="true"><div className="coupon-sport-action" /></div>
+        <motion.header
+          className="coupon-hero mb-7"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: .5, ease }}
+        >
+          <div className="coupon-eyebrow"><span className="live-pulse" /> BET BUILDER <span>/</span> AI COUPON LAB</div>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="coupon-title">Zbuduj kupon<br /><span>z przewagą AI.</span></h1>
+              <p className="coupon-subtitle">Ustal cel. Silnik przeanalizuje dostępne wydarzenia, kursy i zależności, a następnie zbuduje propozycję.</p>
+            </div>
+            <div className="coupon-data-pill">
+              <span className="data-dot" />
+              <span>{events.length} wydarzeń</span>
+              <span className="muted-dot" />
+              <span>{dataset?.mode === 'LIVE' ? 'LIVE DATA' : 'SYNC DATA'}</span>
+            </div>
+          </div>
+        </motion.header>
+
+        <motion.section
+          className="coupon-builder-card no-print"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: .55, delay: .08, ease }}
+        >
+          <div className="builder-card-glow" />
+          <div className="builder-head">
+            <div>
+              <div className="section-kicker"><Target size={13} /> CEL KUPONU</div>
+              <h2>Powiedz silnikowi, czego szukasz.</h2>
+            </div>
+            <div className="builder-note"><Sparkles size={13} /> AI dobiera liczbę zdarzeń automatycznie</div>
+          </div>
+
+          <div className="nl-builder no-print">
+            <div className="section-kicker"><Sparkles size={13} /> POWIEDZ AI, CZEGO SZUKASZ</div>
+            <div className="nl-row">
+              <input aria-label="Powiedz AI, czego szukasz" value={nlInput} onChange={(e) => setNlInput(e.target.value)} placeholder="Mam 30 zł. Chcę kupon około 10x, ale bez bardzo ryzykownych rynków." />
+              <button type="button" onClick={() => setNlIntent(parseNaturalLanguageIntent(nlInput))}>INTERPRETUJ</button>
+            </div>
+            {nlIntent && <div className="nl-confirm"><strong>Rozumiem, że chcesz:</strong> kurs {nlIntent.targetOdds ?? 'do ustalenia'} · stawka {nlIntent.stake ?? 'do ustalenia'} PLN · ryzyko {nlIntent.riskPreference ?? 'bez preferencji'} · sport {nlIntent.sport ?? 'dowolny'} · zakres {nlIntent.dateRange === 'TODAY_AND_TOMORROW' ? 'dziś + jutro' : nlIntent.dateRange === 'TOMORROW' ? 'jutro' : nlIntent.dateRange === 'TODAY' ? 'dziś' : 'domyślny'}. <button type="button" onClick={() => { if (nlIntent.targetOdds) setTargetOdds(String(nlIntent.targetOdds)); if (nlIntent.stake !== undefined) setStake(String(nlIntent.stake)); if (nlIntent.sport) setSport(/piłk|football|soccer/i.test(nlIntent.sport) ? 'soccer' : /koszyk|basketball/i.test(nlIntent.sport) ? 'basketball' : /tenis|tennis/i.test(nlIntent.sport) ? 'tennis' : 'all'); if (nlIntent.dateRange) setRequestDateRange(nlIntent.dateRange as 'TODAY'|'TOMORROW'|'TODAY_AND_TOMORROW'); setNlIntent(null); }}>ZASTOSUJ</button></div>}
+          </div>
+
+          <div className="builder-fields">
+            <label className="premium-field">
+              <span>Docelowy kurs</span>
+              <div className="premium-input">
+                <Target size={18} />
+                <input aria-label="Docelowy kurs" value={targetOdds} onChange={(e) => setTargetOdds(e.target.value)} type="number" min="1.01" step="0.1" />
+                <b>x</b>
+              </div>
+            </label>
+            <label className="premium-field">
+              <span>Stawka</span>
+              <div className="premium-input stake-input">
+                <WalletCards size={18} />
+                <input aria-label="Stawka" value={stake} onChange={(e) => setStake(e.target.value)} type="number" min="0" step="1" />
+                <b>PLN</b>
+              </div>
+            </label>
+            <label className="premium-field">
+              <span>Sport</span>
+              <div className="premium-select">
+                <select value={sport} onChange={(e) => setSport(e.target.value)} aria-label="Sport">
+                  {SPORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </div>
+            </label>
+          </div>
+
+          <div className="target-row">
+            <div className="target-label">SZYBKI CEL</div>
+            <div className="target-chips">
+              {QUICK_TARGETS.map((value) => (
+                <motion.button key={value} type="button" onClick={() => setTargetOdds(value)} aria-pressed={targetOdds === value} whileTap={{ scale: .96 }} className="target-chip">
+                  <span>x</span>{value}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          <div className="builder-actions">
+            <div className="data-refresh">
+              <span><ShieldCheck size={13} /> Dane źródłowe są weryfikowane przed generowaniem</span>
+              <button type="button" onClick={() => void refresh(selectedDate, true, sport)}><RefreshCw size={12} /> Odśwież</button>
+            </div>
+            <motion.button type="button" onClick={() => void generate()} disabled={busy} whileTap={{ scale: .985 }} className="generate-button">
+              <span className="generate-icon">{busy ? <RefreshCw size={18} className="spin" /> : <Zap size={18} />}</span>
+              <span>{busy ? 'ANALIZUJĘ DANE…' : 'GENERUJ KUPON'}</span>
+              <ArrowUpRight size={17} />
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {busy && (
+              <motion.div className="analysis-rail" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                <div className="analysis-steps">
+                  <span className="active">MARKETS</span><i /> <span>VALUE</span><i /> <span>PROBABILITY</span><i /> <span>CORRELATION</span><i /> <span>COUPON</span>
+                </div>
+                <div className="analysis-progress"><span /></div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {error && <motion.div role="alert" className="coupon-error" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}><AlertTriangle size={15} />{error}</motion.div>}
+        </motion.section>
+
+        <AnimatePresence mode="wait">
+          {result && (
+            <motion.section id="coupon-print" className="coupon-result-wrap" initial={{ opacity: 0, y: 24, scale: .985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: .65, ease }}>
+              <div className="result-head">
+                <div>
+                  <div className="coupon-eyebrow">AI DECISION <span>/</span> {selectedDate}</div>
+                  <div className="result-title-row">
+                    <h2>Gotowy kupon</h2>
+                    <span className={statusReady ? 'status-badge ready' : 'status-badge review'}>{statusReady ? 'READY' : result.status}</span>
+                  </div>
+                </div>
+                <div className="result-actions no-print">
+                  <motion.button type="button" onClick={printPdf} whileTap={{ scale: .96 }}><FileDown size={15} /> PDF</motion.button>
+                </div>
+              </div>
+
+              <div className="decision-card">
+                <div className="decision-orbit" />
+                <div className="decision-main">
+                  <div className="decision-kicker"><span className="signal-dot" /> AI RECOMMENDATION</div>
+                  <div className="decision-odds">x{result.combinedOdds.toFixed(2)}</div>
+                  <div className="decision-caption">kurs łączny · {result.legs.length} selekcje</div>
+                </div>
+                <div className="decision-metrics">
+                  <div><span>STAWKA</span><strong>{money(result.stake)} <small>PLN</small></strong></div>
+                  <div><span>POTENCJALNY ZWROT</span><strong>{money(result.potentialReturn)} <small>PLN</small></strong></div>
+                  <div><span>POTENCJALNY ZYSK</span><strong>{money(result.potentialProfit)} <small>PLN</small></strong></div>
+                </div>
+              </div>
+
+              <div className="intelligence-summary">
+                <div className="intelligence-summary-head">
+                  <div><span className="section-kicker"><Gauge size={13} /> COUPON INTELLIGENCE 2.0</span><h3>Przewaga modelu nad rynkiem</h3></div>
+                  <span className={avgEdge >= 0 ? 'intelligence-grade positive' : 'intelligence-grade negative'}>{avgEdge >= 0 ? 'POSITIVE SIGNAL' : 'WEAK SIGNAL'}</span>
+                </div>
+                <div className="intelligence-summary-grid">
+                  <div><span>AVG CONFIDENCE</span><strong>{pct(avgConfidence)}</strong></div>
+                  <div className={avgEdge >= 0 ? 'positive' : 'negative'}><span>AVG EDGE</span><strong>{signedPct(avgEdge)}</strong></div>
+                  <div className={avgEv >= 0 ? 'positive' : 'negative'}><span>AVG EV</span><strong>{signedPct(avgEv)}</strong></div>
+                  <div><span>MODEL / IMPLIED</span><strong>{pct(avgProbability)} / {pct(avgImplied)}</strong></div>
+                </div>
+              </div>
+
+              <section className="coupon-analysis-grid no-print">
+                <div className="analysis-card">
+                  <div className="section-kicker"><Sparkles size={13} /> DLACZEGO AI WYBRAŁO TE ZDARZENIA?</div>
+                  <h3>Wyjaśnienie powiązane z rzeczywistym snapshotem.</h3>
+                  {(snapshot?.explanation ?? (result ? buildCouponExplanation(result) : [])).slice(0, fullExplanation ? 20 : 2).map((item) => <article key={item.selectionId} className="explanation-item"><strong>{result?.legs.find((l) => l.selectionId === item.selectionId)?.eventLabel ?? item.selectionId}</strong><p>{fullExplanation ? item.full : item.short}</p></article>)}
+                  <button type="button" className="analysis-link" onClick={() => setFullExplanation((v) => !v)}>{fullExplanation ? 'Pokaż krótką analizę' : 'Pokaż pełną analizę'}</button>
+                </div>
+                {risk && <div className="analysis-card risk-card"><div className="section-kicker"><ShieldCheck size={13} /> PROFIL RYZYKA</div><div className="risk-profile">{risk.profile}</div><div className="risk-metrics"><span>PROBABILITY <b>{pct(risk.probability)}</b></span><span>VALUE <b>{signedPct(result.estimatedEv)}</b></span><span>CORRELATION <b>{pct(risk.correlation)}</b></span><span>VOLATILITY <b>{pct(risk.volatility)}</b></span></div>{risk.reasons.map((x) => <div key={x} className="risk-reason">{x}</div>)}</div>}
+              </section>
+              {variants.length > 0 && <section className="variant-panel no-print"><div className="section-kicker"><Gauge size={13} /> WARIANTY</div><div className="variant-tabs">{variants.map((v) => <button key={v.key} type="button" className={activeVariant === v.key ? 'active' : ''} onClick={() => { setResult(v.coupon); setActiveVariant(v.key); if (snapshot) void fetch('/api/coupon-lab', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'audit',id:snapshot.id,event:{id:'audit_'+Date.now(),type:'VARIANT_SELECTED',at:new Date().toISOString(),actor:'USER',payload:{variant:v.key}}})}); }}><strong>{v.label}</strong><span>x{v.coupon.combinedOdds.toFixed(2)} · {v.coupon.legs.length} zdarzeń · {v.risk}</span><small>{v.description}</small></button>)}</div></section>}
+
+              <div className="trust-strip">
+                <div><CheckCircle2 size={15} /><span>{liveStatus}</span></div>
+                <div><Gauge size={15} /><span>VALUE CHECKED</span></div>
+                <div><ShieldCheck size={15} /><span>AUTOMATYCZNE OBSTAWIANIE WYŁĄCZONE</span></div>
+                {dataTime && <div className="trust-time">DANE {dataTime}</div>}
+              </div>
+
+              <div className="result-grid">
+                <div className="selections-panel">
+                  <div className="panel-head">
+                    <div><span className="section-kicker">SELECTIONS</span><h3>Wybrane zdarzenia</h3></div>
+                    <span className="count-pill">{result.legs.length}</span>
+                  </div>
+                  <div className="selection-list">
+                    {result.legs.map((leg, index) => (
+                      <motion.article key={leg.selectionId} className="selection-card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .1 + index * .07, duration: .4, ease }}>
+                        <div className="selection-index">{String(index + 1).padStart(2, '0')}</div>
+                        <div className="selection-content">
+                          <div className="selection-meta">{leg.league} <span>·</span> {new Date(leg.startTime).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                          <h4>{leg.eventLabel}</h4>
+                          <div className="selection-market"><span>MARKET</span><strong>{leg.label}</strong></div>
+                          <div className="selection-metrics" aria-label="Metryki selekcji">
+                            <div><span>P(EDGE)</span><strong>{pct(leg.probability)}</strong></div>
+                            <div><span>IMPLIED</span><strong>{pct(1 / leg.marketOdds)}</strong></div>
+                            <div className={leg.edge >= 0 ? 'positive' : 'negative'}><span>EDGE</span><strong>{signedPct(leg.edge)}</strong></div>
+                            <div className={leg.risk === 'CRITICAL' ? 'negative' : ''}><span>RISK</span><strong>{leg.risk}</strong></div>
+                          </div>
+                          <div className="selection-probability">
+                            <div className="probability-head"><span>MODEL PROBABILITY</span><b>{pct(leg.probability)}</b></div>
+                            <div className="probability-track"><i style={{ width: `${Math.min(100, Math.max(0, leg.probability * 100))}%` }} /><em style={{ left: `${Math.min(100, Math.max(0, (1 / leg.marketOdds) * 100))}%` }} /></div>
+                            <div className="probability-foot"><span>market implied {pct(1 / leg.marketOdds)}</span><span>{leg.probability >= 1 / leg.marketOdds ? 'MODEL > MARKET' : 'MODEL < MARKET'}</span></div>
+                          </div>
+                          <div className="selection-reason">
+                            <span>DLACZEGO AI</span>
+                            <p>{leg.reasons.join(' · ')}. Kurs x{leg.marketOdds.toFixed(2)} oznacza implied probability {pct(1 / leg.marketOdds)}; model szacuje {pct(leg.probability)}. Confidence {pct(leg.confidence)}, edge {signedPct(leg.edge)}, EV {signedPct(leg.ev)}.</p>
+                          </div>
+                        </div>
+                        <div className="selection-odds"><span>x{leg.marketOdds.toFixed(2)}</span><button type="button" className="swap-button no-print" onClick={() => requestSwap(leg.selectionId)}>ZAMIEŃ</button></div>
+                      </motion.article>
+                    ))}
+                  </div>
+                </div>
+
+                {swapTarget && <div className="swap-panel no-print"><div className="section-kicker">ZAMIANA ZDARZENIA</div><h3>Alternatywy z zachowaniem kontekstu</h3>{similarLegs.length ? similarLegs.map((x) => <button type="button" key={x.selectionId} onClick={() => applySwap(x.selectionId)}><strong>{x.short}</strong><span>{x.couponImpact}</span></button>) : <p>Brak podobnych kandydatów w aktualnym zbiorze danych.</p>}<button type="button" onClick={() => { setSwapTarget(null); setSimilarLegs([]); }}>ANULUJ</button></div>}
+                <aside className="insight-panel">
+                  <div className="section-kicker"><Sparkles size={13} /> AI INTELLIGENCE 3.0</div>
+                  <h3>Decyzja oparta na danych.</h3>
+                  <p>Każda selekcja przechodzi przez analizę rynku, dostępnego kursu i spójności całego kuponu.</p>
+                  <div className="coupon-intelligence-score">
+                    <div><span>AI CONFIDENCE SCORE</span><strong>{intelligenceScore.toFixed(0)}<small>/100</small></strong></div>
+                    <span className={`recommendation-badge ${couponRecommendation.toLowerCase()}`}>{couponRecommendation}</span>
+                  </div>
+                  {weakest && (
+                    <div className="weakest-link">
+                      <div className="weakest-head"><span>NAJSŁABSZE OGNIWO</span><b>{weakest.score.toFixed(0)}/100</b></div>
+                      <strong>{weakest.leg.eventLabel}</strong>
+                      <p>{weakest.leg.label} · confidence {pct(weakest.leg.confidence)} · edge {signedPct(weakest.leg.edge)}</p>
+                      <span className={`weakest-action ${weakest.recommendation.toLowerCase()}`}>{weakest.recommendation === 'KEEP' ? 'UTRZYMAJ' : weakest.recommendation === 'REVIEW' ? 'ZWERYFIKUJ' : 'ZABLOKUJ'}</span>
+                    </div>
+                  )}
+                  <div className="ranking-list">
+                    {rankedLegs.map((item, index) => (
+                      <div className="ranking-row" key={item.leg.selectionId}>
+                        <span className="ranking-number">{index + 1}</span>
+                        <div><strong>{item.leg.eventLabel}</strong><small>{item.leg.label}</small></div>
+                        <b>{item.score.toFixed(0)}</b>
+                        <span className={`ranking-recommendation ${item.recommendation.toLowerCase()}`}>{item.recommendation}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="insight-bars">
+                    <div><span>DATA QUALITY</span><b>LIVE</b><i><em style={{ width: '92%' }} /></i></div>
+                    <div><span>MARKET SIGNAL</span><b>CHECKED</b><i><em style={{ width: '78%' }} /></i></div>
+                    <div><span>CORRELATION</span><b>CHECKED</b><i><em style={{ width: '84%' }} /></i></div>
+                  </div>
+                  <div className="insight-note"><ShieldCheck size={14} /><span>Kupon pozostaje propozycją analityczną. Zewnętrzne działanie wymaga osobnej zgody. OBSERVATIONAL_ONLY.</span></div>
+                  {snapshot && <div className="feedback-box no-print"><strong>Czy ta analiza była pomocna?</strong><div><button type="button" onClick={() => void submitFeedback(true)} disabled={feedback==='sending'}>TAK</button><button type="button" onClick={() => void submitFeedback(false)} disabled={feedback==='sending'}>NIE</button></div>{feedback==='done' && <small>Zapisano jako sygnał dla Learning Engine.</small>}</div>}
+                  <div className="gate-box no-print"><strong>APPROVAL GATE</strong><span>Automatyczne obstawianie pozostaje wyłączone.</span>{snapshot?.missionPlan ? <span className="mission-status">MISSION: {String((snapshot.missionPlan as {status?:string}).status ?? 'READY')}</span> : <button type="button" onClick={() => void createMission()}>UTWÓRZ MISSION</button>}<a href="#/missions">OTWÓRZ MISSION CONTROL</a></div>
+                </aside>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </main>
+    </>
+  );
 }

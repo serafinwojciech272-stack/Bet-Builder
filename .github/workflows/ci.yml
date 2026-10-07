@@ -29,7 +29,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
 
       - name: Dependency audit (production)
         run: npm audit --omit=dev --audit-level=high
@@ -57,3 +57,5 @@ jobs:
         run: npm run test:persistence-e2e
 
 # QA persistence E2E gate: push-triggered verification.
+
+# Dependency install intentionally skips lifecycle scripts; build runs in the explicit production-build gate.

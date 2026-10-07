@@ -58,5 +58,7 @@
       "source": "/((?!api(?:/|$)).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "buildCommand": "npm run test && vite build",
+  "installCommand": "npm install"
 }

@@ -1,4 +1,8 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+export {};
+type VercelRequest={method?:string;body?:unknown};type VercelResponse={status:(n:number)=>VercelResponse;setHeader:(n:string,v:string)=>VercelResponse;json:(b:unknown)=>VercelResponse;end:(b?:string)=>VercelResponse};
+
+type VercelRequest = { method?: string; body?: unknown; query?: Record<string, string | string[] | undefined> };
+type VercelResponse = { status:(code:number)=>VercelResponse; setHeader:(name:string,value:string)=>VercelResponse; json:(body:unknown)=>VercelResponse; end:(body?:string)=>VercelResponse };
 
 const DEFAULT_CORE_ENGINE_URL = 'https://core-engine-34uu.onrender.com';
 type Action = 'capabilities'|'submit'|'execute'|'measure'|'complete'|'learn';

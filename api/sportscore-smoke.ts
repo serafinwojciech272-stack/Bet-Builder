@@ -1,4 +1,4 @@
-import { sportScoreSmoke } from './odds.ts';
+import { sportScoreSmoke } from './odds';
 
 type Request = { method?: string; query?: Record<string,string> };
 type Response = { status:(code:number)=>Response; setHeader:(name:string,value:string)=>Response; end:(body:string)=>void };
