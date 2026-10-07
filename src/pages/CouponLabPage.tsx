@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, ArrowUpRight, CheckCircle2, FileDown, Gauge, RefreshCw, ShieldCheck, Sparkles, Target, WalletCards, Zap } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
@@ -30,6 +30,7 @@ export default function CouponLabPage() {
   const [certification, setCertification] = useState<CouponCertification | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const autoPrintRef = useRef(false);
 
   const events = useMemo(() => dataset ? liveEvents(dataset) : [], [dataset]);
   const numericStake = Math.max(0, Number(stake) || 0);
@@ -69,6 +70,13 @@ export default function CouponLabPage() {
   };
 
   const printPdf = () => window.print();
+
+  useEffect(() => {
+    if (!result || busy || autoPrintRef.current) return;
+    autoPrintRef.current = true;
+    const timer = window.setTimeout(() => window.print(), 700);
+    return () => window.clearTimeout(timer);
+  }, [result, busy]);
   if (phase === 'loading' && !dataset) {
     return <div className="mx-auto max-w-5xl px-5 py-16 text-center text-slate-400">Pobieram aktualne wydarzenia i kursy…</div>;
   }
@@ -87,7 +95,8 @@ export default function CouponLabPage() {
         .no-print { display: none !important; }
       }`}</style>
 
-      <main className="coupon-lab mx-auto w-full max-w-[1180px] px-4 py-7 md:px-6 md:py-10" data-sport={sport}>\n        <div className="coupon-sport-atmosphere" aria-hidden="true"><div className="coupon-sport-action" /></div>
+      <main className="coupon-lab mx-auto w-full max-w-[1180px] px-4 py-7 md:px-6 md:py-10" data-sport={sport}>
+        <div className="coupon-sport-atmosphere" aria-hidden="true"><div className="coupon-sport-action" /></div>
         <motion.header
           className="coupon-hero mb-7"
           initial={{ opacity: 0, y: 14 }}
@@ -239,6 +248,10 @@ export default function CouponLabPage() {
                           <div className="selection-meta">{leg.league} <span>·</span> {new Date(leg.startTime).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}</div>
                           <h4>{leg.eventLabel}</h4>
                           <div className="selection-market"><span>MARKET</span><strong>{leg.label}</strong></div>
+                          <div className="selection-reason">
+                            <span>DLACZEGO AI</span>
+                            <p>{leg.reasons.join(' · ')}. Kurs x{leg.marketOdds.toFixed(2)} przy estymowanym prawdopodobieństwie {(leg.probability * 100).toFixed(0)}% i poziomie confidence {(leg.confidence * 100).toFixed(0)}%.</p>
+                          </div>
                         </div>
                         <div className="selection-odds">x{leg.marketOdds.toFixed(2)}</div>
                       </motion.article>
