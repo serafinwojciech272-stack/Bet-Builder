@@ -149,5 +149,5 @@ export function parseNaturalLanguageIntent(input:string) {
   const dateRange=/(dziś|dzisiaj|today)\s*(?:i|oraz|,)\s*(jutro|tomorrow)|(?:dziś|dzisiaj|today)\s*(?:\+|oraz)\s*(?:jutro|tomorrow)/i.test(text) ? 'TODAY_AND_TOMORROW' : /(jutro|tomorrow)/i.test(text) ? 'TOMORROW' : /(dziś|dzisiaj|today)/i.test(text) ? 'TODAY' : undefined;
   const targetOdds=odds?Number(odds[1].replace(',','.')):undefined;
   const stakeValue=stake?Number(stake[1].replace(',','.')):undefined;
-  return {targetOdds:targetOdds&&targetOdds>1?targetOdds:undefined,stake:stakeValue&&stakeValue>=0?stakeValue:undefined,riskPreference:risk,sport,raw:text,needsConfirmation:true};
+  return {targetOdds:targetOdds&&targetOdds>1?targetOdds:undefined,stake:stakeValue&&stakeValue>=0?stakeValue:undefined,riskPreference:r,sport,dateRange,raw:text,needsConfirmation:true};
 }
