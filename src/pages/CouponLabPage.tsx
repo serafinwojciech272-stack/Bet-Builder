@@ -113,6 +113,27 @@ export default function CouponLabPage() {
   };
 
   const printPdf = () => window.print();
+  const requestSwap = (selectionId: string) => {
+    setSwapTarget(selectionId);
+    const candidates = candidateLegs.filter((x) => Boolean(x)).map((x) => x as CouponResult['legs'][number]);
+    setSimilarLegs(result ? findSimilarLegs(result, selectionId, candidates) as CouponLegExplanation[] : []);
+  };
+  const applySwap = (selectionId: string) => {
+    const replacement = candidateLegs.find((x) => x && x.selectionId === selectionId);
+    if (!replacement || !result || !swapTarget) return;
+    setResult(replaceLegInContext(result, swapTarget, replacement as CouponResult['legs'][number]));
+    setSwapTarget(null);
+    setSimilarLegs([]);
+  };
+  const submitFeedback = async (helpful: boolean) => {
+    if (!snapshot) return;
+    setFeedback('sending');
+    try {
+      const response = await fetch('/api/coupon-lab', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'feedback',id:snapshot.id,helpful}) });
+      if (response.ok) { setSnapshot(await response.json() as CouponSnapshot); setFeedback('done'); }
+      else setFeedback('idle');
+    } catch { setFeedback('idle'); }
+  };
 
   useEffect(() => {
     if (!result || busy || autoPrintRef.current) return;
@@ -340,12 +361,13 @@ export default function CouponLabPage() {
                             <p>{leg.reasons.join(' · ')}. Kurs x{leg.marketOdds.toFixed(2)} oznacza implied probability {pct(1 / leg.marketOdds)}; model szacuje {pct(leg.probability)}. Confidence {pct(leg.confidence)}, edge {signedPct(leg.edge)}, EV {signedPct(leg.ev)}.</p>
                           </div>
                         </div>
-                        <div className="selection-odds">x{leg.marketOdds.toFixed(2)}</div>
+                        <div className="selection-odds"><span>x{leg.marketOdds.toFixed(2)}</span><button type="button" className="swap-button no-print" onClick={() => requestSwap(leg.selectionId)}>ZAMIEŃ</button></div>
                       </motion.article>
                     ))}
                   </div>
                 </div>
 
+                {swapTarget && <div className="swap-panel no-print"><div className="section-kicker">ZAMIANA ZDARZENIA</div><h3>Alternatywy z zachowaniem kontekstu</h3>{similarLegs.length ? similarLegs.map((x) => <button type="button" key={x.selectionId} onClick={() => applySwap(x.selectionId)}><strong>{x.short}</strong><span>{x.couponImpact}</span></button>) : <p>Brak podobnych kandydatów w aktualnym zbiorze danych.</p>}<button type="button" onClick={() => { setSwapTarget(null); setSimilarLegs([]); }}>ANULUJ</button></div>}
                 <aside className="insight-panel">
                   <div className="section-kicker"><Sparkles size={13} /> AI INTELLIGENCE 3.0</div>
                   <h3>Decyzja oparta na danych.</h3>
@@ -377,7 +399,9 @@ export default function CouponLabPage() {
                     <div><span>MARKET SIGNAL</span><b>CHECKED</b><i><em style={{ width: '78%' }} /></i></div>
                     <div><span>CORRELATION</span><b>CHECKED</b><i><em style={{ width: '84%' }} /></i></div>
                   </div>
-                  <div className="insight-note"><ShieldCheck size={14} /><span>Kupon pozostaje propozycją analityczną. Zewnętrzne działanie wymaga osobnej zgody.</span></div>
+                  <div className="insight-note"><ShieldCheck size={14} /><span>Kupon pozostaje propozycją analityczną. Zewnętrzne działanie wymaga osobnej zgody. OBSERVATIONAL_ONLY.</span></div>
+                  {snapshot && <div className="feedback-box no-print"><strong>Czy ta analiza była pomocna?</strong><div><button type="button" onClick={() => void submitFeedback(true)} disabled={feedback==='sending'}>TAK</button><button type="button" onClick={() => void submitFeedback(false)} disabled={feedback==='sending'}>NIE</button></div>{feedback==='done' && <small>Zapisano jako sygnał dla Learning Engine.</small>}</div>}
+                  <div className="gate-box no-print"><strong>APPROVAL GATE</strong><span>Automatyczne obstawianie pozostaje wyłączone.</span><a href="#/missions">OTWÓRZ MISSION CONTROL</a></div>
                 </aside>
               </div>
             </motion.section>
