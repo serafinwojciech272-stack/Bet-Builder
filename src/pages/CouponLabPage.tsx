@@ -43,6 +43,17 @@ export default function CouponLabPage() {
   const events = useMemo(() => dataset ? liveEvents(dataset) : [], [dataset]);
   const numericStake = Math.max(0, Number(stake) || 0);
   const previewReturn = result ? numericStake * result.combinedOdds : null;
+  const intelligence = result ? result.legs.reduce((acc, leg) => ({
+    confidence: acc.confidence + leg.confidence,
+    edge: acc.edge + leg.edge,
+    ev: acc.ev + leg.ev,
+  }), { confidence: 0, edge: 0, ev: 0 }) : null;
+  const intelligenceCount = result?.legs.length || 1;
+  const avgConfidence = intelligence ? intelligence.confidence / intelligenceCount : 0;
+  const avgEdge = intelligence ? intelligence.edge / intelligenceCount : 0;
+  const avgEv = intelligence ? intelligence.ev / intelligenceCount : 0;
+  const avgImplied = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + (1 / leg.marketOdds), 0) / result.legs.length : 0;
+  const avgProbability = result && result.legs.length ? result.legs.reduce((sum, leg) => sum + leg.probability, 0) / result.legs.length : 0;
 
   const generate = async () => {
     setBusy(true);
@@ -235,6 +246,19 @@ export default function CouponLabPage() {
                 </div>
               </div>
 
+              <div className="intelligence-summary">
+                <div className="intelligence-summary-head">
+                  <div><span className="section-kicker"><Gauge size={13} /> COUPON INTELLIGENCE 2.0</span><h3>Przewaga modelu nad rynkiem</h3></div>
+                  <span className={avgEdge >= 0 ? 'intelligence-grade positive' : 'intelligence-grade negative'}>{avgEdge >= 0 ? 'POSITIVE SIGNAL' : 'WEAK SIGNAL'}</span>
+                </div>
+                <div className="intelligence-summary-grid">
+                  <div><span>AVG CONFIDENCE</span><strong>{pct(avgConfidence)}</strong></div>
+                  <div className={avgEdge >= 0 ? 'positive' : 'negative'}><span>AVG EDGE</span><strong>{signedPct(avgEdge)}</strong></div>
+                  <div className={avgEv >= 0 ? 'positive' : 'negative'}><span>AVG EV</span><strong>{signedPct(avgEv)}</strong></div>
+                  <div><span>MODEL / IMPLIED</span><strong>{pct(avgProbability)} / {pct(avgImplied)}</strong></div>
+                </div>
+              </div>
+
               <div className="trust-strip">
                 <div><CheckCircle2 size={15} /><span>{liveStatus}</span></div>
                 <div><Gauge size={15} /><span>VALUE CHECKED</span></div>
@@ -261,6 +285,11 @@ export default function CouponLabPage() {
                             <div><span>IMPLIED</span><strong>{pct(1 / leg.marketOdds)}</strong></div>
                             <div className={leg.edge >= 0 ? 'positive' : 'negative'}><span>EDGE</span><strong>{signedPct(leg.edge)}</strong></div>
                             <div className={leg.risk === 'CRITICAL' ? 'negative' : ''}><span>RISK</span><strong>{leg.risk}</strong></div>
+                          </div>
+                          <div className="selection-probability">
+                            <div className="probability-head"><span>MODEL PROBABILITY</span><b>{pct(leg.probability)}</b></div>
+                            <div className="probability-track"><i style={{ width: `${Math.min(100, Math.max(0, leg.probability * 100))}%` }} /><em style={{ left: `${Math.min(100, Math.max(0, (1 / leg.marketOdds) * 100))}%` }} /></div>
+                            <div className="probability-foot"><span>market implied {pct(1 / leg.marketOdds)}</span><span>{leg.probability >= 1 / leg.marketOdds ? 'MODEL > MARKET' : 'MODEL < MARKET'}</span></div>
                           </div>
                           <div className="selection-reason">
                             <span>DLACZEGO AI</span>
