@@ -1,7 +1,6 @@
 import type { CouponSnapshot } from './couponLabDomain';
 
 const esc=(value:string)=>value.replace(/\\/g,'\\\\').replace(/\\(/g,'\\(').replace(/\\)/g,'\\)');
-const line=(text:string)=>`BT /F1 9 Tf 36 ${0} Td (${esc(text)}) Tj ET`;
 export function renderCouponPdf(snapshot:CouponSnapshot):Uint8Array {
   const rows:string[]=[];
   rows.push('BET BUILDER | COUPON LAB');
@@ -27,13 +26,13 @@ export function renderCouponPdf(snapshot:CouponSnapshot):Uint8Array {
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    `<< /Length ${stream.length} >>\\nstream\\n${stream}\\nendstream`,
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
   ];
-  let pdf='%PDF-1.4\\n'; const offsets=[0]; 
-  for(let i=0;i<objects.length;i++){offsets.push(pdf.length);pdf+=`${i+1} 0 obj\\n${objects[i]}\\nendobj\\n`;}
-  const xref=pdf.length; pdf+=`xref\\n0 ${objects.length+1}\\n0000000000 65535 f \\n`;
-  for(let i=1;i<offsets.length;i++) pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \\n';
-  pdf+=`trailer\\n<< /Size ${objects.length+1} /Root 1 0 R >>\\nstartxref\\n${xref}\\n%%EOF`;
+  let pdf='%PDF-1.4\n'; const offsets=[0]; 
+  for(let i=0;i<objects.length;i++){offsets.push(pdf.length);pdf+=`${i+1} 0 obj\n${objects[i]}\nendobj\n`;}
+  const xref=pdf.length; pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<offsets.length;i++) pdf+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+  pdf+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return new TextEncoder().encode(pdf);
 }
 export function pdfBase64(snapshot:CouponSnapshot){return Buffer.from(renderCouponPdf(snapshot)).toString('base64');}
