@@ -1,4 +1,4 @@
-import type { DecisionCenterResult } from '../core/decisionCenter';
+import type { DecisionCenterResult } from '../core/decisionCenter.js';
 import type { ResearchEvidence } from '../core/researchEvidenceEngine';
 
 export type EvidenceNodeKind='source'|'signal'|'model'|'risk'|'decision'|'action';
