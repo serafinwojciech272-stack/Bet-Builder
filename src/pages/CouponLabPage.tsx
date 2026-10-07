@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, WalletCards, Target, FileDown, Zap, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertTriangle, ArrowUpRight, CheckCircle2, FileDown, Gauge, RefreshCw, ShieldCheck, Sparkles, Target, WalletCards, Zap } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { liveEvents } from '../services/liveAdapter';
 import { generateCoupon, type CouponResult } from '../core/couponEngine';
 import { certifyCoupon, type CouponCertification } from '../core/liveCouponCertificationM181M190';
+import './coupon-lab-premium.css';
 
 const QUICK_TARGETS = ['2', '5', '10', '20', '50', '100'];
 const SPORTS = [
@@ -17,12 +19,13 @@ function money(value: number) {
   return value.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const ease = [0.22, 1, 0.36, 1] as const;
+
 export default function CouponLabPage() {
   const { dataset, selectedDate, refresh, phase } = useIntelligence();
   const [targetOdds, setTargetOdds] = useState('10');
   const [stake, setStake] = useState('20');
   const [sport, setSport] = useState('all');
-  const [maxLegs, setMaxLegs] = useState('5');
   const [result, setResult] = useState<CouponResult | null>(null);
   const [certification, setCertification] = useState<CouponCertification | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,7 +39,6 @@ export default function CouponLabPage() {
     setBusy(true);
     setError('');
     try {
-      // Always force a fresh server-side dataset before constructing a coupon.
       const source = await refresh(selectedDate, true, sport);
       if (!source) {
         setError('Brak danych sportowych. Odśwież stronę i spróbuj ponownie.');
@@ -50,7 +52,7 @@ export default function CouponLabPage() {
         targetOdds: numericTarget,
         stake: numericStakeValue,
         tolerance: .25,
-        maxLegs: Math.min(8, Math.max(1, Number(maxLegs) || 5)),
+        maxLegs: 8,
         minLegOdds: 1.15,
         maxLegOdds: 8,
         minConfidence: .50,
@@ -58,9 +60,7 @@ export default function CouponLabPage() {
       });
       setResult(coupon);
       setCertification(certifyCoupon(source, coupon));
-      if (coupon.status === 'BLOCKED') {
-        setError(coupon.blockers.join(' · ') || 'Nie znaleziono kwalifikowanych wydarzeń.');
-      }
+      if (coupon.status === 'BLOCKED') setError(coupon.blockers.join(' · ') || 'Nie znaleziono kwalifikowanych wydarzeń.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nie udało się wygenerować kuponu.');
     } finally {
@@ -69,192 +69,198 @@ export default function CouponLabPage() {
   };
 
   const printPdf = () => window.print();
-
   if (phase === 'loading' && !dataset) {
     return <div className="mx-auto max-w-5xl px-5 py-16 text-center text-slate-400">Pobieram aktualne wydarzenia i kursy…</div>;
   }
 
   const liveStatus = certification?.status === 'CERTIFIED' ? 'KURSY AKTUALNE' : certification?.status === 'REVIEW' ? 'WYMAGA WERYFIKACJI' : certification ? 'BRAK WYSTARCZAJĄCYCH KURSÓW' : 'GOTOWY';
+  const statusReady = result?.status === 'READY';
+  const dataTime = certification?.provenance?.timestamp ? new Date(certification.provenance.timestamp).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) : null;
 
   return (
     <>
-      <style>{`
-        @media print {
-          body { background: white !important; color: black !important; }
-          body * { visibility: hidden !important; }
-          #coupon-print, #coupon-print * { visibility: visible !important; }
-          #coupon-print { position: absolute; inset: 0; width: 100%; padding: 24px; color: #111 !important; background: white !important; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
+      <style>{`@media print {
+        body { background: white !important; color: black !important; }
+        body * { visibility: hidden !important; }
+        #coupon-print, #coupon-print * { visibility: visible !important; }
+        #coupon-print { position: absolute; inset: 0; width: 100%; padding: 24px; color: #111 !important; background: white !important; }
+        .no-print { display: none !important; }
+      }`}</style>
 
-      <main className="mx-auto w-full max-w-5xl px-4 py-6 md:px-6 md:py-10">
-        <header className="mb-7">
-          <div className="text-[10px] font-black uppercase tracking-[.22em] text-violet-300">BET BUILDER</div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">Wygeneruj kupon</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Wybierz docelowy kurs i stawkę. Silnik przeszuka nadchodzące wydarzenia, sprawdzi dostępne kursy i zbuduje kupon możliwie blisko Twojego celu.
-          </p>
-        </header>
-
-        <section className="glass-strong rounded-3xl border border-white/10 p-5 md:p-7 no-print">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Docelowy kurs</span>
-              <div className="mt-2 flex items-center rounded-2xl border border-violet-400/30 bg-black/20 px-4">
-                <Target size={18} className="text-violet-300" />
-                <input
-                  aria-label="Docelowy kurs"
-                  value={targetOdds}
-                  onChange={(e) => setTargetOdds(e.target.value)}
-                  type="number"
-                  min="1.01"
-                  step="0.1"
-                  className="w-full bg-transparent px-3 py-4 text-2xl font-black text-white outline-none"
-                />
-                <span className="text-xs font-bold text-slate-500">x</span>
-              </div>
-            </label>
-
-            <label className="block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Stawka</span>
-              <div className="mt-2 flex items-center rounded-2xl border border-amber-400/30 bg-black/20 px-4">
-                <WalletCards size={18} className="text-amber-300" />
-                <input
-                  aria-label="Stawka"
-                  value={stake}
-                  onChange={(e) => setStake(e.target.value)}
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="w-full bg-transparent px-3 py-4 text-2xl font-black text-white outline-none"
-                />
-                <span className="text-xs font-bold text-slate-500">PLN</span>
-              </div>
-            </label>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {QUICK_TARGETS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTargetOdds(value)}
-                className={targetOdds === value
-                  ? 'rounded-xl border border-violet-300/50 bg-violet-400/15 px-4 py-2 text-sm font-black text-violet-100'
-                  : 'rounded-xl border border-white/10 bg-white/[.03] px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/[.07]'}
-              >
-                x{value}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Sport</span>
-              <select value={sport} onChange={(e) => setSport(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-3 text-sm font-bold text-white outline-none">
-                {SPORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Maksymalna liczba spotkań</span>
-              <select value={maxLegs} onChange={(e) => setMaxLegs(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-3 text-sm font-bold text-white outline-none">
-                {[2,3,4,5,6,7,8].map((n) => <option key={n} value={n}>{n} spotkań</option>)}
-              </select>
-            </label>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void generate()}
-            disabled={busy}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-500 px-5 py-4 text-sm font-black text-white transition hover:bg-violet-400 disabled:cursor-wait disabled:opacity-60"
-          >
-            <Zap size={18} /> {busy ? 'SZUKAM I ANALIZUJĘ…' : 'GENERUJ KUPON'}
-          </button>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
-            <span>{events.length} wydarzeń w aktualnym zbiorze</span>
-            <button type="button" onClick={() => void refresh(selectedDate, true, sport)} className="inline-flex items-center gap-1 font-bold text-slate-300 hover:text-white">
-              <RefreshCw size={12} /> Odśwież kursy
-            </button>
-          </div>
-          {error && <div role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3 text-xs text-red-200">{error}</div>}
-        </section>
-
-        {result && (
-          <section id="coupon-print" className="mt-6">
-            <div className="glass rounded-3xl border border-white/10 p-5 md:p-7">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[.2em] text-violet-300">Gotowy kupon · {selectedDate}</div>
-                  <h2 className="mt-2 text-3xl font-black text-white">Kurs x{result.combinedOdds.toFixed(2)}</h2>
-                  <p className="mt-1 text-sm text-slate-400">{result.legs.length} spotkań · stawka {money(result.stake)} PLN</p>
-                </div>
-                <div className="flex gap-2 no-print">
-                  <button type="button" onClick={printPdf} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.05] px-4 py-2.5 text-xs font-black text-white">
-                    <FileDown size={15} /> PDF
-                  </button>
-                  <span className={result.status === 'READY' ? 'rounded-xl bg-emerald-400/10 px-3 py-2 text-[10px] font-black text-emerald-300' : 'rounded-xl bg-amber-400/10 px-3 py-2 text-[10px] font-black text-amber-300'}>
-                    {result.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-white/[.04] p-4">
-                  <div className="text-[10px] uppercase text-slate-500">Stawka</div>
-                  <div className="mt-1 text-2xl font-black text-white">{money(result.stake)} PLN</div>
-                </div>
-                <div className="rounded-2xl bg-white/[.04] p-4">
-                  <div className="text-[10px] uppercase text-slate-500">Potencjalna wygrana</div>
-                  <div className="mt-1 text-2xl font-black text-emerald-300">{money(result.potentialReturn)} PLN</div>
-                </div>
-                <div className="rounded-2xl bg-white/[.04] p-4">
-                  <div className="text-[10px] uppercase text-slate-500">Potencjalny zysk</div>
-                  <div className="mt-1 text-2xl font-black text-white">{money(result.potentialProfit)} PLN</div>
-                </div>
-              </div>
-
-              <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
-                <div className="grid grid-cols-[auto_1fr_auto] gap-3 border-b border-white/10 bg-white/[.04] px-4 py-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                  <span>#</span><span>Spotkanie i typ</span><span>Kurs</span>
-                </div>
-                {result.legs.map((leg, index) => (
-                  <div key={leg.selectionId} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-white/[.06] px-4 py-4 last:border-0">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-violet-400/10 text-xs font-black text-violet-300">{index + 1}</span>
-                    <div>
-                      <div className="text-sm font-black text-white">{leg.eventLabel}</div>
-                      <div className="mt-1 text-xs text-slate-400">{leg.label} · {leg.league}</div>
-                      <div className="mt-1 text-[10px] text-slate-500">{new Date(leg.startTime).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}</div>
-                    </div>
-                    <div className="text-lg font-black text-amber-300">x{leg.marketOdds.toFixed(2)}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/[.025] p-4">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Źródło</div>
-                  <div className="mt-1 text-sm font-black text-white">{certification?.provenance.provider ?? dataset?.provider ?? '—'}</div>
-                  <div className="mt-1 text-xs text-slate-400">{certification?.provenance.bookmakerCount ?? dataset?.snapshots.length ?? 0} snapshotów kursów · {liveStatus}</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[.025] p-4">
-                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-slate-500">
-                    {certification?.status === 'CERTIFIED' ? <CheckCircle2 size={14} className="text-emerald-400" /> : <AlertTriangle size={14} className="text-amber-400" />}
-                    Weryfikacja
-                  </div>
-                  <div className="mt-1 text-sm font-black text-white">{liveStatus}</div>
-                  <div className="mt-1 text-xs text-slate-400">Kupon jest propozycją analityczną. Automatyczne obstawienie pozostaje wyłączone.</div>
-                </div>
-              </div>
-
-              {previewReturn !== null && Math.abs(previewReturn - result.potentialReturn) > .01 && (
-                <div className="mt-3 text-xs text-amber-300">Zmiana stawki: potencjalna wypłata {money(previewReturn)} PLN.</div>
-              )}
+      <main className="coupon-lab mx-auto w-full max-w-[1180px] px-4 py-7 md:px-6 md:py-10">
+        <motion.header
+          className="coupon-hero mb-7"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: .5, ease }}
+        >
+          <div className="coupon-eyebrow"><span className="live-pulse" /> BET BUILDER <span>/</span> AI COUPON LAB</div>
+          <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="coupon-title">Zbuduj kupon<br /><span>z przewagą AI.</span></h1>
+              <p className="coupon-subtitle">Ustal cel. Silnik przeanalizuje dostępne wydarzenia, kursy i zależności, a następnie zbuduje propozycję.</p>
             </div>
-          </section>
-        )}
+            <div className="coupon-data-pill">
+              <span className="data-dot" />
+              <span>{events.length} wydarzeń</span>
+              <span className="muted-dot" />
+              <span>{dataset?.mode === 'LIVE' ? 'LIVE DATA' : 'SYNC DATA'}</span>
+            </div>
+          </div>
+        </motion.header>
+
+        <motion.section
+          className="coupon-builder-card no-print"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: .55, delay: .08, ease }}
+        >
+          <div className="builder-card-glow" />
+          <div className="builder-head">
+            <div>
+              <div className="section-kicker"><Target size={13} /> CEL KUPONU</div>
+              <h2>Powiedz silnikowi, czego szukasz.</h2>
+            </div>
+            <div className="builder-note"><Sparkles size={13} /> AI dobiera liczbę zdarzeń automatycznie</div>
+          </div>
+
+          <div className="builder-fields">
+            <label className="premium-field">
+              <span>Docelowy kurs</span>
+              <div className="premium-input">
+                <Target size={18} />
+                <input aria-label="Docelowy kurs" value={targetOdds} onChange={(e) => setTargetOdds(e.target.value)} type="number" min="1.01" step="0.1" />
+                <b>x</b>
+              </div>
+            </label>
+            <label className="premium-field">
+              <span>Stawka</span>
+              <div className="premium-input stake-input">
+                <WalletCards size={18} />
+                <input aria-label="Stawka" value={stake} onChange={(e) => setStake(e.target.value)} type="number" min="0" step="1" />
+                <b>PLN</b>
+              </div>
+            </label>
+            <label className="premium-field">
+              <span>Sport</span>
+              <div className="premium-select">
+                <select value={sport} onChange={(e) => setSport(e.target.value)} aria-label="Sport">
+                  {SPORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </select>
+              </div>
+            </label>
+          </div>
+
+          <div className="target-row">
+            <div className="target-label">SZYBKI CEL</div>
+            <div className="target-chips">
+              {QUICK_TARGETS.map((value) => (
+                <motion.button key={value} type="button" onClick={() => setTargetOdds(value)} aria-pressed={targetOdds === value} whileTap={{ scale: .96 }} className="target-chip">
+                  <span>x</span>{value}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          <div className="builder-actions">
+            <div className="data-refresh">
+              <span><ShieldCheck size={13} /> Dane źródłowe są weryfikowane przed generowaniem</span>
+              <button type="button" onClick={() => void refresh(selectedDate, true, sport)}><RefreshCw size={12} /> Odśwież</button>
+            </div>
+            <motion.button type="button" onClick={() => void generate()} disabled={busy} whileTap={{ scale: .985 }} className="generate-button">
+              <span className="generate-icon">{busy ? <RefreshCw size={18} className="spin" /> : <Zap size={18} />}</span>
+              <span>{busy ? 'ANALIZUJĘ DANE…' : 'GENERUJ KUPON'}</span>
+              <ArrowUpRight size={17} />
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {busy && (
+              <motion.div className="analysis-rail" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                <div className="analysis-steps">
+                  <span className="active">MARKETS</span><i /> <span>VALUE</span><i /> <span>PROBABILITY</span><i /> <span>CORRELATION</span><i /> <span>COUPON</span>
+                </div>
+                <div className="analysis-progress"><span /></div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {error && <motion.div role="alert" className="coupon-error" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}><AlertTriangle size={15} />{error}</motion.div>}
+        </motion.section>
+
+        <AnimatePresence mode="wait">
+          {result && (
+            <motion.section id="coupon-print" className="coupon-result-wrap" initial={{ opacity: 0, y: 24, scale: .985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: .65, ease }}>
+              <div className="result-head">
+                <div>
+                  <div className="coupon-eyebrow">AI DECISION <span>/</span> {selectedDate}</div>
+                  <div className="result-title-row">
+                    <h2>Gotowy kupon</h2>
+                    <span className={statusReady ? 'status-badge ready' : 'status-badge review'}>{statusReady ? 'READY' : result.status}</span>
+                  </div>
+                </div>
+                <div className="result-actions no-print">
+                  <motion.button type="button" onClick={printPdf} whileTap={{ scale: .96 }}><FileDown size={15} /> PDF</motion.button>
+                </div>
+              </div>
+
+              <div className="decision-card">
+                <div className="decision-orbit" />
+                <div className="decision-main">
+                  <div className="decision-kicker"><span className="signal-dot" /> AI RECOMMENDATION</div>
+                  <div className="decision-odds">x{result.combinedOdds.toFixed(2)}</div>
+                  <div className="decision-caption">kurs łączny · {result.legs.length} selekcje</div>
+                </div>
+                <div className="decision-metrics">
+                  <div><span>STAWKA</span><strong>{money(result.stake)} <small>PLN</small></strong></div>
+                  <div><span>POTENCJALNY ZWROT</span><strong>{money(result.potentialReturn)} <small>PLN</small></strong></div>
+                  <div><span>POTENCJALNY ZYSK</span><strong>{money(result.potentialProfit)} <small>PLN</small></strong></div>
+                </div>
+              </div>
+
+              <div className="trust-strip">
+                <div><CheckCircle2 size={15} /><span>{liveStatus}</span></div>
+                <div><Gauge size={15} /><span>VALUE CHECKED</span></div>
+                <div><ShieldCheck size={15} /><span>AUTOMATYCZNE OBSTAWIANIE WYŁĄCZONE</span></div>
+                {dataTime && <div className="trust-time">DANE {dataTime}</div>}
+              </div>
+
+              <div className="result-grid">
+                <div className="selections-panel">
+                  <div className="panel-head">
+                    <div><span className="section-kicker">SELECTIONS</span><h3>Wybrane zdarzenia</h3></div>
+                    <span className="count-pill">{result.legs.length}</span>
+                  </div>
+                  <div className="selection-list">
+                    {result.legs.map((leg, index) => (
+                      <motion.article key={leg.selectionId} className="selection-card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .1 + index * .07, duration: .4, ease }}>
+                        <div className="selection-index">{String(index + 1).padStart(2, '0')}</div>
+                        <div className="selection-content">
+                          <div className="selection-meta">{leg.league} <span>·</span> {new Date(leg.startTime).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                          <h4>{leg.eventLabel}</h4>
+                          <div className="selection-market"><span>MARKET</span><strong>{leg.label}</strong></div>
+                        </div>
+                        <div className="selection-odds">x{leg.marketOdds.toFixed(2)}</div>
+                      </motion.article>
+                    ))}
+                  </div>
+                </div>
+
+                <aside className="insight-panel">
+                  <div className="section-kicker"><Sparkles size={13} /> AI INTELLIGENCE</div>
+                  <h3>Decyzja oparta na danych.</h3>
+                  <p>Każda selekcja przechodzi przez analizę rynku, dostępnego kursu i spójności całego kuponu.</p>
+                  <div className="insight-bars">
+                    <div><span>DATA QUALITY</span><b>LIVE</b><i><em style={{ width: '92%' }} /></i></div>
+                    <div><span>MARKET SIGNAL</span><b>CHECKED</b><i><em style={{ width: '78%' }} /></i></div>
+                    <div><span>CORRELATION</span><b>CHECKED</b><i><em style={{ width: '84%' }} /></i></div>
+                  </div>
+                  <div className="insight-note"><ShieldCheck size={14} /><span>Kupon pozostaje propozycją analityczną. Zewnętrzne działanie wymaga osobnej zgody.</span></div>
+                </aside>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
       </main>
     </>
   );
