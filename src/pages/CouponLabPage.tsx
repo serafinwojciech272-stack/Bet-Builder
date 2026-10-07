@@ -123,6 +123,7 @@ export default function CouponLabPage() {
     const replacement = candidateLegs.find((x) => x && x.selectionId === selectionId);
     if (!replacement || !result || !swapTarget) return;
     setResult(replaceLegInContext(result, swapTarget, replacement as CouponResult['legs'][number]));
+    if (snapshot) void fetch('/api/coupon-lab', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'audit',id:snapshot.id,event:{id:'audit_'+Date.now(),type:'LEG_REPLACED',at:new Date().toISOString(),actor:'USER',payload:{from:swapTarget,to:replacement.selectionId}}}) });
     setSwapTarget(null);
     setSimilarLegs([]);
   };
