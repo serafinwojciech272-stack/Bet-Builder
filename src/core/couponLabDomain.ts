@@ -142,7 +142,7 @@ export function findSimilarLegs(coupon: CouponResult, selectedId: string, candid
 
 export function parseNaturalLanguageIntent(input:string) {
   const text=input.trim();
-  const odds=text.match(/(?:około|okolo|kurs|odds)\s*(?:x)?\s*(\d+(?:[.,]\d+)?)/i);
+  const odds=text.match(/(?:około|okolo|kurs\w*|odds)\s*(?:x)?\s*(\d+(?:[.,]\d+)?)/i);
   const stake=text.match(/(\d+(?:[.,]\d+)?)\s*(?:zł|zl|pln|złotych)/i);
   const risk=text.match(/(bezpiecz|nisk\w* ryzyk|mniej ryzyk|bardzo ryzykown|ryzykown)/i)?'LOW':text.match(/(agresyw|wysok\w* ryzyk)/i)?'HIGH':undefined;
   const sport=text.match(/(piłk\w*|football|soccer|koszyk\w*|basketball|tenis|tennis)/i)?.[1] ?? undefined;
