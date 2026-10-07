@@ -1,6 +1,6 @@
 import type { CouponSnapshot } from './couponLabDomain';
 
-const esc=(value:string)=>value.replace(/\\/g,'\\\\').replace(/\\(/g,'\\(').replace(/\\)/g,'\\)');
+const esc=(value:string)=>value.split('\\').join('\\\\').split('(').join('\\(').split(')').join('\\)');
 export function renderCouponPdf(snapshot:CouponSnapshot):Uint8Array {
   const rows:string[]=[];
   rows.push('BET BUILDER | COUPON LAB');
