@@ -1,4 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+type VercelRequest = { method?: string; body?: unknown };
+type VercelResponse = { status:(code:number)=>VercelResponse; setHeader:(name:string,value:string)=>VercelResponse; json:(body:unknown)=>VercelResponse; end:(body?:string)=>VercelResponse };
 
 type ReasoningRequest = {
   decision: {
