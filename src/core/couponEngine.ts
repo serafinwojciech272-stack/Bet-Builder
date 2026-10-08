@@ -26,7 +26,7 @@ export function generateCoupon(input:CouponRequest):CouponResult {
   for(const state of beam){for(const p of candidates){
    if(state.events.has(p.eventId))continue;
    const event=input.events.find(e=>e.id===p.eventId);if(!event||event.status==='FINISHED')continue;
-   const correlation=p.correlationGroup||p.marketId;if(state.groups.has(correlation))continue;
+   const correlation=`${p.eventId}:${p.marketId}`;if(state.groups.has(correlation))continue;
    const odds=state.odds*p.marketOdds;if(odds>target*(1+tolerance)&&state.legs.length>0)continue;
    next.push({legs:[...state.legs,p],odds,score:0,events:new Set(state.events).add(p.eventId),groups:new Set(state.groups).add(correlation)});
   }}
