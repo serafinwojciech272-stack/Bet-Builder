@@ -20,87 +20,117 @@ type ReasoningRequest = {
   task?: 'reason';
 };
 
-type ReasoningProviderResponse = {
-  stance?: unknown;
-  synthesis?: unknown;
-  factors?: unknown;
-  uncertainties?: unknown;
-};
+const DEFAULT_CORE_ENGINE_URL = 'https://core-engine-34uu.onrender.com';
 
-const SYSTEM = [
-  'You are the evidence-aware reasoning layer of a governed Decision Platform.',
-  'You do not approve, execute, place, or recommend a bet.',
-  'You must never override deterministic hard gates, blockers, risk controls, or human approval.',
-  'Reason only from the supplied evidence packet. Do not invent facts, sources, probabilities, events, or model outputs.',
-  'Return strict JSON with stance, synthesis, factors, uncertainties.',
-  'stance must be one of constructive, neutral, cautious, avoid.',
-  'If status is BLOCKED, stance must be avoid and synthesis must preserve the blockers.',
-].join(' ');
+function json(res: VercelResponse, status: number, body: unknown) {
+  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8').setHeader('Cache-Control', 'no-store').json(body);
+}
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string').slice(0, 6)
+    : [];
+}
 
-const stringArray = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 6) : [];
+function safeRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
-  const key = process.env.OPENROUTER_API_KEY?.trim();
-  const model = process.env.OPENROUTER_MODEL?.trim();
-  if (!key || !model) return res.status(503).json({ error: 'AI_PROVIDER_NOT_CONFIGURED', provider: 'openrouter' });
+  if (req.method !== 'POST') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
 
   const body = req.body as ReasoningRequest;
-  if (!body?.decision || !body?.evidence) return res.status(400).json({ error: 'INVALID_REASONING_REQUEST' });
+  if (!body?.decision || !body?.evidence) return json(res, 400, { error: 'INVALID_REASONING_REQUEST' });
 
   const safePayload = JSON.stringify(body);
-  if (safePayload.length > 24000) return res.status(413).json({ error: 'REASONING_CONTEXT_TOO_LARGE' });
+  if (safePayload.length > 24000) return json(res, 413, { error: 'REASONING_CONTEXT_TOO_LARGE' });
 
+  const base = (process.env.CORE_ENGINE_URL || DEFAULT_CORE_ENGINE_URL).replace(/\/$/, '');
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), 15000);
+
   try {
-    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const task = [
+      'Act as the governed sports-decision reasoning layer for Bet Builder.',
+      'Return a concise evidence-grounded synthesis of the supplied decision packet.',
+      'Do not approve, place, execute or recommend a bet. Do not override blockers or deterministic gates.',
+      'Separate evidence from interpretation. If status is BLOCKED, preserve the blockers and use an avoid stance.',
+      'Return JSON when possible with keys: stance, synthesis, factors, uncertainties.',
+      'Evidence packet:',
+      safePayload
+    ].join('\n');
+
+    const upstream = await fetch(base + '/api/integrations', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.OPENROUTER_SITE_URL ?? 'https://bet-builder-preview.vercel.app',
-        'X-Title': process.env.OPENROUTER_APP_NAME ?? 'Bet Builder Decision Platform',
+        'x-core-engine-client': 'bet-builder',
       },
       body: JSON.stringify({
-        model,
-        temperature: 0.1,
-        max_tokens: 700,
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: `Evidence packet:\n${safePayload}` },
-        ],
-        response_format: { type: 'json_object' },
+        task,
+        project: 'bet-builder',
+        domain: 'sports-analysis',
+        capabilities: ['reasoning', 'risk-analysis', 'verification'],
+        approvalPolicy: 'HUMAN_APPROVAL_REQUIRED',
+        context: safePayload,
       }),
       signal: controller.signal,
     });
-    if (!upstream.ok) return res.status(502).json({ error: 'AI_PROVIDER_ERROR', provider: 'openrouter', status: upstream.status });
-    const raw = await upstream.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const content = raw.choices?.[0]?.message?.content;
-    if (!content) return res.status(502).json({ error: 'AI_EMPTY_RESPONSE', provider: 'openrouter' });
 
-    let parsed: ReasoningProviderResponse = {};
+    const raw = await upstream.text();
+    if (!upstream.ok) return json(res, 502, { error: 'CORE_ENGINE_ERROR', status: upstream.status });
+
+    const payload = safeRecord(raw ? JSON.parse(raw) : {});
+    const reply = typeof payload.reply === 'string' ? payload.reply.trim() : '';
+    if (!reply) return json(res, 502, { error: 'CORE_ENGINE_EMPTY_RESPONSE', provider: 'core-engine' });
+
+    let parsed: Record<string, unknown> = {};
     try {
-      const candidate: unknown = JSON.parse(content);
-      parsed = isRecord(candidate) ? candidate as ReasoningProviderResponse : {};
-    } catch {
-      return res.status(502).json({ error: 'AI_INVALID_JSON', provider: 'openrouter' });
-    }
-    const stance = ['constructive','neutral','cautious','avoid'].includes(String(parsed.stance))
-      ? String(parsed.stance)
-      : 'neutral';
-    const decisionStatus = body.decision.status;
-    const guardedStance = decisionStatus === 'BLOCKED' ? 'avoid' : stance;
-    const synthesis = typeof parsed.synthesis === 'string' ? parsed.synthesis.slice(0, 1200) : 'Provider returned no usable synthesis.';
-    const factors = stringArray(parsed.factors);
-    const uncertainties = stringArray(parsed.uncertainties);
-    return res.status(200).json({ provider:'openrouter', model, stance:guardedStance, synthesis, factors, uncertainties, degraded:false, evidenceDigest:body.evidence.digest });
+      const candidate = JSON.parse(reply);
+      parsed = safeRecord(candidate);
+    } catch {}
+
+    const status = body.decision.status;
+    const requestedStance = String(parsed.stance || '').toLowerCase();
+    const stance = status === 'BLOCKED'
+      ? 'avoid'
+      : ['constructive', 'neutral', 'cautious', 'avoid'].includes(requestedStance)
+        ? requestedStance
+        : status === 'CAUTION' ? 'cautious' : 'neutral';
+
+    const synthesis = typeof parsed.synthesis === 'string'
+      ? parsed.synthesis.slice(0, 1600)
+      : reply.slice(0, 1600);
+
+    const parsedFactors = stringArray(parsed.factors);
+    const parsedUncertainties = stringArray(parsed.uncertainties);
+    const factors = parsedFactors.length
+      ? parsedFactors
+      : [...body.decision.strengths.slice(0, 3), ...body.decision.warnings.slice(0, 3)].slice(0, 6);
+
+    const uncertainties = parsedUncertainties.length
+      ? parsedUncertainties
+      : [...body.decision.blockers.slice(0, 3), 'Evidence coverage: ' + Math.round(body.evidence.coverage * 100) + '%', 'Evidence conflicts: ' + body.evidence.conflicts].slice(0, 6);
+
+    const intelligence = safeRecord(payload.intelligence);
+    const selectedModels = Array.isArray(intelligence.selectedModels) ? intelligence.selectedModels : [];
+    return json(res, 200, {
+      provider: 'core-engine',
+      model: typeof selectedModels[0] === 'string' ? selectedModels[0] : 'core-engine-routed',
+      stance,
+      synthesis,
+      factors,
+      uncertainties,
+      degraded: false,
+      evidenceDigest: body.evidence.digest,
+      centralRouting: true,
+      project: 'bet-builder',
+    });
   } catch (error) {
-    return res.status(502).json({ error: error instanceof Error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNAVAILABLE', provider:'openrouter' });
+    return json(res, 502, {
+      error: error instanceof Error && error.name === 'AbortError' ? 'CORE_ENGINE_TIMEOUT' : 'CORE_ENGINE_UNAVAILABLE',
+      provider: 'core-engine',
+    });
   } finally {
     clearTimeout(timer);
   }
