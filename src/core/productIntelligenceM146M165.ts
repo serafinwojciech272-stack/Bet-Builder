@@ -45,7 +45,7 @@ export function riskFriction(r:RiskBand):'NONE'|'CONFIRM'|'COOLING_OFF'{return r
 // M162 mobile summary
 export function mobileSummary(d:DecisionView){return{headline:d.title,probability:`${(d.probability*100).toFixed(1)}%`,edge:`${(d.edge*100).toFixed(1)}%`,confidence:`${(d.confidence*100).toFixed(0)}%`,risk:d.risk,state:d.state}}
 // M163 evidence freshness
-export function evidenceFreshness(e:DecisionEvidence[],now=new Date()){return e.length?Math.min(...e.map(x=>snapshotAgeSeconds(x.updatedAt,now)):Infinity}
+export function evidenceFreshness(e:DecisionEvidence[],now=new Date()){return e.length?Math.min(...e.map(x=>snapshotAgeSeconds(x.updatedAt,now))):Infinity}
 // M164 product readiness
 export function productIntelligenceReady(a:{decision:boolean;evidence:boolean;replay:boolean;audit:boolean;accessibility:boolean;responsible:boolean}){return Object.values(a).every(Boolean)}
 // M165 final contract: never bypasses human approval
