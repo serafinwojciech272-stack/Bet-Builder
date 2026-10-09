@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __resetRateLimitsForTests, checkRateLimit, clientKey } from './_rateLimit';
-import coreEngine from './core-engine';
+import { __resetRateLimitsForTests, checkRateLimit, clientKey } from '../../api/_rateLimit';
+import coreEngine from '../../api/core-engine';
 
 function mockRes() {
   const out: { status?: number; body?: string; headers: Record<string, string> } = { headers: {} };
@@ -16,8 +16,8 @@ function mockRes() {
 describe('rate limiter', () => {
   beforeEach(() => __resetRateLimitsForTests());
 
-  it('uses the proxy-appended (right-most) X-Forwarded-For entry', () => {
-    expect(clientKey({ 'x-forwarded-for': '6.6.6.6, 203.0.113.9' })).toBe('203.0.113.9');
+  it('keys on the original client (left-most X-Forwarded-For), not the shared proxy hop', () => {
+    expect(clientKey({ 'x-forwarded-for': '203.0.113.9, 76.76.21.21' })).toBe('203.0.113.9');
     expect(clientKey({ 'x-remote-address': '10.0.0.2' })).toBe('10.0.0.2');
   });
 
@@ -28,6 +28,12 @@ describe('rate limiter', () => {
     expect(blocked.allowed).toBe(false);
     expect(blocked.retryAfterSeconds).toBe(60);
     expect(checkRateLimit('t', h, 3, 60_000, 62_000).allowed).toBe(true);
+  });
+
+  it('caps a bucket globally even when clients rotate spoofed addresses', () => {
+    let allowed = 0;
+    for (let i = 0; i < 100; i++) if (checkRateLimit('g', { 'x-forwarded-for': `10.0.${i}.1` }, 2, 60_000, 1_000).allowed) allowed++;
+    expect(allowed).toBe(20);
   });
 
   it('never limits internal loopback calls', () => {

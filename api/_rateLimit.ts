@@ -21,29 +21,27 @@ function header(headers: Headers, name: string): string {
 }
 
 /**
- * Client identity. Proxies (Render, Vercel) append the real client address,
- * so the right-most X-Forwarded-For entry is the trustworthy one; a
- * client-supplied left-most value is ignored.
+ * Client identity, best effort. The API sits behind Render's proxy and, for the
+ * Vercel frontend, behind a Vercel rewrite as well, so the right-most
+ * X-Forwarded-For hop is a shared proxy address, not the user. The left-most
+ * entry is the original client but can be spoofed; that only lets an attacker
+ * dodge the per-client limit, which the per-bucket global cap below still bounds.
  */
 export function clientKey(headers: Headers): string {
   const vercel = header(headers, 'x-vercel-forwarded-for');
   if (vercel) return vercel.split(',')[0].trim();
   const xff = header(headers, 'x-forwarded-for');
   if (xff) {
-    const parts = xff.split(',').map((p) => p.trim()).filter(Boolean);
-    if (parts.length) return parts[parts.length - 1];
+    const first = xff.split(',').map((p) => p.trim()).find(Boolean);
+    if (first) return first;
   }
   return header(headers, 'x-remote-address') || 'unknown';
 }
 
-export interface RateLimitResult { allowed: boolean; remaining: number; retryAfterSeconds: number }
+/** Upper bound per bucket per process, regardless of client identity. */
+const GLOBAL_MULTIPLIER = 10;
 
-export function checkRateLimit(bucket: string, headers: Headers, limit: number, windowMs = 60_000, now = Date.now()): RateLimitResult {
-  const ip = clientKey(headers);
-  // Internal loopback calls (daily-coupon -> /api/odds on the same host).
-  if (LOOPBACK.has(ip)) return { allowed: true, remaining: limit, retryAfterSeconds: 0 };
-
-  const key = bucket + '|' + ip;
+function hit(key: string, limit: number, windowMs: number, now: number): RateLimitResult {
   let window = buckets.get(key);
   if (!window || window.resetAt <= now) {
     if (buckets.size >= MAX_KEYS) {
@@ -60,6 +58,18 @@ export function checkRateLimit(bucket: string, headers: Headers, limit: number, 
     remaining: Math.max(0, limit - window.count),
     retryAfterSeconds: allowed ? 0 : Math.max(1, Math.ceil((window.resetAt - now) / 1000)),
   };
+}
+
+export interface RateLimitResult { allowed: boolean; remaining: number; retryAfterSeconds: number }
+
+export function checkRateLimit(bucket: string, headers: Headers, limit: number, windowMs = 60_000, now = Date.now()): RateLimitResult {
+  const ip = clientKey(headers);
+  // Internal loopback calls (daily-coupon -> /api/odds on the same host).
+  if (LOOPBACK.has(ip)) return { allowed: true, remaining: limit, retryAfterSeconds: 0 };
+
+  const global = hit(bucket + '|*', limit * GLOBAL_MULTIPLIER, windowMs, now);
+  if (!global.allowed) return global;
+  return hit(bucket + '|' + ip, limit, windowMs, now);
 }
 
 interface LimitedResponse {
