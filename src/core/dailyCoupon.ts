@@ -85,6 +85,38 @@ function warsawDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+const consensusKey = (market: string, label: string) => market + '|' + label.trim().toLowerCase();
+
+/**
+ * Proportional de-vig per bookmaker, then averaged per selection across
+ * bookmakers. Uses only the latest snapshot per bookmaker+market.
+ */
+function marketConsensus(snapshots: OddsSnapshot[]): Map<string, { probability: number; books: number }> {
+  const latest = new Map<string, OddsSnapshot>();
+  for (const s of snapshots) {
+    const key = s.market + '|' + String(s.bookmaker);
+    const current = latest.get(key);
+    if (!current || current.capturedAt < s.capturedAt) latest.set(key, s);
+  }
+  const sums = new Map<string, { total: number; books: number }>();
+  for (const s of latest.values()) {
+    const quotes = s.quotes.filter(q => Number.isFinite(q.decimalOdds) && q.decimalOdds > 1);
+    if (quotes.length < 2) continue;
+    const book = quotes.reduce((sum, q) => sum + 1 / q.decimalOdds, 0);
+    if (book <= 0) continue;
+    for (const q of quotes) {
+      const key = consensusKey(s.market, q.label);
+      const entry = sums.get(key) ?? { total: 0, books: 0 };
+      entry.total += (1 / q.decimalOdds) / book;
+      entry.books += 1;
+      sums.set(key, entry);
+    }
+  }
+  const out = new Map<string, { probability: number; books: number }>();
+  for (const [key, v] of sums) out.set(key, { probability: v.total / v.books, books: v.books });
+  return out;
+}
+
 export function buildDailyCoupon(input: DailyCouponInput): DailyCouponResult {
   const maxLegs = Math.max(1, Math.min(12, input.maxLegs ?? 5));
   const minOdds = Math.max(1.01, input.minOdds ?? 1.25);
@@ -105,16 +137,22 @@ export function buildDailyCoupon(input: DailyCouponInput): DailyCouponResult {
     const eventSnapshots = snapshots.filter(s => s.eventId === event.id);
     const bySelection = new Map<string, DailyCouponLeg>();
 
+    const consensus = marketConsensus(eventSnapshots);
+
     for (const snapshot of eventSnapshots) {
       if (requested.length && !requested.some(r => bookmakerMatches(String(snapshot.bookmaker), r))) continue;
       for (const quote of snapshot.quotes) {
         if (!Number.isFinite(quote.decimalOdds) || quote.decimalOdds < minOdds || quote.decimalOdds > maxOdds) continue;
         const implied = impliedProbability(quote.decimalOdds);
-        const depth = new Set(eventSnapshots.map(s => s.bookmaker)).size;
-        const modelProbability = Math.min(0.92, implied * (1 + Math.min(0.16, depth * 0.025)));
+        const fair = consensus.get(consensusKey(snapshot.market, quote.label));
+        if (!fair) continue;
+        // Honest edge: best available price vs the de-vigged consensus of all
+        // bookmakers in the feed. With a single bookmaker the margin makes EV
+        // negative, so no leg is ever promoted on fabricated value.
+        const modelProbability = fair.probability;
         const edge = modelProbability - implied;
         const ev = modelEv(modelProbability, quote.decimalOdds);
-        const confidence = Math.min(0.9, 0.52 + Math.min(0.25, depth * 0.06) + Math.max(0, edge) * 0.8);
+        const confidence = Math.min(0.9, 0.55 + Math.min(0.25, (fair.books - 1) * 0.07));
         const risk = riskForOdds(quote.decimalOdds);
         const candidate: DailyCouponLeg = {
           eventId: event.id,
@@ -133,7 +171,9 @@ export function buildDailyCoupon(input: DailyCouponInput): DailyCouponResult {
           ev,
           confidence,
           risk,
-          rationale: depth > 1 ? 'Najlepszy dostępny kurs z potwierdzeniem wieloźródłowym.' : 'Najlepszy dostępny kurs; ograniczona głębokość rynku.',
+          rationale: fair.books > 1
+            ? `Kurs powyżej konsensusu ${fair.books} bukmacherów (uczciwe p=${(modelProbability * 100).toFixed(1)}%).`
+            : 'Jedno źródło kursu — brak konsensusu rynkowego.',
         };
         const existing = bySelection.get(quote.label.toLowerCase());
         if (!existing || candidate.odds > existing.odds || candidate.ev > existing.ev) bySelection.set(quote.label.toLowerCase(), candidate);

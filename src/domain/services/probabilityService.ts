@@ -1,5 +1,6 @@
 import { det } from '../numbers';
-import type { DeterministicNumber, MarketKey, SportEvent } from '../types';
+import type { DeterministicNumber, MarketKey, OddsSnapshot, SportEvent } from '../types';
+import { consensusPrice, devig, latestQuotesBySelection } from './oddsMath';
 
 const SERVICE_ID = 'probability-service' as const;
 export const MODEL_VERSION = 'badbuilder-quant-v2.4.1';
@@ -20,6 +21,23 @@ export interface ModelProbabilitySet {
   probabilities: ModelProbability[];
   inputsDigest: string;
   computedAt: string;
+  /**
+   * False when the event carries no team-strength information (live feeds
+   * emit placeholder ratings). An uninformed model must never be presented
+   * as an independent edge over the market.
+   */
+  informed?: boolean;
+  /** Where the published probabilities come from. */
+  source?: 'team-model' | 'market-consensus' | 'uninformed-prior';
+}
+
+/** Live providers emit rating 0.5 / empty form; real ratings are Elo-scale. */
+const MIN_REAL_RATING = 100;
+
+export function isEventModelInformed(event: SportEvent): boolean {
+  const hasRating = event.homeTeam.rating >= MIN_REAL_RATING && event.awayTeam.rating >= MIN_REAL_RATING;
+  const hasForm = event.homeTeam.form.length > 0 && event.awayTeam.form.length > 0;
+  return hasRating || hasForm;
 }
 
 function formScore(form: Array<'W' | 'D' | 'L'>): number {
@@ -202,5 +220,48 @@ export function computeModelProbabilities(
       MODEL_VERSION,
     ]),
     computedAt: now.toISOString(),
+    informed: isEventModelInformed(event),
+    source: isEventModelInformed(event) ? 'team-model' : 'uninformed-prior',
+  };
+}
+
+/**
+ * Model probabilities safe to compare against bookmaker prices.
+ *
+ * When the event has no team-strength data the rating model collapses to
+ * "home advantage only" (e.g. any home side ~43% in soccer), which fabricates
+ * large positive EV on home underdogs. In that case the probabilities are
+ * anchored to the de-vigged multi-bookmaker consensus, so any remaining edge
+ * reflects only genuine price differences between bookmakers.
+ */
+export function computeAnchoredModelProbabilities(
+  event: SportEvent,
+  market: MarketKey,
+  selectionIds: readonly string[],
+  snapshots: readonly OddsSnapshot[],
+  now: Date = new Date(),
+): ModelProbabilitySet {
+  const model = computeModelProbabilities(event, market, selectionIds, now);
+  if (model.informed) return model;
+
+  const scoped = snapshots.filter((s) => s.eventId === event.id && s.market === market);
+  const consensusQuotes = model.probabilities
+    .map((p) => ({ selectionId: p.selectionId, label: p.label, decimalOdds: consensusPrice(latestQuotesBySelection(scoped, p.selectionId)) }))
+    .filter((q) => q.decimalOdds > 1);
+  if (consensusQuotes.length < 2 || consensusQuotes.length !== model.probabilities.length) return model;
+
+  const fair = devig(consensusQuotes);
+  return {
+    ...model,
+    source: 'market-consensus',
+    probabilities: model.probabilities.map((p) => {
+      const value = Math.max(0.005, Math.min(0.99, fair[p.selectionId] ?? p.probability.value));
+      return {
+        ...p,
+        probability: det(value, 'probability', SERVICE_ID),
+        fairOdds: det(1 / value, 'decimal-odds', SERVICE_ID),
+        drivers: [{ label: 'De-vigged market consensus (no team-strength data)', contribution: det(value, 'ratio', SERVICE_ID) }],
+      };
+    }),
   };
 }

@@ -4,7 +4,7 @@ import { det } from '../domain/numbers';
 import { MARKET_LABELS, SPORT_LABELS, BOOKMAKERS } from '../domain/feed/normalization';
 import { computeMarketMovement, primaryMarketFor } from '../domain/services/movementService';
 import { assessDataQuality } from '../domain/services/dataQualityService';
-import { computeModelProbabilities } from '../domain/services/probabilityService';
+import { computeAnchoredModelProbabilities } from '../domain/services/probabilityService';
 import { computeValue } from '../domain/services/valueService';
 import {
   computeCorrelation,
@@ -134,7 +134,7 @@ export class MockAIAnalysisService implements AIAnalysisService {
     const movement = computeMarketMovement(event.id, market, snapshots);
     const quality = assessDataQuality(event.id, market, snapshots, normalizationIssues, now);
     const selectionIds = movement ? movement.selections.map((s) => s.selectionId) : [];
-    const model = computeModelProbabilities(event, market, selectionIds, now);
+    const model = computeAnchoredModelProbabilities(event, market, selectionIds, snapshots, now);
     const value = computeValue(event.id, market, snapshots, model, quality, now);
     const risk = computeRisk(event, movement, quality, value, now);
     const correlation = computeCorrelation(

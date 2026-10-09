@@ -2,7 +2,7 @@ import type { CanonicalDataset } from '../domain/repositories';
 import type { MarketKey, SportEvent } from '../domain/types';
 import { computeMarketMovement, primaryMarketFor, type MarketMovement } from '../domain/services/movementService';
 import { assessDataQuality, type DataQualityReport } from '../domain/services/dataQualityService';
-import { computeModelProbabilities, type ModelProbabilitySet } from '../domain/services/probabilityService';
+import { computeAnchoredModelProbabilities, type ModelProbabilitySet } from '../domain/services/probabilityService';
 import { computeValue, type ValueAnalysis } from '../domain/services/valueService';
 import { computeRisk, type RiskAssessmentCalc } from '../domain/services/riskService';
 
@@ -28,7 +28,7 @@ export function buildEventIntel(dataset: CanonicalDataset, now: Date = new Date(
     const movement = computeMarketMovement(event.id, market, dataset.snapshots);
     const quality = assessDataQuality(event.id, market, dataset.snapshots, dataset.issues, now);
     const selectionIds = movement ? movement.selections.map((s) => s.selectionId) : [];
-    const model = computeModelProbabilities(event, market, selectionIds, now);
+    const model = computeAnchoredModelProbabilities(event, market, selectionIds, dataset.snapshots, now);
     const value = computeValue(event.id, market, dataset.snapshots, model, quality, now);
     const risk = computeRisk(event, movement, quality, value, now);
     out.push({ event, market, movement, quality, model, value, risk });
