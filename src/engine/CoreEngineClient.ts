@@ -41,6 +41,12 @@ function assertExecutableMission(mission: Mission): void {
   if (mission.approval.state !== 'APPROVED' || !mission.approval.decidedBy || !mission.approval.decidedAt) {
     throw new CoreEngineError('APPROVAL_REQUIRED', 'Core Engine rejected the mission: approval gate not satisfied.');
   }
+  if (!mission.decisionPacket || !mission.decisionLedger) {
+    throw new CoreEngineError('MALFORMED_MISSION', 'Core Engine rejected the mission: decision packet and ledger lineage are required.');
+  }
+  if (mission.decisionLedger.missionId !== mission.id || mission.decisionLedger.decisionPacketId !== mission.decisionPacket.id) {
+    throw new CoreEngineError('MALFORMED_MISSION', 'Core Engine rejected the mission: decision lineage does not match the mission.');
+  }
   const numerics = [
     mission.expectedOutcome.targetValue.value,
     mission.expectedOutcome.horizonMinutes.value,

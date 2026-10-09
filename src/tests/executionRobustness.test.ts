@@ -140,7 +140,7 @@ describe('EXECUTION negative test matrix', () => {
     }
   });
 
-  it('10/11. a mission without a decision packet or ledger records no fabricated outcome', async () => {
+  it('10/11. a mission without a decision packet or ledger is blocked at execution', async () => {
     const { analysis, action } = await context();
     const repo = new InMemoryMissionRepository();
     const analyses = new InMemoryAnalysisRepository();
@@ -154,12 +154,29 @@ describe('EXECUTION negative test matrix', () => {
     const stored = (await repo.getById(mission.id))!;
     for (const check of stored.approval.checklist) await svc.toggleChecklistItem(mission.id, check.id, 'tester');
     await svc.approve(mission.id, 'approver', 'ok');
-    const done = await svc.execute(mission.id, 'operator');
-    // Reported gap: execution is reachable without packet/ledger lineage. Asserted explicitly
-    // so the gap cannot regress silently and cannot be mistaken for correct behaviour.
-    expect(done.status).toBe('COMPLETED');
-    expect(done.decisionLedger).toBeUndefined();
-    expect(done.decisionPacket).toBeUndefined();
+    await expect(svc.execute(mission.id, 'operator')).rejects.toMatchObject({ code: 'MALFORMED_MISSION' });
+    const persisted = (await repo.getById(mission.id))!;
+    expect(persisted.status).toBe('APPROVED');
+    expect(persisted.execution).toBeNull();
+  });
+
+  it('11b. mismatched decision lineage is blocked at execution', async () => {
+    const { analysis, action } = await context();
+    const packet = eligiblePacket(analysis);
+    const mission = buildMissionFromAnalysis(analysis, action, { decisionPacket: packet, idSuffix: 'MISMATCH' });
+    const forgedLedger = {
+      ...mission.decisionLedger!,
+      missionId: 'MSN-FORGED',
+      decisionPacketId: 'DP-FORGED',
+    };
+    const forged: Mission = { ...mission, status: 'APPROVED', approval: {
+      ...mission.approval,
+      state: 'APPROVED',
+      decidedBy: 'approver',
+      decidedAt: new Date().toISOString(),
+      checklist: mission.approval.checklist.map((c) => ({ ...c, acknowledged: true })),
+    }, decisionLedger: forgedLedger };
+    await expect(engine.submitMission(forged)).rejects.toMatchObject({ code: 'MALFORMED_MISSION' });
   });
 
   it('12/13/14. malformed, NaN and Infinity payloads are rejected at persistence', async () => {
