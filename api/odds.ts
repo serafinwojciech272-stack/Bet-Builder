@@ -154,37 +154,43 @@ async function fetchParlayTryFallback(requestedSport: string, issues: DatasetRes
 }
 
 async function fetchParlayWidgetFallback(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
-  const sportKeys = requestedSport === 'all'
-    ? ['icehockey_nhl','baseball_mlb','americanfootball_nfl','basketball_nba','soccer_epl']
-    : [TRY_SPORTS[requestedSport] ?? requestedSport];
-  const events = new Map<string, SportEvent>();
-  const snapshots: OddsSnapshot[] = [];
-  const bookmakerNames = new Map<string,string>();
-  for (const sportKey of sportKeys) {
+  const sportKeys = requestedSport === 'all' ? ['icehockey_nhl','baseball_mlb','americanfootball_nfl','basketball_nba','soccer_epl'] : [TRY_SPORTS[requestedSport] ?? requestedSport];
+  const results = await Promise.all(sportKeys.map(async (sportKey) => {
     try {
-      const url = new URL('https://parlay-api.com/v1/widget/odds');
-      url.searchParams.set('sport', sportKey);
-      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 7000);
-      if (!response.ok) {
-        issues.push({ code:'parlay-widget-error', severity:'warning', message:`ParlayAPI widget ${response.status} for ${sportKey}`, reference:sportKey });
-        continue;
-      }
+      const url = new URL('https://parlay-api.com/v1/widget/odds'); url.searchParams.set('sport', sportKey);
+      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 4500);
+      if (!response.ok) return { sportKey, error: 'ParlayAPI widget ' + response.status + ' for ' + sportKey };
       const payload = await response.json() as { data?: ApiEvent[]; events?: ApiEvent[]; matches?: ApiEvent[] };
       const rawEvents = Array.isArray(payload.events) ? payload.events : Array.isArray(payload.data) ? payload.data : Array.isArray(payload.matches) ? payload.matches : [];
-      const now=Date.now();
-      for (const raw of rawEvents) {
-        if (!raw.id || !raw.home_team || !raw.away_team || !raw.commence_time || polishDate(raw.commence_time)!==requestedDate) continue;
-        const eventId=`parlay-widget:${raw.id}`; const sport=canonicalSport(raw.sport_key||sportKey);
-        events.set(eventId,{id:eventId,sportKey:sport,league:{id:slug(raw.sport_key||sportKey),name:raw.sport_title||sportKey,sportKey:sport,country:'International'},homeTeam:team(raw.home_team),awayTeam:team(raw.away_team),startTime:raw.commence_time,status:new Date(raw.commence_time).getTime()<=now?'live':'scheduled',venue:'',monitored:true,liquidity:0.8});
-        for(const bookmaker of raw.bookmakers??[]){bookmakerNames.set(bookmaker.key,bookmaker.title);for(const market of bookmaker.markets??[]){if(market.key!=='h2h')continue;const quotes=market.outcomes.map(o=>({o,decimalOdds:normalizeDecimalOdds(o.price)})).filter((entry):entry is {o:ApiOutcome;decimalOdds:number}=>entry.decimalOdds!==null).map(({o,decimalOdds})=>({selectionId:`${eventId}:h2h:${slug(o.name)}`,label:o.name,decimalOdds}));if(!quotes.length)continue;const capturedAt=market.last_update||bookmaker.last_update||new Date().toISOString();snapshots.push({id:`${eventId}:${bookmaker.key}:h2h:${capturedAt}`,eventId,market:'match-winner',bookmaker:bookmaker.key as BookmakerId,capturedAt,quotes,feedLatencyMs:Math.max(0,now-new Date(capturedAt).getTime()),provider:'parlay-api-widget'});}}
+      return { sportKey, rawEvents };
+    } catch (error) { return { sportKey, error: (error instanceof Error ? error.message : 'ParlayAPI widget request failed') + ' for ' + sportKey }; }
+  }));
+  const events = new Map<string, SportEvent>(); const snapshots: OddsSnapshot[] = []; const bookmakerNames = new Map<string, string>(); const now = Date.now();
+  for (const result of results) {
+    if ('error' in result) { issues.push({ code: 'parlay-widget-error', severity: 'warning', message: result.error, reference: result.sportKey }); continue; }
+    for (const raw of result.rawEvents) {
+      if (!raw.id || !raw.home_team || !raw.away_team || !raw.commence_time || polishDate(raw.commence_time) !== requestedDate) continue;
+      const eventId = 'parlay-widget:' + raw.id; const sport = canonicalSport(raw.sport_key || result.sportKey); const start = new Date(raw.commence_time).getTime();
+      const statusText = String((raw as ApiEvent & { status?: string }).status ?? '').toLowerCase();
+      const live = Boolean((raw as ApiEvent & { live?: boolean }).live) || ['live','inplay','in-play'].includes(statusText);
+      const completed = Boolean((raw as ApiEvent & { completed?: boolean }).completed) || ['final','finished','ended'].includes(statusText);
+      const status = completed ? 'final' : (live || (start <= now && start > now - 4 * 60 * 60 * 1000)) ? 'live' : start <= now ? 'final' : 'scheduled';
+      events.set(eventId, { id: eventId, sportKey: sport, league: { id: slug(raw.sport_key || result.sportKey), name: raw.sport_title || result.sportKey, sportKey: sport, country: 'International' }, homeTeam: team(raw.home_team), awayTeam: team(raw.away_team), startTime: raw.commence_time, status, venue: '', monitored: true, liquidity: 0.8 });
+      for (const bookmaker of raw.bookmakers ?? []) {
+        bookmakerNames.set(bookmaker.key, bookmaker.title);
+        for (const market of bookmaker.markets ?? []) {
+          if (market.key !== 'h2h') continue;
+          const quotes: OddsQuote[] = market.outcomes.map((o) => ({ o, decimalOdds: normalizeDecimalOdds(o.price) })).filter((entry): entry is { o: ApiOutcome; decimalOdds: number } => entry.decimalOdds !== null).map(({ o, decimalOdds }) => ({ selectionId: eventId + ':h2h:' + slug(o.name), label: o.name, decimalOdds }));
+          if (!quotes.length) continue;
+          const capturedAt = market.last_update || bookmaker.last_update || new Date().toISOString();
+          snapshots.push({ id: eventId + ':' + bookmaker.key + ':h2h:' + capturedAt, eventId, market: 'match-winner', bookmaker: bookmaker.key as BookmakerId, capturedAt, quotes, feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()), provider: 'parlay-api-widget' });
+        }
       }
-      if(snapshots.length>=6)break;
-    } catch(error){issues.push({code:'parlay-widget-error',severity:'warning',message:`${error instanceof Error?error.message:'ParlayAPI widget request failed'} for ${sportKey}`,reference:sportKey});}
+    }
   }
-  if(snapshots.length)issues.push({code:'parlay-widget-fallback',severity:'info',message:'Real bookmaker h2h odds supplied by the keyless ParlayAPI widget feed.'});
-  return {events:[...events.values()],snapshots,bookmakers:[...bookmakerNames.values()].sort(),sportsQueried:sportKeys};
+  if (snapshots.length) issues.push({ code: 'parlay-widget-fallback', severity: 'info', message: 'Real bookmaker h2h odds supplied by the keyless ParlayAPI widget feed.' });
+  return { events: [...events.values()], snapshots, bookmakers: [...bookmakerNames.values()].sort(), sportsQueried: sportKeys };
 }
-
 async function fetchOddsApiFallback(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']): Promise<{ events: SportEvent[]; snapshots: OddsSnapshot[]; availableSports: Array<{ key: string; title: string; group: string }>; queriedSports: string[]; bookmakers: string[]; quota?: DatasetResponse['quota'] }> {
   const apiKey = process.env.ODDS_API_KEY?.trim(); if (!apiKey) return { events: [], snapshots: [], availableSports: [], queriedSports: [], bookmakers: [] };
   const requested = requestedSport === 'all' ? ['soccer_epl','soccer_italy_serie_a','soccer_spain_la_liga','soccer_germany_bundesliga','soccer_poland_ekstraklasa','basketball_nba','icehockey_nhl','tennis_atp','baseball_mlb','americanfootball_nfl'] : [requestedSport];
