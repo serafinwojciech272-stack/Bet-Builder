@@ -81,6 +81,16 @@ export default function CouponLabPage() {
     setBusy(true);
     setError('');
     try {
+      const numericTarget = Number(targetOdds);
+      const numericStakeValue = Number(stake);
+      if (!Number.isFinite(numericTarget) || numericTarget <= 1) {
+        setError('Podaj prawidłowy kurs docelowy większy niż 1,00.');
+        return;
+      }
+      if (!Number.isFinite(numericStakeValue) || numericStakeValue <= 0) {
+        setError('Podaj stawkę większą od 0 zł.');
+        return;
+      }
       const today = selectedDate;
       const tomorrow = (() => {
         const d = new Date(today + 'T12:00:00');
@@ -97,10 +107,19 @@ export default function CouponLabPage() {
         }
         loaded.push(data);
       }
-      const source = loaded[loaded.length - 1];
       const sourceEvents = loaded.flatMap((item) => liveEvents(item));
-      const numericTarget = Math.max(1.01, Number(targetOdds) || 10);
-      const numericStakeValue = Math.max(0, Number(stake) || 0);
+      if (!sourceEvents.length) {
+        setError('Nie znaleziono wydarzeń w wybranym zakresie. Zmień sport lub datę i spróbuj ponownie.');
+        return;
+      }
+      const source = loaded.length === 1 ? loaded[0] : {
+        ...loaded[0],
+        events: loaded.flatMap((item) => item.events),
+        snapshots: loaded.flatMap((item) => item.snapshots),
+        issues: loaded.flatMap((item) => item.issues),
+        bookmakers: [...new Set(loaded.flatMap((item) => item.bookmakers ?? []))],
+        normalizedAt: new Date().toISOString(),
+      };
       const coupon = generateCoupon({
         events: sourceEvents,
         targetOdds: numericTarget,
@@ -115,8 +134,21 @@ export default function CouponLabPage() {
       const cert = certifyCoupon(source, coupon);
       setResult(coupon);
       setCertification(cert);
-      if (coupon.status !== 'BLOCKED') { const response = await fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', coupon, certification: cert, provenance: cert.provenance, sport }) }); if (response.ok) { const saved = await response.json() as CouponSnapshot; setSnapshot(saved); setVariants(buildVariants(coupon)); void fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pdf', id: saved.id }) }).then(async (pdfResponse) => { if (!pdfResponse.ok) return; const pdf = await pdfResponse.json() as { base64: string }; const bytes = Uint8Array.from(atob(pdf.base64), (ch) => ch.charCodeAt(0)); const blob = new Blob([bytes], { type: 'application/pdf' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'bet-builder-' + saved.id + '.pdf'; link.click(); URL.revokeObjectURL(url); }).catch(() => undefined); } }
-      if (coupon.status !== 'BLOCKED' && snapshot) { fetch('/api/coupon-lab', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pdf', id: snapshot.id }) }).then(async (response) => { if (!response.ok) return; const pdf = await response.json() as { base64: string }; const bytes = Uint8Array.from(atob(pdf.base64), (ch) => ch.charCodeAt(0)); const blob = new Blob([bytes], { type: 'application/pdf' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'bet-builder-' + snapshot.id + '.pdf'; link.click(); URL.revokeObjectURL(url); }).catch(() => undefined); }
+      if (coupon.status !== 'BLOCKED') {
+        const response = await fetch('/api/coupon-lab', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save', coupon, certification: cert, provenance: cert.provenance, sport }),
+        });
+        if (response.ok) {
+          const saved = await response.json() as CouponSnapshot;
+          setSnapshot(saved);
+          setVariants(buildVariants(coupon));
+          setActiveVariant('AI_SELECTED');
+        } else {
+          setError('Kupon został obliczony, ale nie udało się zapisać historii. Możesz nadal sprawdzić wynik i pobrać PDF.');
+        }
+      }
       if (coupon.status === 'BLOCKED') setError(coupon.blockers.join(' · ') || 'Nie znaleziono kwalifikowanych wydarzeń.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nie udało się wygenerować kuponu.');
