@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './vercelTypes.js';
 import { buildResearchQueries, normalizeResearchSources, synthesizeResearch } from '../src/research/researchEngine.js';
 import type { ResearchLanguage } from '../src/research/types.js';
 
