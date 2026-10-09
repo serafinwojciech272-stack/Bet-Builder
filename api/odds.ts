@@ -306,8 +306,10 @@ function sgoSportFilter(requestedSport: string): { sportID?: string; leagueID?: 
     icehockey: { sportID: 'HOCKEY' }, hockey: { sportID: 'HOCKEY' }, baseball: { sportID: 'BASEBALL' },
     americanfootball: { sportID: 'FOOTBALL' }, tennis: { sportID: 'TENNIS' }, volleyball: { sportID: 'VOLLEYBALL' }, handball: { sportID: 'HANDBALL' },
     soccer_epl: { sportID: 'SOCCER', leagueID: 'EPL' }, soccer_italy_serie_a: { sportID: 'SOCCER', leagueID: 'IT_SERIE_A' },
-    soccer_spain_la_liga: { sportID: 'SOCCER', leagueID: 'ES_LA_LIGA' }, soccer_germany_bundesliga: { sportID: 'SOCCER', leagueID: 'DE_BUNDESLIGA' },
-    soccer_poland_ekstraklasa: { sportID: 'SOCCER', leagueID: 'PL_EKSTRAKLASA' }, basketball_nba: { sportID: 'BASKETBALL', leagueID: 'NBA' },
+    soccer_spain_la_liga: { sportID: 'SOCCER', leagueID: 'LA_LIGA' }, soccer_germany_bundesliga: { sportID: 'SOCCER', leagueID: 'BUNDESLIGA' },
+    soccer_france_ligue_one: { sportID: 'SOCCER', leagueID: 'FR_LIGUE_1' }, soccer_netherlands_eredivisie: { sportID: 'SOCCER', leagueID: 'EREDIVISIE' },
+    soccer_uefa_champions_league: { sportID: 'SOCCER', leagueID: 'UEFA_CHAMPIONS_LEAGUE' }, soccer_uefa_europa_league: { sportID: 'SOCCER', leagueID: 'UEFA_EUROPA_LEAGUE' },
+    basketball_nba: { sportID: 'BASKETBALL', leagueID: 'NBA' },
     icehockey_nhl: { sportID: 'HOCKEY', leagueID: 'NHL' }, baseball_mlb: { sportID: 'BASEBALL', leagueID: 'MLB' },
     americanfootball_nfl: { sportID: 'FOOTBALL', leagueID: 'NFL' },
   };
@@ -411,6 +413,10 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
     }
     if (!events.size) {
       issues.push({ code: 'sportsgameodds-empty', severity: 'warning', message: 'SportsGameOdds returned no events for the requested date/filter; falling back to the existing provider.' });
+      return null;
+    }
+    if (!snapshots.length) {
+      issues.push({ code: 'sportsgameodds-no-odds', severity: 'warning', message: 'SportsGameOdds returned events but no usable bookmaker odds; falling back to the existing provider.' });
       return null;
     }
     const eventList = [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
