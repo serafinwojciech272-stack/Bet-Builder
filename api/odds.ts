@@ -502,7 +502,7 @@ export async function fetchSportsGameOdds(requestedDate: string, requestedSport:
   }
 }
 
-type SgoNormalizedResult = NonNullable<Awaited<ReturnType<typeof fetchSportsGameOdds>>>;
+type SgoNormalizedResult = Omit<DatasetResponse, 'provider'> & { provider: 'sportsgameodds'; providerHealth: ReturnType<typeof eventProviderHealth> };
 const sgoResultCache = new Map<string, { expiresAt: number; cachedAt: number; result: SgoNormalizedResult }>();
 
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
