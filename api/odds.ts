@@ -299,6 +299,7 @@ interface SgoBookOdds { odds?: string | number; spread?: string | number; overUn
 interface SgoOdd { oddID?: string; statID?: string; statEntityID?: string; periodID?: string; betTypeID?: string; sideID?: string; marketName?: string; bookOdds?: string | number; bookSpread?: string | number; bookOverUnder?: string | number; byBookmaker?: Record<string, SgoBookOdds>; }
 interface SgoEvent { eventID?: string; sportID?: string; leagueID?: string; type?: string; teams?: { home?: { names?: { long?: string; medium?: string; short?: string }; name?: string }; away?: { names?: { long?: string; medium?: string; short?: string }; name?: string } }; status?: { startsAt?: string; started?: boolean; live?: boolean; ended?: boolean; completed?: boolean; cancelled?: boolean; oddsAvailable?: boolean }; odds?: Record<string, SgoOdd>; }
 interface SgoResponse { success?: boolean; data?: SgoEvent[]; error?: string; nextCursor?: string; }
+const sgoUnavailableLeagueUntil = new Map<string, number>();
 function sgoSportFilter(requestedSport: string): { sportID?: string; leagueID?: string } {
   const key = requestedSport.toLowerCase();
   const known: Record<string, { sportID: string; leagueID?: string }> = {
@@ -308,7 +309,7 @@ function sgoSportFilter(requestedSport: string): { sportID?: string; leagueID?: 
     soccer_epl: { sportID: 'SOCCER', leagueID: 'EPL' }, soccer_italy_serie_a: { sportID: 'SOCCER', leagueID: 'IT_SERIE_A' },
     soccer_spain_la_liga: { sportID: 'SOCCER', leagueID: 'LA_LIGA' }, soccer_germany_bundesliga: { sportID: 'SOCCER', leagueID: 'BUNDESLIGA' },
     soccer_france_ligue_one: { sportID: 'SOCCER', leagueID: 'FR_LIGUE_1' }, soccer_netherlands_eredivisie: { sportID: 'SOCCER', leagueID: 'EREDIVISIE' },
-    soccer_uefa_champions_league: { sportID: 'SOCCER', leagueID: 'UEFA_CHAMPIONS_LEAGUE' }, soccer_uefa_europa_league: { sportID: 'SOCCER', leagueID: 'UEFA_EUROPA_LEAGUE' },
+    soccer_uefa_champs_league: { sportID: 'SOCCER', leagueID: 'UEFA_CHAMPIONS_LEAGUE' }, soccer_uefa_europa_league: { sportID: 'SOCCER', leagueID: 'UEFA_EUROPA_LEAGUE' },
     basketball_nba: { sportID: 'BASKETBALL', leagueID: 'NBA' },
     icehockey_nhl: { sportID: 'HOCKEY', leagueID: 'NHL' }, baseball_mlb: { sportID: 'BASEBALL', leagueID: 'MLB' },
     americanfootball_nfl: { sportID: 'FOOTBALL', leagueID: 'NFL' },
@@ -333,7 +334,7 @@ function sgoLeagueKey(sportID: string | undefined, leagueID: string | undefined)
   const known: Record<string, string> = {
     EPL: 'soccer_epl', IT_SERIE_A: 'soccer_italy_serie_a', LA_LIGA: 'soccer_spain_la_liga',
     BUNDESLIGA: 'soccer_germany_bundesliga', FR_LIGUE_1: 'soccer_france_ligue_one',
-    EREDIVISIE: 'soccer_netherlands_eredivisie', UEFA_CHAMPIONS_LEAGUE: 'soccer_uefa_champions_league',
+    EREDIVISIE: 'soccer_netherlands_eredivisie', UEFA_CHAMPIONS_LEAGUE: 'soccer_uefa_champs_league',
     UEFA_EUROPA_LEAGUE: 'soccer_uefa_europa_league', NBA: 'basketball_nba', NHL: 'icehockey_nhl',
     MLB: 'baseball_mlb', NFL: 'americanfootball_nfl',
   };
@@ -358,6 +359,14 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
   if (!apiKey) return null;
   const bounds = dateBoundsUtc(requestedDate);
   const filter = sgoSportFilter(requestedSport);
+  if (filter.leagueID) {
+    const cachedUntil = sgoUnavailableLeagueUntil.get(filter.leagueID);
+    if (cachedUntil && cachedUntil > Date.now()) {
+      issues.push({ code: 'sportsgameodds-tier-restriction', severity: 'warning', message: 'SportsGameOdds subscription does not include ' + filter.leagueID + '; falling back to the existing provider.' });
+      return null;
+    }
+    if (cachedUntil) sgoUnavailableLeagueUntil.delete(filter.leagueID);
+  }
   const url = new URL('https://api.sportsgameodds.com/v2/events');
   url.searchParams.set('startsAfter', bounds.from);
   url.searchParams.set('startsBefore', bounds.to);
@@ -378,7 +387,10 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
       } catch {
         providerMessage = errorBody;
       }
-      const safeDetail = providerMessage.replace(/[\\r\\n\\t]+/g, ' ').slice(0, 180);
+      const safeDetail = providerMessage.replace(/[\r\n\t]+/g, ' ').slice(0, 180);
+      if (filter.leagueID && response.status === 400 && /subscription tier|unavailable.*subscription|upgrade to unlock/i.test(providerMessage)) {
+        sgoUnavailableLeagueUntil.set(filter.leagueID, Date.now() + 6 * 60 * 60 * 1000);
+      }
       issues.push({
         code: 'sportsgameodds-error',
         severity: 'warning',
