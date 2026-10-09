@@ -385,7 +385,7 @@ export default async function handler(req: QueryRequest, res: JsonResponse) {
       work = (async () => {
         let status = 200; const headers: Record<string, string> = {}; let body = '';
         const capture: JsonResponse = { status(code) { status = code; return capture; }, setHeader(name, value) { headers[name] = value; return capture; }, end(value) { body = value; } };
-        await oddsHandler(req, capture); return { status, headers, body };
+        try { await oddsHandler(req, capture); } catch (error) { json(capture, 500, { error: 'ODDS_INTERNAL_ERROR', message: error instanceof Error ? error.message : 'unknown error' }); } return { status, headers, body };
       })();
       oddsInFlight.set(key, work);
       void work.finally(() => { if (oddsInFlight.get(key) === work) oddsInFlight.delete(key); });
