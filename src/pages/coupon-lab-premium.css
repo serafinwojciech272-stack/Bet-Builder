@@ -404,3 +404,51 @@
 @supports not (color:color-mix(in srgb,red 50%,transparent)){
   .decision-card{border-color:rgba(124,108,255,.24)}
 }
+
+
+/* UX readability pass: labels and supporting metrics remain legible at normal viewing distance. */
+.coupon-eyebrow{font-size:10px;letter-spacing:.13em}
+.section-kicker{font-size:10px;letter-spacing:.12em}
+.builder-note{font-size:10px}
+.premium-field>span{font-size:10px;letter-spacing:.09em}
+.data-refresh{font-size:10px}
+.data-refresh button{font-size:10px}
+.generate-button{font-size:11px;letter-spacing:.04em}
+.analysis-steps{font-size:9px;letter-spacing:.07em}
+.coupon-error{font-size:13px;line-height:1.5}
+.status-badge{font-size:9px}
+.result-actions button{font-size:10px}
+.trust-strip{font-size:9px;letter-spacing:.04em}
+.selection-meta{font-size:9px;line-height:1.35}
+.selection-market span{font-size:8px}
+.selection-market strong{font-size:11px}
+.insight-bars span,.insight-bars b{font-size:9px}
+.selection-metrics span{font-size:8px;letter-spacing:.04em}
+.selection-metrics strong{font-size:10px}
+.intelligence-summary-grid span{font-size:8px;letter-spacing:.04em}
+.intelligence-summary-grid strong{font-size:14px}
+.coupon-intelligence-score span:first-child,.weakest-head span{font-size:8px}
+.recommendation-badge,.weakest-action,.ranking-recommendation{font-size:8px}
+.ranking-row strong{font-size:10px}
+.ranking-row small{font-size:8px}
+.selection-reason span{font-size:10px;letter-spacing:.1em}
+.selection-reason p{font-size:12px;line-height:1.6}
+.probability-head span,.probability-foot span{font-size:8px;letter-spacing:.04em}
+.probability-head b{font-size:10px}
+.nl-row button,.nl-confirm button,.swap-button,.feedback-box button,.gate-box a{font-size:11px;letter-spacing:.04em}
+.coupon-lab[data-sport] .coupon-sport-atmosphere:before{opacity:.16}
+.coupon-lab[data-sport] .coupon-sport-atmosphere:after{opacity:.075}
+.coupon-lab :is(button,input,select,a):focus-visible{outline:2px solid #b8ff4a;outline-offset:3px}
+.coupon-lab button:disabled{cursor:wait;opacity:.72;transform:none}
+@media(max-width:640px){
+  .coupon-eyebrow,.section-kicker{font-size:9px}
+  .premium-field>span,.data-refresh,.data-refresh button{font-size:10px}
+  .analysis-steps{font-size:8px}
+  .selection-meta{font-size:9px}
+  .selection-reason p{font-size:11px}
+  .intelligence-summary-grid span{font-size:8px}
+  .intelligence-summary-grid strong{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+  .coupon-result-wrap:before{animation:none!important}
+}
