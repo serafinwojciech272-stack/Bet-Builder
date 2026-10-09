@@ -376,7 +376,7 @@ const oddsInFlight = new Map<string, Promise<{ status: number; headers: Record<s
 function requestCacheKey(req: QueryRequest): string { return JSON.stringify([req.method ?? 'GET', Object.entries(req.query ?? {}).sort(([a], [b]) => a.localeCompare(b))]); }
 export default async function handler(req: QueryRequest, res: JsonResponse) {
   try {
-    if (process.env.NODE_ENV === 'test' || (req.method ?? 'GET') !== 'GET' || queryValue(req, 'smoke', '') === 'sportscore') return await oddsHandler(req, res);
+    if (process.env.VITEST === 'true' || process.env.NODE_ENV === 'test' || (req.method ?? 'GET') !== 'GET' || queryValue(req, 'smoke', '') === 'sportscore') return await oddsHandler(req, res);
     const key = requestCacheKey(req);
     const cached = oddsHttpCache.get(key);
     if (cached && cached.expiresAt > Date.now()) { res.status(cached.status); for (const [name, value] of Object.entries(cached.headers)) res.setHeader(name, value); return res.end(cached.body); }
