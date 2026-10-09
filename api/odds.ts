@@ -447,7 +447,7 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const sportsGameOddsIssues: DatasetResponse['issues'] = [];
   const sportsGameOdds = await fetchSportsGameOdds(requestedDate, requestedSport, sportsGameOddsIssues);
   if (sportsGameOdds) return json(res, 200, sportsGameOdds);
-  const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[];
+  const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[]; issues.push(...sportsGameOddsIssues);
   if (!apiKey) {
     const sportScore=await fetchSportScoreFallback(requestedDate,requestedSport,issues);
     if(sportScore.events.length) return json(res,200,{events:sportScore.events,snapshots:[],issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportScore.sports,bookmakers:[],availableSports:sportScore.availableSports,providerHealth:eventProviderHealth('sportscore',{eventCount:sportScore.events.length,queriedSports:sportScore.sports.length,successfulSports:sportScore.sports.length,failedSports:0,catalogCount:sportScore.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});
