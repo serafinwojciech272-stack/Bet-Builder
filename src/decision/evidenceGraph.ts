@@ -1,5 +1,5 @@
-import type { DecisionCenterResult } from '../core/decisionCenter';
-import type { ResearchEvidence } from '../core/researchEvidenceEngine';
+import type { DecisionCenterResult } from '../core/decisionCenter.js';
+import type { ResearchEvidence } from '../core/researchEvidenceEngine.js';
 
 export type EvidenceNodeKind='source'|'signal'|'model'|'risk'|'decision'|'action';
 export interface EvidenceNode { id:string; kind:EvidenceNodeKind; label:string; value?:number; confidence?:number; source:'deterministic'|'research'|'system'; }

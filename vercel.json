@@ -55,6 +55,38 @@
       "destination": "https://bet-builder-api-live.onrender.com/api/odds"
     },
     {
+      "source": "/api/odds",
+      "destination": "https://bet-builder-api-live.onrender.com/api/odds"
+    },
+    {
+      "source": "/api/daily-coupon",
+      "destination": "https://bet-builder-api-live.onrender.com/api/daily-coupon"
+    },
+    {
+      "source": "/api/sportscore-smoke",
+      "destination": "https://bet-builder-api-live.onrender.com/api/sportscore-smoke"
+    },
+    {
+      "source": "/api/research",
+      "destination": "https://bet-builder-api-live.onrender.com/api/research"
+    },
+    {
+      "source": "/api/core-engine-persistence-e2e",
+      "destination": "https://bet-builder-api-live.onrender.com/api/core-engine-persistence-e2e"
+    },
+    {
+      "source": "/api/health",
+      "destination": "https://bet-builder-api-live.onrender.com/health"
+    },
+    {
+      "source": "/api/core-engine",
+      "destination": "https://bet-builder-api-live.onrender.com/api/core-engine"
+    },
+    {
+      "source": "/api/decision-reasoning",
+      "destination": "https://bet-builder-api-live.onrender.com/api/decision-reasoning"
+    },
+    {
       "source": "/((?!api(?:/|$)).*)",
       "destination": "/index.html"
     }

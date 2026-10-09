@@ -27,7 +27,7 @@ export const deterministicReasoningAdapter:ModelAdapter={
 
 export const openRouterReasoningAdapter:ModelAdapter={
  provider:'openrouter',
- model:typeof import.meta!=='undefined' && typeof import.meta.env!=='undefined' && typeof import.meta.env.VITE_OPENROUTER_MODEL==='string' && import.meta.env.VITE_OPENROUTER_MODEL ? import.meta.env.VITE_OPENROUTER_MODEL : 'server-configured',
+ model:(import.meta as ImportMeta & { env?: Record<string, unknown> }).env?.VITE_OPENROUTER_MODEL && typeof (import.meta as ImportMeta & { env?: Record<string, unknown> }).env?.VITE_OPENROUTER_MODEL === 'string' ? String((import.meta as ImportMeta & { env?: Record<string, unknown> }).env?.VITE_OPENROUTER_MODEL) : 'server-configured',
  async available(){return true;},
  async run(request){
   const response=await fetch('/api/decision-reasoning',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'reason',decision:{status:request.context.status,ev:request.context.ev,confidence:request.context.confidence,quality:request.context.quality,blockers:request.context.blockers,warnings:request.context.warnings,strengths:request.context.strengths,trace:request.context.trace},evidence:request.context.evidence})});

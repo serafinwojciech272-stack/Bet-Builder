@@ -11,7 +11,7 @@ interface ApiOutcome { name: string; price: number; point?: number; }
 interface ApiMarket { key: string; last_update: string; outcomes: ApiOutcome[]; }
 interface ApiBookmaker { key: string; title: string; last_update: string; markets: ApiMarket[]; }
 interface ApiEvent { id: string; sport_key: string; sport_title: string; commence_time: string; home_team: string; away_team: string; bookmakers: ApiBookmaker[]; }
-interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api' | 'the-odds-api'; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
+interface DatasetResponse { events: SportEvent[]; snapshots: OddsSnapshot[]; issues: { code: string; severity: 'info' | 'warning' | 'error'; message: string; reference?: string }[]; droppedRecords: number; normalizedAt: string; provider: 'parlay-api' | 'the-odds-api' | 'sportsgameodds'; mode: 'LIVE' | 'LIVE_DATA_NO_ODDS'; requestedDate: string; sportsQueried: string[]; bookmakers: string[]; availableSports: Array<{ key: string; title: string; group: string }>; quota?: { remaining: number | null; used: number | null; lastCost: number | null }; }
 interface QueryRequest { method?: string; query?: Record<string, string | string[] | undefined>; headers?: Record<string, string | undefined>; }
 let sportsCatalogCache: { apiKey: string; expiresAt: number; value: ApiSport[] } | null = null;
 interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void; }
@@ -202,8 +202,8 @@ async function fetchSportScoreFallback(requestedDate: string, requestedSport: st
   const normalizedEvents = events.sort((a,b)=>a.startTime.localeCompare(b.startTime)); if (!normalizedEvents.length) issues.push({ code:'no-sportscore-events', severity:'info', message:`SportScore returned no usable events for ${requestedDate}.` }); return { events:normalizedEvents, sports, availableSports:sports.map(key=>({key:canonicalSport(key),title:labels[key],group:labels[key]})) };
 }
 
-function eventProviderHealth(provider: 'sportscore' | 'thesportsdb', input: { eventCount: number; queriedSports: number; successfulSports: number; failedSports: number; catalogCount: number; warnings: string[] }): import('../src/domain/types.js').ProviderHealth {
-  return { provider, state: input.eventCount ? 'HEALTHY' : 'OFFLINE', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 600, catalogCount: input.catalogCount, queriedSports: input.queriedSports, successfulSports: input.successfulSports, failedSports: input.failedSports, eventCount: input.eventCount, snapshotCount: 0, bookmakerCount: 0, warnings: input.warnings };
+function eventProviderHealth(provider: 'sportscore' | 'thesportsdb' | 'sportsgameodds', input: { eventCount: number; queriedSports: number; successfulSports: number; failedSports: number; catalogCount: number; warnings: string[]; snapshotCount?: number; bookmakerCount?: number }): import('../src/domain/types.js').ProviderHealth {
+  return { provider, state: input.eventCount ? 'HEALTHY' : 'OFFLINE', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 600, catalogCount: input.catalogCount, queriedSports: input.queriedSports, successfulSports: input.successfulSports, failedSports: input.failedSports, eventCount: input.eventCount, snapshotCount: input.snapshotCount ?? 0, bookmakerCount: input.bookmakerCount ?? 0, warnings: input.warnings };
 }
 
 // TheSportsDB event feed. It supplies real fixtures without bookmaker odds, so it is
@@ -294,13 +294,185 @@ export async function sportScoreSmoke(requestedDate: string, requestedSport: str
   return { smoke:'sportscore', ok:providerErrors.length === 0 && result.events.length > 0, provider:'sportscore', requestedDate, requestedSport, latencyMs:Date.now()-startedAt, eventCount:result.events.length, sportsQueried:result.sports, availableSports:result.availableSports, errors:providerErrors, issues, sampleEvents:result.events.slice(0,5).map(event=>({id:event.id,sport:event.sportKey,home:event.homeTeam.name,away:event.awayTeam.name,startTime:event.startTime,status:event.status})) };
 }
 
+
+interface SgoBookOdds { odds?: string | number; spread?: string | number; overUnder?: string | number; lastUpdatedAt?: string; available?: boolean; }
+interface SgoOdd { oddID?: string; statID?: string; statEntityID?: string; periodID?: string; betTypeID?: string; sideID?: string; marketName?: string; bookOdds?: string | number; bookSpread?: string | number; bookOverUnder?: string | number; byBookmaker?: Record<string, SgoBookOdds>; }
+interface SgoEvent { eventID?: string; sportID?: string; leagueID?: string; type?: string; teams?: { home?: { names?: { long?: string; medium?: string; short?: string }; name?: string }; away?: { names?: { long?: string; medium?: string; short?: string }; name?: string } }; status?: { startsAt?: string; started?: boolean; live?: boolean; ended?: boolean; completed?: boolean; cancelled?: boolean; oddsAvailable?: boolean }; odds?: Record<string, SgoOdd>; }
+interface SgoResponse { success?: boolean; data?: SgoEvent[]; error?: string; nextCursor?: string; }
+function sgoSportFilter(requestedSport: string): { sportID?: string; leagueID?: string } {
+  const key = requestedSport.toLowerCase();
+  const known: Record<string, { sportID: string; leagueID?: string }> = {
+    soccer: { sportID: 'SOCCER' }, football: { sportID: 'SOCCER' }, basketball: { sportID: 'BASKETBALL' },
+    icehockey: { sportID: 'HOCKEY' }, hockey: { sportID: 'HOCKEY' }, baseball: { sportID: 'BASEBALL' },
+    americanfootball: { sportID: 'FOOTBALL' }, tennis: { sportID: 'TENNIS' }, volleyball: { sportID: 'VOLLEYBALL' }, handball: { sportID: 'HANDBALL' },
+    soccer_epl: { sportID: 'SOCCER', leagueID: 'EPL' }, soccer_italy_serie_a: { sportID: 'SOCCER', leagueID: 'IT_SERIE_A' },
+    soccer_spain_la_liga: { sportID: 'SOCCER', leagueID: 'LA_LIGA' }, soccer_germany_bundesliga: { sportID: 'SOCCER', leagueID: 'BUNDESLIGA' },
+    soccer_france_ligue_one: { sportID: 'SOCCER', leagueID: 'FR_LIGUE_1' }, soccer_netherlands_eredivisie: { sportID: 'SOCCER', leagueID: 'EREDIVISIE' },
+    soccer_uefa_champions_league: { sportID: 'SOCCER', leagueID: 'UEFA_CHAMPIONS_LEAGUE' }, soccer_uefa_europa_league: { sportID: 'SOCCER', leagueID: 'UEFA_EUROPA_LEAGUE' },
+    basketball_nba: { sportID: 'BASKETBALL', leagueID: 'NBA' },
+    icehockey_nhl: { sportID: 'HOCKEY', leagueID: 'NHL' }, baseball_mlb: { sportID: 'BASEBALL', leagueID: 'MLB' },
+    americanfootball_nfl: { sportID: 'FOOTBALL', leagueID: 'NFL' },
+  };
+  return known[key] ?? {};
+}
+function sgoCanonicalSport(sportID: string | undefined, leagueID: string | undefined): SportKey {
+  const sport = String(sportID ?? '').toUpperCase();
+  if (sport === 'SOCCER') return 'soccer';
+  if (sport === 'BASKETBALL') return 'basketball';
+  if (sport === 'FOOTBALL') return 'americanfootball';
+  if (sport === 'HOCKEY') return 'icehockey';
+  if (sport === 'BASEBALL') return 'baseball';
+  if (sport === 'TENNIS') return 'tennis';
+  if (sport === 'VOLLEYBALL') return 'volleyball';
+  if (sport === 'HANDBALL') return 'handball';
+  return canonicalSport(String(leagueID ?? '').toLowerCase());
+}
+function sgoLeagueKey(sportID: string | undefined, leagueID: string | undefined): string {
+  const sport = sgoCanonicalSport(sportID, leagueID);
+  const league = String(leagueID ?? '').toUpperCase();
+  const known: Record<string, string> = {
+    EPL: 'soccer_epl', IT_SERIE_A: 'soccer_italy_serie_a', LA_LIGA: 'soccer_spain_la_liga',
+    BUNDESLIGA: 'soccer_germany_bundesliga', FR_LIGUE_1: 'soccer_france_ligue_one',
+    EREDIVISIE: 'soccer_netherlands_eredivisie', UEFA_CHAMPIONS_LEAGUE: 'soccer_uefa_champions_league',
+    UEFA_EUROPA_LEAGUE: 'soccer_uefa_europa_league', NBA: 'basketball_nba', NHL: 'icehockey_nhl',
+    MLB: 'baseball_mlb', NFL: 'americanfootball_nfl',
+  };
+  return known[league] ?? (sport + '_' + slug(leagueID ?? sport));
+}
+function sgoMarket(odd: SgoOdd, oddID: string): MarketKey | null {
+  const type = String(odd.betTypeID ?? oddID.split('-').slice(-2, -1)[0] ?? '').toLowerCase();
+  const stat = String(odd.statID ?? oddID.split('-')[0] ?? '').toLowerCase();
+  if ((type === 'ml' || type === 'ml3way') && stat === 'points') return 'match-winner';
+  if (type === 'sp' && stat === 'points') return 'spread';
+  if (type === 'ou' && stat === 'points' && String(odd.statEntityID ?? '').toLowerCase() === 'all') return 'totals';
+  if ((type === 'yn' || type === 'btts') && /btts|both.?teams.?to.?score/i.test([stat, odd.marketName ?? '', oddID].join(' '))) return 'both-teams-to-score';
+  return null;
+}
+function sgoDecimalOdds(value: string | number | undefined): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = typeof value === 'number' ? value : Number(String(value).replace(/^[+]/, ''));
+  return normalizeDecimalOdds(numeric);
+}
+async function fetchSportsGameOdds(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
+  const apiKey = process.env.SPORTSODDS_API_KEY?.trim() || process.env.SPORTSGAMEODDS_API_KEY?.trim();
+  if (!apiKey) return null;
+  const bounds = dateBoundsUtc(requestedDate);
+  const filter = sgoSportFilter(requestedSport);
+  const url = new URL('https://api.sportsgameodds.com/v2/events');
+  url.searchParams.set('startsAfter', bounds.from);
+  url.searchParams.set('startsBefore', bounds.to);
+  url.searchParams.set('oddsAvailable', 'true');
+  url.searchParams.set('includeAltLines', 'true');
+  url.searchParams.set('limit', '100');
+  if (filter.sportID) url.searchParams.set('sportID', filter.sportID);
+  if (filter.leagueID) url.searchParams.set('leagueID', filter.leagueID);
+  try {
+    const response = await fetchWithTimeout(url, { headers: { 'x-api-key': apiKey, Accept: 'application/json' } }, 10000);
+    if (!response.ok) {
+      issues.push({ code: 'sportsgameodds-error', severity: 'warning', message: 'SportsGameOdds HTTP ' + response.status + '; falling back to the existing provider.' });
+      return null;
+    }
+    const payload = await response.json() as SgoResponse;
+    if (payload.success === false || !Array.isArray(payload.data)) {
+      issues.push({ code: 'sportsgameodds-payload-error', severity: 'warning', message: 'SportsGameOdds returned an unexpected response; falling back to the existing provider.' });
+      return null;
+    }
+    const events = new Map<string, SportEvent>();
+    const snapshots: OddsSnapshot[] = [];
+    const bookmakers = new Map<string, string>();
+    const now = Date.now();
+    for (const raw of payload.data) {
+      const home = raw.teams?.home?.names?.long ?? raw.teams?.home?.name ?? '';
+      const away = raw.teams?.away?.names?.long ?? raw.teams?.away?.name ?? '';
+      const startTime = raw.status?.startsAt;
+      if (!raw.eventID || !home || !away || !startTime || polishDate(startTime) !== requestedDate) continue;
+      const sportKey = sgoCanonicalSport(raw.sportID, raw.leagueID);
+      const eventId = 'sportsgameodds:' + raw.eventID;
+      const live = Boolean(raw.status?.live || (raw.status?.started && !raw.status?.ended));
+      const final = Boolean(raw.status?.completed || raw.status?.ended || raw.status?.cancelled);
+      events.set(eventId, {
+        id: eventId, sportKey,
+        league: { id: slug(raw.leagueID ?? raw.sportID ?? 'unknown'), name: raw.leagueID ?? raw.sportID ?? 'Unknown league', sportKey, country: 'International' },
+        homeTeam: team(home), awayTeam: team(away), startTime,
+        status: final ? 'final' : live ? 'live' : 'scheduled',
+        venue: '', monitored: true, liquidity: 0.8,
+      });
+      for (const [oddID, odd] of Object.entries(raw.odds ?? {})) {
+        if (odd.periodID && !['game', 'reg'].includes(odd.periodID)) continue;
+        const market = sgoMarket(odd, oddID);
+        if (!market) continue;
+        for (const [bookmakerId, quote] of Object.entries(odd.byBookmaker ?? {})) {
+          if (quote.available === false) continue;
+          const decimalOdds = sgoDecimalOdds(quote.odds ?? odd.bookOdds);
+          if (decimalOdds === null) continue;
+          const side = String(odd.sideID ?? oddID.split('-').slice(-1)[0] ?? '').toLowerCase();
+          const line = quote.spread ?? odd.bookSpread ?? quote.overUnder ?? odd.bookOverUnder;
+          let label = side === 'home' ? home : side === 'away' ? away : side === 'over' ? 'Over' : side === 'under' ? 'Under' : side === 'yes' ? 'Yes' : side === 'no' ? 'No' : side;
+          if ((market === 'spread' || market === 'totals') && line !== undefined) label += ' ' + String(line);
+          const capturedAt = quote.lastUpdatedAt ?? startTime;
+          const snapshotKey = eventId + ':' + bookmakerId + ':' + market;
+          const existing = snapshots.find((snapshot) => snapshot.id === snapshotKey);
+          const oddsQuote: OddsQuote = { selectionId: eventId + ':' + oddID + ':' + bookmakerId, label, decimalOdds };
+          if (existing) {
+            if (!existing.quotes.some((quote) => quote.selectionId === oddsQuote.selectionId)) existing.quotes.push(oddsQuote);
+            if (capturedAt > existing.capturedAt) {
+              existing.capturedAt = capturedAt;
+              existing.feedLatencyMs = Math.max(0, now - new Date(capturedAt).getTime());
+            }
+          }
+          else snapshots.push({
+            id: snapshotKey, eventId, market, bookmaker: bookmakerId as BookmakerId,
+            capturedAt, quotes: [oddsQuote], feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()),
+            provider: 'sportsgameodds',
+          });
+          bookmakers.set(bookmakerId, bookmakerId);
+        }
+      }
+    }
+    if (!events.size) {
+      issues.push({ code: 'sportsgameodds-empty', severity: 'warning', message: 'SportsGameOdds returned no events for the requested date/filter; falling back to the existing provider.' });
+      return null;
+    }
+    if (!snapshots.length) {
+      issues.push({ code: 'sportsgameodds-no-odds', severity: 'warning', message: 'SportsGameOdds returned events but no usable bookmaker odds; falling back to the existing provider.' });
+      return null;
+    }
+    const eventList = [...events.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    const snapshotList = snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+    const availableSports = [...new Map(payload.data.map((event) => {
+      const key = String(event.leagueID ?? event.sportID ?? 'unknown');
+      return [key, { key: sgoLeagueKey(event.sportID, event.leagueID), title: key.replace(/_/g, ' '), group: String(event.sportID ?? 'Sports') }];
+    })).values()];
+    issues.push({ code: 'sportsgameodds-primary', severity: 'info', message: 'Odds and events supplied by SportsGameOdds.' });
+    return {
+      events: eventList, snapshots: snapshotList, issues, droppedRecords: 0,
+      normalizedAt: new Date().toISOString(), provider: 'sportsgameodds' as const,
+      mode: snapshotList.length ? 'LIVE' as const : 'LIVE_DATA_NO_ODDS' as const,
+      requestedDate, sportsQueried: [...new Set(payload.data.map((event) => String(event.leagueID ?? event.sportID ?? 'unknown')))],
+      bookmakers: [...bookmakers.keys()].sort(), availableSports,
+      providerHealth: eventProviderHealth('sportsgameodds', {
+        eventCount: eventList.length, queriedSports: availableSports.length,
+        successfulSports: availableSports.length, failedSports: 0, catalogCount: availableSports.length,
+        snapshotCount: snapshotList.length, bookmakerCount: bookmakers.size,
+        warnings: snapshotList.length ? [] : ['REAL EVENTS AVAILABLE', 'NO BOOKMAKER ODDS'],
+      }),
+    };
+  } catch (error) {
+    issues.push({ code: 'sportsgameodds-error', severity: 'warning', message: 'SportsGameOdds request failed (' + (error instanceof Error ? error.message : 'unknown error') + '); falling back to the existing provider.' });
+    return null;
+  }
+}
+
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const origin = req.headers?.origin; const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app,https://bet-builder-live.onrender.com').split(',').map((value) => value.trim()).filter(Boolean));
   if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary','Origin'); res.setHeader('Access-Control-Allow-Methods','GET,OPTIONS'); res.setHeader('Access-Control-Allow-Headers','Content-Type'); if (req.method === 'OPTIONS') return json(res,204,''); if (req.method !== 'GET') return json(res,405,{error:'METHOD_NOT_ALLOWED'});
   const requestedDate = queryValue(req,'date',polishDate(new Date().toISOString())); const requestedSport = queryValue(req,'sport','all');
   if (queryValue(req,'smoke','') === 'sportscore') return json(res,200,await sportScoreSmoke(requestedDate,requestedSport));
   const apiKey = process.env.PARLAY_API_KEY?.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res,400,{error:'INVALID_DATE',message:'Use date=YYYY-MM-DD.'});
-  const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[];
+  const sportsGameOddsIssues: DatasetResponse['issues'] = [];
+  const sportsGameOdds = await fetchSportsGameOdds(requestedDate, requestedSport, sportsGameOddsIssues);
+  if (sportsGameOdds) return json(res, 200, sportsGameOdds);
+  const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[]; issues.push(...sportsGameOddsIssues);
   if (!apiKey) {
     const sportScore=await fetchSportScoreFallback(requestedDate,requestedSport,issues);
     if(sportScore.events.length) return json(res,200,{events:sportScore.events,snapshots:[],issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportScore.sports,bookmakers:[],availableSports:sportScore.availableSports,providerHealth:eventProviderHealth('sportscore',{eventCount:sportScore.events.length,queriedSports:sportScore.sports.length,successfulSports:sportScore.sports.length,failedSports:0,catalogCount:sportScore.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});
