@@ -132,6 +132,10 @@ export default function CouponLabPage() {
         strategy: 'TARGET_ODDS',
       });
       const cert = certifyCoupon(source, coupon);
+      setSnapshot(null);
+      setVariants([]);
+      setFeedback('idle');
+      setActiveVariant('AI_SELECTED');
       setResult(coupon);
       setCertification(cert);
       if (coupon.status !== 'BLOCKED') {
