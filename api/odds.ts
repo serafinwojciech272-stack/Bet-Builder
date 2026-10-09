@@ -202,8 +202,8 @@ async function fetchSportScoreFallback(requestedDate: string, requestedSport: st
   const normalizedEvents = events.sort((a,b)=>a.startTime.localeCompare(b.startTime)); if (!normalizedEvents.length) issues.push({ code:'no-sportscore-events', severity:'info', message:`SportScore returned no usable events for ${requestedDate}.` }); return { events:normalizedEvents, sports, availableSports:sports.map(key=>({key:canonicalSport(key),title:labels[key],group:labels[key]})) };
 }
 
-function eventProviderHealth(provider: 'sportscore' | 'thesportsdb', input: { eventCount: number; queriedSports: number; successfulSports: number; failedSports: number; catalogCount: number; warnings: string[] }): import('../src/domain/types.js').ProviderHealth {
-  return { provider, state: input.eventCount ? 'HEALTHY' : 'OFFLINE', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 600, catalogCount: input.catalogCount, queriedSports: input.queriedSports, successfulSports: input.successfulSports, failedSports: input.failedSports, eventCount: input.eventCount, snapshotCount: 0, bookmakerCount: 0, warnings: input.warnings };
+function eventProviderHealth(provider: 'sportscore' | 'thesportsdb' | 'sportsgameodds', input: { eventCount: number; queriedSports: number; successfulSports: number; failedSports: number; catalogCount: number; warnings: string[]; snapshotCount?: number; bookmakerCount?: number }): import('../src/domain/types.js').ProviderHealth {
+  return { provider, state: input.eventCount ? 'HEALTHY' : 'OFFLINE', fetchedAt: new Date().toISOString(), ageSeconds: 0, staleAfterSeconds: 600, catalogCount: input.catalogCount, queriedSports: input.queriedSports, successfulSports: input.successfulSports, failedSports: input.failedSports, eventCount: input.eventCount, snapshotCount: input.snapshotCount ?? 0, bookmakerCount: input.bookmakerCount ?? 0, warnings: input.warnings };
 }
 
 // TheSportsDB event feed. It supplies real fixtures without bookmaker odds, so it is
@@ -328,7 +328,7 @@ function sgoCanonicalSport(sportID: string | undefined, leagueID: string | undef
   return canonicalSport(String(leagueID ?? '').toLowerCase());
 }
 function sgoMarket(odd: SgoOdd, oddID: string): MarketKey | null {
-  const type = String(odd.betTypeID ?? oddID.split('-').at(-2) ?? '').toLowerCase();
+  const type = String(odd.betTypeID ?? oddID.split('-').slice(-2, -1)[0] ?? '').toLowerCase();
   const stat = String(odd.statID ?? oddID.split('-')[0] ?? '').toLowerCase();
   if (type === 'ml' && stat === 'points') return 'match-winner';
   if (type === 'sp' && stat === 'points') return 'spread';
@@ -393,7 +393,7 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
           if (quote.available === false) continue;
           const decimalOdds = sgoDecimalOdds(quote.odds ?? odd.bookOdds);
           if (decimalOdds === null) continue;
-          const side = String(odd.sideID ?? oddID.split('-').at(-1) ?? '').toLowerCase();
+          const side = String(odd.sideID ?? oddID.split('-').slice(-1)[0] ?? '').toLowerCase();
           const line = quote.spread ?? odd.bookSpread ?? quote.overUnder ?? odd.bookOverUnder;
           let label = side === 'home' ? home : side === 'away' ? away : side === 'over' ? 'Over' : side === 'under' ? 'Under' : side === 'yes' ? 'Yes' : side === 'no' ? 'No' : side;
           if ((market === 'spread' || market === 'totals') && line !== undefined) label += ' ' + String(line);
@@ -435,6 +435,7 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
       providerHealth: eventProviderHealth('sportsgameodds', {
         eventCount: eventList.length, queriedSports: availableSports.length,
         successfulSports: availableSports.length, failedSports: 0, catalogCount: availableSports.length,
+        snapshotCount: snapshotList.length, bookmakerCount: bookmakers.size,
         warnings: snapshotList.length ? [] : ['REAL EVENTS AVAILABLE', 'NO BOOKMAKER ODDS'],
       }),
     };
