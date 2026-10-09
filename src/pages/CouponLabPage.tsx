@@ -216,10 +216,10 @@ export default function CouponLabPage() {
               <p className="coupon-subtitle">Ustal cel. Silnik przeanalizuje dostępne wydarzenia, kursy i zależności, a następnie zbuduje propozycję.</p>
             </div>
             <div className="coupon-data-pill">
-              <span className="data-dot" />
+              <span className={dataset?.mode === 'LIVE' && dataset.snapshots.length > 0 ? 'data-dot' : 'data-dot warn'} />
               <span>{events.length} wydarzeń</span>
               <span className="muted-dot" />
-              <span>{dataset?.mode === 'LIVE' ? 'LIVE DATA' : 'SYNC DATA'}</span>
+              <span>{dataset?.mode === 'LIVE' && dataset.snapshots.length > 0 ? 'KURSY LIVE' : dataset?.events.length ? 'BRAK KURSÓW LIVE' : 'SYNCHRONIZACJA'}</span>
             </div>
           </div>
         </motion.header>
