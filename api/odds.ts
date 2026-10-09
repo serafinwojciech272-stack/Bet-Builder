@@ -354,7 +354,7 @@ function sgoDecimalOdds(value: string | number | undefined): number | null {
   const numeric = typeof value === 'number' ? value : Number(String(value).replace(/^[+]/, ''));
   return normalizeDecimalOdds(numeric);
 }
-async function fetchSportsGameOdds(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
+export async function fetchSportsGameOdds(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
   const apiKey = process.env.SPORTSODDS_API_KEY?.trim() || process.env.SPORTSGAMEODDS_API_KEY?.trim();
   if (!apiKey) return null;
   const bounds = dateBoundsUtc(requestedDate);
