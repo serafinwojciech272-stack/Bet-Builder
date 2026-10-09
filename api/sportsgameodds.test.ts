@@ -60,7 +60,7 @@ describe('SportsGameOdds adapter', () => {
     const cachedIssues: Parameters<typeof fetchSportsGameOdds>[2] = [];
     const cachedResult = await fetchSportsGameOdds('2026-10-11', 'americanfootball_nfl', cachedIssues);
     expect(cachedResult?.provider).toBe('sportsgameodds');
-    expect(cachedIssues).toEqual(expect.arrayContaining([
+    expect(cachedResult?.issues).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'sportsgameodds-cache-hit' }),
     ]));
     expect(fetchMock).toHaveBeenCalledTimes(1);
