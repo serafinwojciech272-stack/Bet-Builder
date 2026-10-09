@@ -1,4 +1,4 @@
-import type { EventResearch, ResearchFinding, ResearchSource } from '../research/types';
+import type { EventResearch, ResearchFinding, ResearchSource } from '../research/types.js';
 
 export interface EvidenceItem {
   id:string; category:ResearchFinding['category']; statement:string; polarity:ResearchFinding['polarity'];
