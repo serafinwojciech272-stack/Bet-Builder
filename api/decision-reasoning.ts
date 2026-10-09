@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../src/server/vercelTypes.js';
+import { rejectIfRateLimited } from './_rateLimit.js';
 
 type ReasoningRequest = {
   decision: {
@@ -38,6 +39,7 @@ function safeRecord(value: unknown): Record<string, unknown> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
+  if (rejectIfRateLimited('decision-reasoning', req, res, 10)) return;
 
   const body = req.body as ReasoningRequest;
   if (!body?.decision || !body?.evidence) return json(res, 400, { error: 'INVALID_REASONING_REQUEST' });

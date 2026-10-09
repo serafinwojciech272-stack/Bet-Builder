@@ -1,3 +1,4 @@
+import { rejectIfRateLimited } from './_rateLimit.js';
 import type { BookmakerId, MarketKey, OddsQuote, OddsSnapshot, SportEvent, SportKey } from '../src/domain/types.js';
 
 const MARKET_MAP: Record<string, MarketKey> = {
@@ -18,6 +19,13 @@ interface JsonResponse { status: (code: number) => JsonResponse; setHeader: (nam
 function json(res: JsonResponse, status: number, body: unknown) {
   res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8').setHeader('Cache-Control', 'no-store').setHeader('X-BadBuilder-Provider', 'multi-provider');
   res.end(JSON.stringify(body));
+}
+const ALLOWED_MARKETS = new Set(['h2h', 'spreads', 'totals']);
+const ALLOWED_REGIONS = new Set(['eu', 'uk', 'us', 'au']);
+/** Provider cost scales with markets x regions; never forward arbitrary client values. */
+function allowedList(raw: string, allowed: Set<string>, fallback: string, max = allowed.size): string {
+  const values = [...new Set(raw.split(',').map((v) => v.trim().toLowerCase()).filter((v) => allowed.has(v)))].slice(0, max);
+  return values.length ? values.join(',') : fallback;
 }
 function queryValue(req: QueryRequest, key: string, fallback: string): string { const value = req.query?.[key]; return typeof value === 'string' ? value : fallback; }
 function polishDate(iso: string): string { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)); }
@@ -508,13 +516,14 @@ const sgoResultCache = new Map<string, { expiresAt: number; cachedAt: number; re
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const origin = req.headers?.origin; const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app,https://bet-builder-live.onrender.com').split(',').map((value) => value.trim()).filter(Boolean));
   if (origin && allowedOrigins.has(origin)) res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary','Origin'); res.setHeader('Access-Control-Allow-Methods','GET,OPTIONS'); res.setHeader('Access-Control-Allow-Headers','Content-Type'); if (req.method === 'OPTIONS') return json(res,204,''); if (req.method !== 'GET') return json(res,405,{error:'METHOD_NOT_ALLOWED'});
+  if (rejectIfRateLimited('odds', req as { headers?: Record<string, string | string[] | undefined> }, res, 30)) return;
   const requestedDate = queryValue(req,'date',polishDate(new Date().toISOString())); const requestedSport = queryValue(req,'sport','all');
   if (queryValue(req,'smoke','') === 'sportscore') return json(res,200,await sportScoreSmoke(requestedDate,requestedSport));
   const apiKey = process.env.PARLAY_API_KEY?.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res,400,{error:'INVALID_DATE',message:'Use date=YYYY-MM-DD.'});
   const sportsGameOddsIssues: DatasetResponse['issues'] = [];
   const sportsGameOdds = await fetchSportsGameOdds(requestedDate, requestedSport, sportsGameOddsIssues);
   if (sportsGameOdds) return json(res, 200, sportsGameOdds);
-  const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[]; issues.push(...sportsGameOddsIssues);
+  const markets=allowedList(queryValue(req,'markets',''),ALLOWED_MARKETS,requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=allowedList(queryValue(req,'regions',''),ALLOWED_REGIONS,'eu',1); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[]; issues.push(...sportsGameOddsIssues);
   if (!apiKey) {
     const sportScore=await fetchSportScoreFallback(requestedDate,requestedSport,issues);
     if(sportScore.events.length) return json(res,200,{events:sportScore.events,snapshots:[],issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportScore.sports,bookmakers:[],availableSports:sportScore.availableSports,providerHealth:eventProviderHealth('sportscore',{eventCount:sportScore.events.length,queriedSports:sportScore.sports.length,successfulSports:sportScore.sports.length,failedSports:0,catalogCount:sportScore.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});

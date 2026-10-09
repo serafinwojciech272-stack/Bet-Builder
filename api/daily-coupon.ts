@@ -1,9 +1,10 @@
 import { buildDailyCoupon } from '../src/core/dailyCoupon.js';
+import { rejectIfRateLimited } from './_rateLimit.js';
 import type { CanonicalDataset } from '../src/domain/repositories.js';
 import { mergeBookmakerDatasets, resolveBookmakerProviders } from '../src/providers/bookmakerFeed.js';
 import { getBookmakerFeedProviders } from './bookmaker-feed-provider.js';
 
-type QueryRequest = { method?: string; query?: Record<string, string | undefined> };
+type QueryRequest = { method?: string; query?: Record<string, string | undefined>; headers?: Record<string, string | string[] | undefined> };
 type JsonResponse = { status: (code: number) => JsonResponse; setHeader: (name: string, value: string) => JsonResponse; end: (body: string) => void };
 
 function json(res: JsonResponse, status: number, body: unknown) {
@@ -75,6 +76,7 @@ async function loadBookmakerDataset(date: string, sport: string, bookmakers: str
 
 export default async function handler(req: QueryRequest, res: JsonResponse) {
   if (req.method !== 'GET') return json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
+  if (rejectIfRateLimited('daily-coupon', req, res, 10)) return;
   const date = req.query?.date ?? todayWarsaw();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'INVALID_DATE', message: 'Use date=YYYY-MM-DD.' });
 

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../src/server/vercelTypes.js';
 import { buildResearchQueries, normalizeResearchSources, synthesizeResearch } from '../src/research/researchEngine.js';
 import type { ResearchLanguage } from '../src/research/types.js';
+import { rejectIfRateLimited } from './_rateLimit.js';
 
 type Lang=ResearchLanguage;
 const googleLang:Record<Lang,string>={en:'en',de:'de',pl:'pl',it:'it',es:'es',fr:'fr',nl:'nl'};
@@ -14,6 +15,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   if(req.method!=='GET')return res.status(405).json({error:'METHOD_NOT_ALLOWED'});
   const eventId=String(req.query.eventId??'').trim(),home=String(req.query.home??'').trim(),away=String(req.query.away??'').trim(),sport=String(req.query.sport??'soccer').trim(),league=String(req.query.league??'').trim();
   if(!home||!away)return res.status(400).json({error:'home_and_away_required'});
+  if(home.length>80||away.length>80||league.length>80||sport.length>40)return res.status(400).json({error:'parameter_too_long'});
+  if(rejectIfRateLimited('research',req,res,10))return;
   const queries=buildResearchQueries(home,away,sport,league);
   const batches=await Promise.all(queries.map(async(q)=>{try{return await search(q.query,q.language);}catch{return [];} }));
   const raw=batches.flat();

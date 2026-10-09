@@ -22,13 +22,19 @@ async function adapt(handler: Handler, req: IncomingMessage, res: ServerResponse
     for await (const chunk of req) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
-      if (size > 1024 * 1024) throw new Error('REQUEST_BODY_TOO_LARGE');
+      if (size > 256 * 1024) throw Object.assign(new Error('REQUEST_BODY_TOO_LARGE'), { statusCode: 413 });
       chunks.push(buffer);
     }
     const raw = Buffer.concat(chunks).toString('utf8');
-    if (raw) body = String(req.headers['content-type'] ?? '').includes('application/json') ? JSON.parse(raw) : raw;
+    if (raw) {
+      try {
+        body = String(req.headers['content-type'] ?? '').includes('application/json') ? JSON.parse(raw) : raw;
+      } catch {
+        throw Object.assign(new Error('INVALID_JSON'), { statusCode: 400 });
+      }
+    }
   }
-  const request = { method: req.method ?? 'GET', query, body, headers: { origin: req.headers.origin, authorization: req.headers.authorization, 'x-core-engine-e2e-token': req.headers['x-core-engine-e2e-token'] } };
+  const request = { method: req.method ?? 'GET', query, body, headers: { origin: req.headers.origin, authorization: req.headers.authorization, 'x-core-engine-e2e-token': req.headers['x-core-engine-e2e-token'] as string | undefined, 'x-forwarded-for': req.headers['x-forwarded-for'] as string | undefined, 'x-remote-address': req.socket.remoteAddress } };
   const response = {
     status(code: number) { res.statusCode = code; return response; },
     setHeader(name: string, value: string) { res.setHeader(name, value); return response; },
@@ -118,10 +124,13 @@ const server = createServer(async (req, res) => {
     res.statusCode = 404;
     res.setHeader('Content-Type','application/json; charset=utf-8');
     res.end(JSON.stringify({ error:'NOT_FOUND' }));
-  } catch {
-    res.statusCode = 500;
+  } catch (error) {
+    const statusCode = (error as { statusCode?: number })?.statusCode;
+    if (res.headersSent) { res.end(); return; }
+    res.statusCode = statusCode === 400 || statusCode === 413 ? statusCode : 500;
     res.setHeader('Content-Type','application/json; charset=utf-8');
-    res.end(JSON.stringify({ error:'INTERNAL_SERVER_ERROR' }));
+    res.end(JSON.stringify({ error: res.statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : (error as Error).message }));
+    if (res.statusCode === 500) console.error('[server] unhandled error on', url.pathname, error);
   }
 });
 

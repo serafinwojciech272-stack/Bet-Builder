@@ -1,20 +1,29 @@
 import type { VercelRequest, VercelResponse } from '../src/server/vercelTypes.js';
+import { rejectIfRateLimited } from './_rateLimit.js';
 
 const DEFAULT_CORE_ENGINE_URL = 'https://core-engine-34uu.onrender.com';
 type Action = 'capabilities'|'intelligence'|'analyze'|'submit'|'execute'|'measure'|'complete'|'learn';
+const ACTIONS: readonly Action[] = ['capabilities','intelligence','analyze','submit','execute','measure','complete','learn'];
+const MAX_TASK_CHARS = 4000;
+const MAX_CONTEXT_CHARS = 16000;
+const ENGINE_REF = /^[A-Za-z0-9:_-]{1,128}$/;
 function json(res: VercelResponse,status:number,body:unknown){res.status(status).setHeader('Content-Type','application/json; charset=utf-8').setHeader('Cache-Control','no-store').json(body);}
 async function upstream(path:string,init:RequestInit={}){const base=(process.env.CORE_ENGINE_URL||DEFAULT_CORE_ENGINE_URL).replace(/\/$/,'');const key=process.env.CORE_ENGINE_API_KEY?.trim();if(!key)throw Object.assign(new Error('CORE_ENGINE_NOT_CONFIGURED'),{code:'CORE_ENGINE_NOT_CONFIGURED'});const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{return await fetch(base+path,{...init,cache:'no-store',signal:controller.signal,headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json','x-core-engine-client':'bet-builder',...(init.headers||{})}})}finally{clearTimeout(timer);}}
 export default async function handler(req:VercelRequest,res:VercelResponse){
   if(req.method==='OPTIONS')return res.status(204).end();
+  // Public, unauthenticated gateway holding a server-side Core Engine key: cap spend per client.
+  if(rejectIfRateLimited('core-engine',req,res,req.method==='GET'?60:20))return;
   if(req.method==='GET'){try{const r=await upstream('/api/engine');return json(res,r.status,await r.json());}catch(e){return json(res,503,{ok:false,error:e instanceof Error?e.message:'CORE_ENGINE_UNAVAILABLE'});}}
   if(req.method!=='POST')return json(res,405,{error:'METHOD_NOT_ALLOWED'});
   const body=(req.body&&typeof req.body==='object'?req.body:{}) as Record<string,unknown>;const action=String(body.action||'') as Action;
+  if(!ACTIONS.includes(action))return json(res,400,{error:'UNKNOWN_ACTION'});
   try{
     if(action==='capabilities'){const r=await upstream('/api/engine');return json(res,r.status,await r.json());}
     if(action==='intelligence'){const r=await upstream('/api/model-intelligence');return json(res,r.status,await r.json());}
     if(action==='analyze'){
-      const task=String(body.task||'').trim();if(!task)return json(res,400,{error:'TASK_REQUIRED'});
-      const r=await upstream('/api/integrations',{method:'POST',body:JSON.stringify({task,context:body.context||'',capabilities:['sports-analysis','risk-analysis','reasoning','verification'],approvalPolicy:'HUMAN_APPROVAL_REQUIRED'})});
+      const task=String(body.task||'').trim();if(!task)return json(res,400,{error:'TASK_REQUIRED'});if(task.length>MAX_TASK_CHARS)return json(res,413,{error:'TASK_TOO_LARGE'});
+      const context=typeof body.context==='string'?body.context:JSON.stringify(body.context??'');if(context.length>MAX_CONTEXT_CHARS)return json(res,413,{error:'CONTEXT_TOO_LARGE'});
+      const r=await upstream('/api/integrations',{method:'POST',body:JSON.stringify({task,context,capabilities:['sports-analysis','risk-analysis','reasoning','verification'],approvalPolicy:'HUMAN_APPROVAL_REQUIRED'})});
       return json(res,r.status,await r.json());
     }
     if(action==='submit'){
@@ -23,7 +32,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
       const signals=[{name:'event',value:String(target?.eventLabel||target?.eventId||'unknown'),source:'bet-builder'},{name:'market',value:String(target?.marketLabel||target?.market||'unknown'),source:'bet-builder'},{name:'objective',value:objective.slice(0,200),source:'bet-builder'},{name:'risk',value:String((mission.risk as Record<string,unknown>|undefined)?.level||'UNKNOWN'),source:'bet-builder'}];
       const r=await upstream('/api/engine',{method:'POST',body:JSON.stringify({signals,domain:'trading'})});return json(res,r.status,await r.json());
     }
-    const engineRef=String(body.engineRef||'').trim();if(!engineRef)return json(res,400,{error:'ENGINE_REF_REQUIRED'});
+    const engineRef=String(body.engineRef||'').trim();if(!engineRef)return json(res,400,{error:'ENGINE_REF_REQUIRED'});if(!ENGINE_REF.test(engineRef))return json(res,400,{error:'ENGINE_REF_INVALID'});
     const outcome=body.outcome&&typeof body.outcome==='object'?body.outcome:undefined;const idempotencyKey=`bet-builder:${engineRef}:${action}`;
     const r=await upstream('/api/mission',{method:'POST',body:JSON.stringify({id:engineRef,action,idempotencyKey,outcome})});return json(res,r.status,await r.json());
   }catch(e){const error=e instanceof Error?e.message:'CORE_ENGINE_UNAVAILABLE';return json(res,503,{ok:false,error:error.includes('CORE_ENGINE_NOT_CONFIGURED')?'CORE_ENGINE_NOT_CONFIGURED':'CORE_ENGINE_UNAVAILABLE'});}
