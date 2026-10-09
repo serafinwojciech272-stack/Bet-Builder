@@ -56,6 +56,13 @@ describe('SportsGameOdds adapter', () => {
     expect(result?.snapshots[0].quotes[0].decimalOdds).toBe(1.909);
     expect(result?.providerHealth.state).toBe('HEALTHY');
     expect(issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'sportsgameodds-primary' })]));
+
+    const cachedIssues: Parameters<typeof fetchSportsGameOdds>[2] = [];
+    const cachedResult = await fetchSportsGameOdds('2026-10-11', 'americanfootball_nfl', cachedIssues);
+    expect(cachedResult?.provider).toBe('sportsgameodds');
+    expect(cachedResult?.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'sportsgameodds-cache-hit' }),
+    ]));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
