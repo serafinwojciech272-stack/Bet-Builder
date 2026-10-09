@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './vercelTypes.js';
 
 const DEFAULT_CORE_ENGINE_URL = 'https://core-engine-34uu.onrender.com';
 type Action = 'capabilities'|'intelligence'|'analyze'|'submit'|'execute'|'measure'|'complete'|'learn';
