@@ -369,7 +369,21 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
   try {
     const response = await fetchWithTimeout(url, { headers: { 'x-api-key': apiKey, Accept: 'application/json' } }, 10000);
     if (!response.ok) {
-      issues.push({ code: 'sportsgameodds-error', severity: 'warning', message: 'SportsGameOdds HTTP ' + response.status + '; falling back to the existing provider.' });
+      const errorBody = await response.text();
+      let providerMessage = '';
+      try {
+        const parsedError = JSON.parse(errorBody) as { error?: unknown; message?: unknown; detail?: unknown };
+        const detail = parsedError.error ?? parsedError.message ?? parsedError.detail;
+        if (typeof detail === 'string') providerMessage = detail;
+      } catch {
+        providerMessage = errorBody;
+      }
+      const safeDetail = providerMessage.replace(/[\\r\\n\\t]+/g, ' ').slice(0, 180);
+      issues.push({
+        code: 'sportsgameodds-error',
+        severity: 'warning',
+        message: 'SportsGameOdds HTTP ' + response.status + (safeDetail ? ': ' + safeDetail : '') + '; falling back to the existing provider.',
+      });
       return null;
     }
     const payload = await response.json() as SgoResponse;
