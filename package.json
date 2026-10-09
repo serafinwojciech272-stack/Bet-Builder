@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && npm test && vite build",
+    "build": "npm run lint && tsc -b && npm test && vite build",
     "postinstall": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -15,7 +15,8 @@
     "test:health": "node scripts/health-smoke.mjs",
     "test:persistence-e2e": "node scripts/persistence-e2e.mjs",
     "test:api-contract": "node scripts/api-contract-smoke.mjs",
-    "render:start": "npx --yes tsx@4.19.4 server.ts"
+    "render:start": "npx --yes tsx@4.19.4 server.ts",
+    "verify": "npm run build && npm run test:health && npm run test:api-contract"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

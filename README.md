@@ -12,10 +12,13 @@ npm run dev               # frontend
 npm start                 # full-stack server (API + built frontend) on :10000
 ```
 
-## Quality gate (same as CI)
+## Quality gate
+
+`npm run build` = lint + typecheck + unit tests + Vite build. Vercel runs it on every PR,
+so the **Vercel** status check is the merge gate while GitHub Actions is unavailable.
 
 ```bash
-npm run lint && npm test && npm run test:health && npm run test:api-contract && npm run build
+npm run verify   # build + backend health smoke + API contract smoke — run before every merge
 ```
 
 ## Layout
