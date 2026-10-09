@@ -220,6 +220,104 @@ async function fetchOddsApiFallback(requestedDate: string, requestedSport: strin
   if (events.size) issues.push({ code: 'odds-api-fallback', severity: 'info', message: 'Real events and bookmaker odds supplied by The Odds API fallback.' }); return { events: [...events.values()], snapshots, availableSports, queriedSports: sports, bookmakers: [...bookmakers.values()].sort(), quota };
 }
 
+
+interface OddsIoEvent {
+  id: string | number; home: string; away: string; date: string;
+  sport?: { name?: string; slug?: string }; league?: { name?: string; slug?: string };
+  status?: string;
+  bookmakers?: Record<string, Array<{ name: string; updatedAt?: string; odds: Array<Record<string, string | number>> }>>;
+}
+function oddsIoSportSlug(sport: string): string[] {
+  const map: Record<string, string[]> = {
+    soccer: ['football'], basketball: ['basketball'], tennis: ['tennis'],
+    icehockey: ['ice-hockey'], baseball: ['baseball'], americanfootball: ['american-football'],
+    all: ['football','basketball','tennis','ice-hockey','baseball','american-football'],
+  };
+  return map[sport] ?? [sport];
+}
+function oddsIoDecimal(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) && parsed >= 1.01 && parsed <= 1000 ? Number(parsed.toFixed(3)) : null;
+}
+async function fetchStsOddsFallback(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
+  const apiKey = process.env.ODDS_API_IO_KEY?.trim();
+  if (!apiKey) return { events: [] as SportEvent[], snapshots: [] as OddsSnapshot[], bookmakers: [] as string[], sportsQueried: [] as string[] };
+  const sportSlugs = oddsIoSportSlug(requestedSport);
+  const eventResults = await Promise.all(sportSlugs.map(async (sportSlug) => {
+    const collected: OddsIoEvent[] = [];
+    for (const status of ['pending','live']) {
+      try {
+        const url = new URL('https://api.odds-api.io/v3/events');
+        url.searchParams.set('apiKey', apiKey); url.searchParams.set('sport', sportSlug);
+        url.searchParams.set('status', status); url.searchParams.set('limit', '100');
+        const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 4500);
+        if (!response.ok) throw new Error('Odds-API.io events ' + response.status + ' (' + sportSlug + '/' + status + ')');
+        const payload = await response.json() as OddsIoEvent[];
+        if (Array.isArray(payload)) collected.push(...payload);
+      } catch (error) {
+        issues.push({ code: 'sts-feed-error', severity: 'warning', message: error instanceof Error ? error.message : 'STS feed request failed', reference: sportSlug + ':' + status });
+      }
+    }
+    return { sportSlug, events: collected };
+  }));
+  const rawEvents = new Map<string, OddsIoEvent>();
+  for (const result of eventResults) for (const event of result.events) {
+    const date = event.date ? polishDate(event.date) : '';
+    if (!event.id || !event.home || !event.away || date !== requestedDate) continue;
+    rawEvents.set(String(event.id), event);
+  }
+  const selected = [...rawEvents.values()].slice(0, 30);
+  const oddsResults: Array<{ eventId: string; payload: OddsIoEvent | null }> = [];
+  for (let index = 0; index < selected.length; index += 10) {
+    const batch = selected.slice(index, index + 10);
+    try {
+      const url = new URL('https://api.odds-api.io/v3/odds/multi');
+      url.searchParams.set('apiKey', apiKey); url.searchParams.set('eventIds', batch.map(event => String(event.id)).join(','));
+      url.searchParams.set('bookmakers', 'STS PL');
+      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 5000);
+      if (!response.ok) throw new Error('Odds-API.io STS odds ' + response.status);
+      const payload = await response.json() as OddsIoEvent[];
+      for (const event of payload) oddsResults.push({ eventId: String(event.id), payload: event });
+    } catch (error) {
+      issues.push({ code: 'sts-odds-error', severity: 'warning', message: error instanceof Error ? error.message : 'STS odds request failed' });
+    }
+  }
+  const eventMap = new Map<string, SportEvent>();
+  const snapshots: OddsSnapshot[] = [];
+  const bookmakerNames = new Set<string>();
+  const now = Date.now();
+  for (const raw of selected) {
+    const eventId = 'oddsio:sts:' + raw.id;
+    const sport = canonicalSport(raw.sport?.slug ?? raw.sport?.name ?? 'soccer');
+    const start = new Date(raw.date).getTime();
+    const statusText = String(raw.status ?? '').toLowerCase();
+    const status = ['live','inplay','in-play'].includes(statusText) ? 'live' : start <= now ? (start > now - 4 * 60 * 60 * 1000 ? 'live' : 'final') : 'scheduled';
+    eventMap.set(String(raw.id), { id: eventId, sportKey: sport, league: { id: slug(raw.league?.slug ?? raw.league?.name ?? sport), name: raw.league?.name ?? sport, sportKey: sport, country: 'Poland' }, homeTeam: team(raw.home), awayTeam: team(raw.away), startTime: new Date(raw.date).toISOString(), status, venue: '', monitored: true, liquidity: 0.8 });
+  }
+  for (const { eventId, payload } of oddsResults) {
+    if (!payload) continue;
+    const event = eventMap.get(eventId); if (!event) continue;
+    for (const [bookmakerName, markets] of Object.entries(payload.bookmakers ?? {})) {
+      if (!/\bsts\b/i.test(bookmakerName)) continue;
+      bookmakerNames.add(bookmakerName);
+      for (const market of markets) {
+        const key = market.name.toLowerCase();
+        const canonicalMarket: MarketKey | null = /moneyline|match winner|1x2|^ml$/.test(key) ? (event.sportKey === 'soccer' ? 'match-winner' : 'moneyline') : /spread|handicap/.test(key) ? 'spread' : /total|over\/under/.test(key) ? 'totals' : null;
+        if (!canonicalMarket || !Array.isArray(market.odds)) continue;
+        for (const [rowIndex, row] of market.odds.entries()) {
+          const outcomes = Object.entries(row).filter(([name]) => ['home','away','draw','over','under'].includes(name.toLowerCase()));
+          const quotes: OddsQuote[] = outcomes.map(([name, value]) => ({ name, price: oddsIoDecimal(value) })).filter((item): item is { name: string; price: number } => item.price !== null).map(item => ({ selectionId: event.id + ':' + slug(market.name) + ':' + rowIndex + ':' + item.name, label: item.name === 'home' ? event.homeTeam.name : item.name === 'away' ? event.awayTeam.name : item.name.toUpperCase(), decimalOdds: item.price }));
+          if (!quotes.length) continue;
+          const capturedAt = market.updatedAt ?? new Date().toISOString();
+          snapshots.push({ id: event.id + ':sts:' + slug(market.name) + ':' + capturedAt + ':' + rowIndex, eventId: event.id, market: canonicalMarket, bookmaker: 'sts', capturedAt, quotes, feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()), provider: 'odds-api.io-sts' });
+        }
+      }
+    }
+  }
+  if (snapshots.length) issues.push({ code: 'sts-feed-active', severity: 'info', message: 'STS PL odds received from Odds-API.io.' });
+  return { events: [...eventMap.values()], snapshots, bookmakers: [...bookmakerNames].sort(), sportsQueried: sportSlugs };
+}
+
 async function fetchSportScoreFallback(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
   const sports = [...new Set((requestedSport === 'all' ? ['football','basketball','tennis','cricket'] : [requestedSport.toLowerCase() === 'soccer' ? 'football' : requestedSport.toLowerCase()]).filter(s => ['football','basketball','tennis','cricket'].includes(s)))];
   const labels: Record<string,string> = { football:'Football', basketball:'Basketball', tennis:'Tennis', cricket:'Cricket' };
@@ -340,6 +438,8 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const apiKey = process.env.PARLAY_API_KEY?.trim(); if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return json(res,400,{error:'INVALID_DATE',message:'Use date=YYYY-MM-DD.'});
   const markets=queryValue(req,'markets',requestedSport==='all'?'h2h':'h2h,spreads,totals'); const regions=queryValue(req,'regions','eu'); const {from,to}=dateBoundsUtc(requestedDate); const issues:DatasetResponse['issues']=[];
   if (!apiKey) {
+    const stsFeed = await fetchStsOddsFallback(requestedDate, requestedSport, issues);
+    if (stsFeed.snapshots.length) return json(res, 200, { events: stsFeed.events, snapshots: stsFeed.snapshots, issues, droppedRecords: 0, normalizedAt: new Date().toISOString(), provider: 'odds-api.io-sts', mode: 'LIVE', requestedDate, sportsQueried: stsFeed.sportsQueried, bookmakers: stsFeed.bookmakers, availableSports: [], providerHealth: { provider: 'odds-api.io-sts', state: 'HEALTHY', fetchedAt: new Date().toISOString(), ageSeconds: Math.floor(Math.min(...stsFeed.snapshots.map(snapshot => snapshot.feedLatencyMs)) / 1000), staleAfterSeconds: 120, catalogCount: 0, queriedSports: stsFeed.sportsQueried.length, successfulSports: stsFeed.sportsQueried.length, failedSports: 0, eventCount: stsFeed.events.length, snapshotCount: stsFeed.snapshots.length, bookmakerCount: stsFeed.bookmakers.length, warnings: ['STS PL LIVE/PREMATCH FEED'] } });
     // No authenticated Parlay key: try the no-auth live odds feed FIRST.
     // Event-only providers must never win over a provider that can supply bookmaker snapshots.
     const tryFallback=await fetchParlayTryFallback(requestedSport,issues);
@@ -368,6 +468,14 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const freshestFeedLatencyMs=snapshots.length?snapshots.reduce((min,snapshot)=>Math.min(min,snapshot.feedLatencyMs),Number.POSITIVE_INFINITY):0;const ageSeconds=Math.floor(freshestFeedLatencyMs/1000);if(snapshots.length&&freshestFeedLatencyMs>STALE_AFTER_MS)issues.push({code:'stale-odds',severity:'warning',message:`Latest normalized odds feed is stale by approximately ${ageSeconds}s.`});if(!events.size)issues.push({code:'no-events',severity:'info',message:`No live provider events found for ${requestedDate}.`});
   if(!snapshots.length){const tryFallback=await fetchParlayTryFallback(requestedSport,issues);if(tryFallback.snapshots.length){return json(res,200,{events:tryFallback.events,snapshots:tryFallback.snapshots,issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'parlay-api',mode:'LIVE',requestedDate,sportsQueried:tryFallback.sportsQueried,bookmakers:tryFallback.bookmakers,availableSports,providerHealth:{provider:'parlay-api',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:0,staleAfterSeconds:120,catalogCount:availableSports.length,queriedSports:tryFallback.sportsQueried.length,successfulSports:tryFallback.sportsQueried.length,failedSports:0,eventCount:tryFallback.events.length,snapshotCount:tryFallback.snapshots.length,bookmakerCount:tryFallback.bookmakers.length,warnings:['REAL LIVE ODDS','NO-AUTH FALLBACK']}});}const widgetFallback=await fetchParlayWidgetFallback(requestedDate,requestedSport,issues);if(widgetFallback.snapshots.length){return json(res,200,{events:widgetFallback.events,snapshots:widgetFallback.snapshots,issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'parlay-api',mode:'LIVE',requestedDate,sportsQueried:widgetFallback.sportsQueried,bookmakers:widgetFallback.bookmakers,availableSports,providerHealth:{provider:'parlay-api',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:Math.floor(Math.min(...widgetFallback.snapshots.map(s=>s.feedLatencyMs))/1000),staleAfterSeconds:120,catalogCount:availableSports.length,queriedSports:widgetFallback.sportsQueried.length,successfulSports:widgetFallback.sportsQueried.length,failedSports:0,eventCount:widgetFallback.events.length,snapshotCount:widgetFallback.snapshots.length,bookmakerCount:widgetFallback.bookmakers.length,warnings:['REAL LIVE ODDS','KEYLESS WIDGET FALLBACK']}});}}
   if(!events.size){const fallback=await fetchOddsApiFallback(requestedDate,requestedSport,issues);for(const event of fallback.events)events.set(event.id,event);if(fallback.events.length)return json(res,200,{events:fallback.events,snapshots:fallback.snapshots,issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'the-odds-api',mode:'LIVE',requestedDate,sportsQueried:fallback.queriedSports,bookmakers:fallback.bookmakers,availableSports:fallback.availableSports,quota:fallback.quota,providerHealth:{provider:'the-odds-api',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:0,staleAfterSeconds:600,catalogCount:fallback.availableSports.length,queriedSports:fallback.queriedSports.length,successfulSports:fallback.queriedSports.length,failedSports:0,eventCount:fallback.events.length,snapshotCount:fallback.snapshots.length,bookmakerCount:fallback.bookmakers.length,warnings:['REAL EVENTS + ODDS AVAILABLE FROM THE ODDS API FALLBACK']}});const sportScore=await fetchSportScoreFallback(requestedDate,requestedSport,issues);if(sportScore.events.length)return json(res,200,{events:sportScore.events,snapshots:[],issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportScore.sports,bookmakers:[],availableSports:sportScore.availableSports,providerHealth:{provider:'sportscore',state:'HEALTHY',fetchedAt:new Date().toISOString(),ageSeconds:0,staleAfterSeconds:600,catalogCount:sportScore.availableSports.length,queriedSports:sportScore.sports.length,successfulSports:sportScore.sports.length,failedSports:0,eventCount:sportScore.events.length,snapshotCount:0,bookmakerCount:0,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']}});const sportsDb=await fetchTheSportsDbFallback(requestedDate,requestedSport,issues);if(sportsDb.events.length)return json(res,200,{events:sportsDb.events,snapshots:[],issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'thesportsdb',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportsDb.sports,bookmakers:[],availableSports:sportsDb.availableSports,providerHealth:eventProviderHealth('thesportsdb',{eventCount:sportsDb.events.length,queriedSports:sportsDb.queriedSports,successfulSports:sportsDb.successfulSports,failedSports:sportsDb.failedSports,catalogCount:sportsDb.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});return json(res,503,{error:'NO_SPORTS_PROVIDER_AVAILABLE',issues});}
+  const stsFeed = await fetchStsOddsFallback(requestedDate, requestedSport, issues);
+  for (const stsEvent of stsFeed.events) {
+    const match = [...events.values()].find(existing => slug(existing.homeTeam.name) === slug(stsEvent.homeTeam.name) && slug(existing.awayTeam.name) === slug(stsEvent.awayTeam.name) && Math.abs(new Date(existing.startTime).getTime() - new Date(stsEvent.startTime).getTime()) < 6 * 60 * 60 * 1000);
+    if (!match) events.set(stsEvent.id, stsEvent);
+    else for (const snapshot of stsFeed.snapshots.filter(item => item.eventId === stsEvent.id)) snapshots.push({ ...snapshot, eventId: match.id, id: snapshot.id.replace(stsEvent.id, match.id) });
+  }
+  for (const snapshot of stsFeed.snapshots) if (events.has(snapshot.eventId)) snapshots.push(snapshot);
+  for (const bookmaker of stsFeed.bookmakers) bookmakerNames.set('sts', bookmaker);
   const body:DatasetResponse&{providerHealth:import('../src/domain/types.js').ProviderHealth}={events:[...events.values()].sort((a,b)=>a.startTime.localeCompare(b.startTime)),snapshots:snapshots.sort((a,b)=>a.capturedAt.localeCompare(b.capturedAt)),issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'parlay-api',mode:'LIVE',requestedDate,sportsQueried:sports,bookmakers:[...bookmakerNames.values()].sort(),availableSports,quota:lastQuota,providerHealth:{provider:'parlay-api',state:failedSports.length?(successfulSports.length?'DEGRADED':'OFFLINE'):(snapshots.length&&freshestFeedLatencyMs>STALE_AFTER_MS?'STALE':'HEALTHY'),fetchedAt:new Date().toISOString(),ageSeconds,staleAfterSeconds:600,catalogCount:availableSports.length,queriedSports:sports.length,successfulSports:successfulSports.length,failedSports:failedSports.length,eventCount:events.size,snapshotCount:snapshots.length,bookmakerCount:bookmakerNames.size,warnings:issues.filter(i=>i.severity!=='info').map(i=>i.message).slice(0,6)}};return json(res,200,body);
 }
 
