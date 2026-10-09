@@ -362,10 +362,10 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
   url.searchParams.set('startsAfter', bounds.from);
   url.searchParams.set('startsBefore', bounds.to);
   url.searchParams.set('oddsAvailable', 'true');
-  url.searchParams.set('includeAltLines', 'true');
   url.searchParams.set('limit', '100');
-  if (filter.sportID) url.searchParams.set('sportID', filter.sportID);
+  // SportsGameOdds treats leagueID as the more specific filter; send only one of these.
   if (filter.leagueID) url.searchParams.set('leagueID', filter.leagueID);
+  else if (filter.sportID) url.searchParams.set('sportID', filter.sportID);
   try {
     const response = await fetchWithTimeout(url, { headers: { 'x-api-key': apiKey, Accept: 'application/json' } }, 10000);
     if (!response.ok) {
