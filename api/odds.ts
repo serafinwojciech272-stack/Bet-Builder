@@ -306,12 +306,24 @@ function sgoSportFilter(requestedSport: string): { sportID?: string; leagueID?: 
     icehockey: { sportID: 'HOCKEY' }, hockey: { sportID: 'HOCKEY' }, baseball: { sportID: 'BASEBALL' },
     americanfootball: { sportID: 'FOOTBALL' }, tennis: { sportID: 'TENNIS' }, volleyball: { sportID: 'VOLLEYBALL' }, handball: { sportID: 'HANDBALL' },
     soccer_epl: { sportID: 'SOCCER', leagueID: 'EPL' }, soccer_italy_serie_a: { sportID: 'SOCCER', leagueID: 'IT_SERIE_A' },
-    soccer_spain_la_liga: { sportID: 'SOCCER', leagueID: 'ES_LA_LIGA' }, soccer_germany_bundesliga: { sportID: 'SOCCER', leagueID: 'BUNDESLIGA' },
+    soccer_spain_la_liga: { sportID: 'SOCCER', leagueID: 'ES_LA_LIGA' }, soccer_germany_bundesliga: { sportID: 'SOCCER', leagueID: 'DE_BUNDESLIGA' },
     soccer_poland_ekstraklasa: { sportID: 'SOCCER', leagueID: 'PL_EKSTRAKLASA' }, basketball_nba: { sportID: 'BASKETBALL', leagueID: 'NBA' },
     icehockey_nhl: { sportID: 'HOCKEY', leagueID: 'NHL' }, baseball_mlb: { sportID: 'BASEBALL', leagueID: 'MLB' },
     americanfootball_nfl: { sportID: 'FOOTBALL', leagueID: 'NFL' },
   };
   return known[key] ?? {};
+}
+function sgoCanonicalSport(sportID: string | undefined, leagueID: string | undefined): SportKey {
+  const sport = String(sportID ?? '').toUpperCase();
+  if (sport === 'SOCCER') return 'soccer';
+  if (sport === 'BASKETBALL') return 'basketball';
+  if (sport === 'FOOTBALL') return 'americanfootball';
+  if (sport === 'HOCKEY') return 'icehockey';
+  if (sport === 'BASEBALL') return 'baseball';
+  if (sport === 'TENNIS') return 'tennis';
+  if (sport === 'VOLLEYBALL') return 'volleyball';
+  if (sport === 'HANDBALL') return 'handball';
+  return canonicalSport(String(leagueID ?? '').toLowerCase());
 }
 function sgoMarket(odd: SgoOdd, oddID: string): MarketKey | null {
   const type = String(odd.betTypeID ?? oddID.split('-').at(-2) ?? '').toLowerCase();
@@ -360,7 +372,7 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
       const away = raw.teams?.away?.names?.long ?? raw.teams?.away?.name ?? '';
       const startTime = raw.status?.startsAt;
       if (!raw.eventID || !home || !away || !startTime || polishDate(startTime) !== requestedDate) continue;
-      const sportKey = canonicalSport(String(raw.sportID ?? raw.leagueID ?? '').toLowerCase());
+      const sportKey = sgoCanonicalSport(raw.sportID, raw.leagueID);
       const eventId = 'sportsgameodds:' + raw.eventID;
       const live = Boolean(raw.status?.live || (raw.status?.started && !raw.status?.ended));
       const final = Boolean(raw.status?.completed || raw.status?.ended || raw.status?.cancelled);
