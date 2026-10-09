@@ -327,6 +327,18 @@ function sgoCanonicalSport(sportID: string | undefined, leagueID: string | undef
   if (sport === 'HANDBALL') return 'handball';
   return canonicalSport(String(leagueID ?? '').toLowerCase());
 }
+function sgoLeagueKey(sportID: string | undefined, leagueID: string | undefined): string {
+  const sport = sgoCanonicalSport(sportID, leagueID);
+  const league = String(leagueID ?? '').toUpperCase();
+  const known: Record<string, string> = {
+    EPL: 'soccer_epl', IT_SERIE_A: 'soccer_italy_serie_a', LA_LIGA: 'soccer_spain_la_liga',
+    BUNDESLIGA: 'soccer_germany_bundesliga', FR_LIGUE_1: 'soccer_france_ligue_one',
+    EREDIVISIE: 'soccer_netherlands_eredivisie', UEFA_CHAMPIONS_LEAGUE: 'soccer_uefa_champions_league',
+    UEFA_EUROPA_LEAGUE: 'soccer_uefa_europa_league', NBA: 'basketball_nba', NHL: 'icehockey_nhl',
+    MLB: 'baseball_mlb', NFL: 'americanfootball_nfl',
+  };
+  return known[league] ?? (sport + '_' + slug(leagueID ?? sport));
+}
 function sgoMarket(odd: SgoOdd, oddID: string): MarketKey | null {
   const type = String(odd.betTypeID ?? oddID.split('-').slice(-2, -1)[0] ?? '').toLowerCase();
   const stat = String(odd.statID ?? oddID.split('-')[0] ?? '').toLowerCase();
@@ -342,7 +354,7 @@ function sgoDecimalOdds(value: string | number | undefined): number | null {
   return normalizeDecimalOdds(numeric);
 }
 async function fetchSportsGameOdds(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
-  const apiKey = process.env.SPORTSODDS_API_KEY?.trim();
+  const apiKey = process.env.SPORTSODDS_API_KEY?.trim() || process.env.SPORTSGAMEODDS_API_KEY?.trim();
   if (!apiKey) return null;
   const bounds = dateBoundsUtc(requestedDate);
   const filter = sgoSportFilter(requestedSport);
@@ -398,10 +410,16 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
           let label = side === 'home' ? home : side === 'away' ? away : side === 'over' ? 'Over' : side === 'under' ? 'Under' : side === 'yes' ? 'Yes' : side === 'no' ? 'No' : side;
           if ((market === 'spread' || market === 'totals') && line !== undefined) label += ' ' + String(line);
           const capturedAt = quote.lastUpdatedAt ?? startTime;
-          const snapshotKey = eventId + ':' + bookmakerId + ':' + market + ':' + capturedAt;
+          const snapshotKey = eventId + ':' + bookmakerId + ':' + market;
           const existing = snapshots.find((snapshot) => snapshot.id === snapshotKey);
           const oddsQuote: OddsQuote = { selectionId: eventId + ':' + oddID + ':' + bookmakerId, label, decimalOdds };
-          if (existing) existing.quotes.push(oddsQuote);
+          if (existing) {
+            if (!existing.quotes.some((quote) => quote.selectionId === oddsQuote.selectionId)) existing.quotes.push(oddsQuote);
+            if (capturedAt > existing.capturedAt) {
+              existing.capturedAt = capturedAt;
+              existing.feedLatencyMs = Math.max(0, now - new Date(capturedAt).getTime());
+            }
+          }
           else snapshots.push({
             id: snapshotKey, eventId, market, bookmaker: bookmakerId as BookmakerId,
             capturedAt, quotes: [oddsQuote], feedLatencyMs: Math.max(0, now - new Date(capturedAt).getTime()),
@@ -423,7 +441,7 @@ async function fetchSportsGameOdds(requestedDate: string, requestedSport: string
     const snapshotList = snapshots.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
     const availableSports = [...new Map(payload.data.map((event) => {
       const key = String(event.leagueID ?? event.sportID ?? 'unknown');
-      return [key, { key: key.toLowerCase(), title: key, group: String(event.sportID ?? 'Sports') }];
+      return [key, { key: sgoLeagueKey(event.sportID, event.leagueID), title: key.replace(/_/g, ' '), group: String(event.sportID ?? 'Sports') }];
     })).values()];
     issues.push({ code: 'sportsgameodds-primary', severity: 'info', message: 'Odds and events supplied by SportsGameOdds.' });
     return {
