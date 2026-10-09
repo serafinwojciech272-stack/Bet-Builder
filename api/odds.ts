@@ -76,7 +76,7 @@ async function fetchParlayTryFallback(requestedSport: string, issues: DatasetRes
   const results = await Promise.all(sportKeys.map(async (sportKey) => {
     try {
       const url = new URL(`https://parlay-api.com/v1/try/${encodeURIComponent(sportKey)}/odds`);
-      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 7000);
+      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 4500);
       if (!response.ok) return { sportKey, error: `ParlayAPI try ${response.status}` };
       const payload = await response.json() as TryApiResponse;
       return { sportKey, rawEvents: Array.isArray(payload.events) ? payload.events : [] };
@@ -365,6 +365,32 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const body:DatasetResponse&{providerHealth:import('../src/domain/types.js').ProviderHealth}={events:[...events.values()].sort((a,b)=>a.startTime.localeCompare(b.startTime)),snapshots:snapshots.sort((a,b)=>a.capturedAt.localeCompare(b.capturedAt)),issues,droppedRecords,normalizedAt:new Date().toISOString(),provider:'parlay-api',mode:'LIVE',requestedDate,sportsQueried:sports,bookmakers:[...bookmakerNames.values()].sort(),availableSports,quota:lastQuota,providerHealth:{provider:'parlay-api',state:failedSports.length?(successfulSports.length?'DEGRADED':'OFFLINE'):(snapshots.length&&freshestFeedLatencyMs>STALE_AFTER_MS?'STALE':'HEALTHY'),fetchedAt:new Date().toISOString(),ageSeconds,staleAfterSeconds:600,catalogCount:availableSports.length,queriedSports:sports.length,successfulSports:successfulSports.length,failedSports:failedSports.length,eventCount:events.size,snapshotCount:snapshots.length,bookmakerCount:bookmakerNames.size,warnings:issues.filter(i=>i.severity!=='info').map(i=>i.message).slice(0,6)}};return json(res,200,body);
 }
 
-export default async function handler(req: QueryRequest, res: JsonResponse) { try { return await oddsHandler(req,res); } catch(error) { return json(res,500,{error:'ODDS_INTERNAL_ERROR',message:error instanceof Error?error.message:'unknown error'}); } }
+const oddsHttpCache = new Map<string, { expiresAt: number; status: number; headers: Record<string, string>; body: string }>();
+const oddsInFlight = new Map<string, Promise<{ status: number; headers: Record<string, string>; body: string }>>();
+function requestCacheKey(req: QueryRequest): string { return JSON.stringify([req.method ?? 'GET', Object.entries(req.query ?? {}).sort(([a], [b]) => a.localeCompare(b))]); }
+export default async function handler(req: QueryRequest, res: JsonResponse) {
+  try {
+    if ((req.method ?? 'GET') !== 'GET' || queryValue(req, 'smoke', '') === 'sportscore') return await oddsHandler(req, res);
+    const key = requestCacheKey(req);
+    const cached = oddsHttpCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) { res.status(cached.status); for (const [name, value] of Object.entries(cached.headers)) res.setHeader(name, value); return res.end(cached.body); }
+    let work = oddsInFlight.get(key);
+    if (!work) {
+      work = (async () => {
+        let status = 200; const headers: Record<string, string> = {}; let body = '';
+        const capture: JsonResponse = { status(code) { status = code; return capture; }, setHeader(name, value) { headers[name] = value; return capture; }, end(value) { body = value; } };
+        await oddsHandler(req, capture); return { status, headers, body };
+      })();
+      oddsInFlight.set(key, work);
+      void work.finally(() => { if (oddsInFlight.get(key) === work) oddsInFlight.delete(key); });
+    }
+    const result = await work;
+    if (result.status === 200 && result.body.length > 0) {
+      oddsHttpCache.set(key, { ...result, expiresAt: Date.now() + 15000 });
+      if (oddsHttpCache.size > 100) { const oldest = oddsHttpCache.keys().next().value; if (oldest) oddsHttpCache.delete(oldest); }
+    }
+    res.status(result.status); for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value); return res.end(result.body);
+  } catch (error) { return json(res, 500, { error: 'ODDS_INTERNAL_ERROR', message: error instanceof Error ? error.message : 'unknown error' }); }
+}
 
 // Live odds integrity: provider values are normalized to true decimal odds at the API boundary.
