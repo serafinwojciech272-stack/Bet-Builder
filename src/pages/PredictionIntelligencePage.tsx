@@ -7,6 +7,7 @@ import {explainPrediction,buildModelTournament,type DecisionReplay} from '../cor
 import {BrowserPredictionReplayRepository} from '../core/predictionReplayStore';
 import {Panel,SectionHeading,Chip,Stat,Meter,Button,EmptyState} from '../components/ui';
 import {cx} from '../lib/format';
+import {buildCockpitTrustLayer,trustLayerEvidenceScore,trustLayerSampleLabel} from '../core/cockpitTrustLayerM166M180';
 
 function pct(v:number){return (v*100).toFixed(0)+'%';}
 function stageTone(stage:string,current:string){const i=['DATA SNAPSHOT','MODEL ANALYSIS','PREDICTION CREATED','FINAL DECISION','OUTCOME','GRADING','LEARNING'].indexOf(stage);const c=['DATA SNAPSHOT','MODEL ANALYSIS','PREDICTION CREATED','FINAL DECISION','OUTCOME','GRADING','LEARNING'].indexOf(current);return i<c?'text-positive':i===c?'text-ai border-ai/35 bg-ai/10':'text-faint';}
@@ -40,6 +41,8 @@ export default function PredictionIntelligencePage(){
     <Stat label="Settled sample" value={tournament.reduce((s,x)=>s+x.settled,0)} hint="only settled outcomes count"/>
    </div>
   </div>
+
+  {selected&&intelligence?<TrustLayerCard layer={buildCockpitTrustLayer(selected,intelligence,settledSample)} sampleSize={settledSample}/>:null}
 
   <div className="grid gap-5 xl:grid-cols-[.8fr_1.2fr]">
    <Panel className="p-5">
@@ -87,6 +90,25 @@ export default function PredictionIntelligencePage(){
   </div>
  </div>;
 }
+function TrustLayerCard({layer,sampleSize}:{layer:ReturnType<typeof buildCockpitTrustLayer>;sampleSize:number}) {
+ const d=layer.decision;
+ return <Panel tone="ai" className="p-5">
+  <SectionHeading index="TRUST" title="Decision Trust Layer" subtitle="Jedna warstwa nad kanonicznym Prediction Engine: dowód, nie obietnica wyniku." icon={<ShieldCheck size={16} className="text-ai"/>}/>
+  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+   <Stat label="State" value={d.state} hint="policy/data state"/>
+   <Stat label="Evidence" value={trustLayerEvidenceScore(layer).toFixed(2)} hint="weighted evidence quality"/>
+   <Stat label="Uncertainty" value={layer.decision.confidence.toFixed(2)} hint={layer.uncertainty}/>
+   <Stat label="Sample" value={trustLayerSampleLabel(sampleSize)} hint="ranking never promoted from thin data"/>
+   <Stat label="Risk" value={d.risk} tone={d.risk==='LOW'?'positive':d.risk==='CRITICAL'?'negative':'default'}/>
+  </div>
+  <div className="mt-4 grid gap-3 md:grid-cols-3">
+   <div className="rounded-xl border border-line bg-surface-2 p-3"><div className="text-[9px] uppercase tracking-widest text-faint">Decision evidence</div><div className="mt-2 space-y-2">{d.evidence.map(e=><div key={e.id} className="flex justify-between gap-3 text-[10px]"><span className="text-muted">{e.label}</span><b>{e.value}</b></div>)}</div></div>
+   <div className="rounded-xl border border-line bg-surface-2 p-3"><div className="text-[9px] uppercase tracking-widest text-faint">Responsible friction</div><b className="mt-2 block text-sm">{layer.friction}</b><span className="text-[9px] text-faint">Human approval is always required before execution.</span></div>
+   <div className="rounded-xl border border-line bg-surface-2 p-3"><div className="text-[9px] uppercase tracking-widest text-faint">Execution boundary</div><b className="mt-2 block text-positive">HUMAN APPROVAL</b><span className="text-[9px] text-faint">executionAllowed = false</span></div>
+  </div>
+ </Panel>;
+}
+
 function Factor({title,tone,items}:{title:string;tone:'positive'|'neutral'|'negative';items:string[]}){
  const c=tone==='positive'?'text-positive border-positive/20 bg-positive/[.04]':tone==='negative'?'text-negative border-negative/20 bg-negative/[.04]':'text-muted border-line bg-surface-2';
  return <div className={cx('rounded-xl border p-3',c)}><div className="font-mono text-[9px] font-bold tracking-widest">{title}</div><ul className="mt-2 space-y-2">{(items.length?items:['No additional signal']).map(x=><li key={x} className="text-[10px] leading-5 text-foreground/80">• {x}</li>)}</ul></div>;
