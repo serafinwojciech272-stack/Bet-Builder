@@ -23,7 +23,7 @@ type ReasoningRequest = {
 const DEFAULT_CORE_ENGINE_URL = 'https://core-engine-34uu.onrender.com';
 
 function json(res: VercelResponse, status: number, body: unknown) {
-  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8').setHeader('Cache-Control', 'no-store').json(body);
+  return res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8').setHeader('Cache-Control', 'no-store').json(body);
 }
 
 function stringArray(value: unknown): string[] {
@@ -46,6 +46,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (safePayload.length > 24000) return json(res, 413, { error: 'REASONING_CONTEXT_TOO_LARGE' });
 
   const base = (process.env.CORE_ENGINE_URL || DEFAULT_CORE_ENGINE_URL).replace(/\/$/, '');
+  const key = process.env.CORE_ENGINE_API_KEY?.trim();
+  if (!key) return json(res, 503, { error: 'CORE_ENGINE_NOT_CONFIGURED', provider: 'core-engine' });
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
 
@@ -64,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
         'x-core-engine-client': 'bet-builder',
       },
       body: JSON.stringify({
@@ -75,19 +79,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         context: safePayload,
       }),
       signal: controller.signal,
+      cache: 'no-store',
     });
 
     const raw = await upstream.text();
     if (!upstream.ok) return json(res, 502, { error: 'CORE_ENGINE_ERROR', status: upstream.status });
 
-    const payload = safeRecord(raw ? JSON.parse(raw) : {});
+    let upstreamPayload: unknown;
+    try {
+      upstreamPayload = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(res, 502, { error: 'CORE_ENGINE_INVALID_RESPONSE', provider: 'core-engine' });
+    }
+
+    const payload = safeRecord(upstreamPayload);
     const reply = typeof payload.reply === 'string' ? payload.reply.trim() : '';
     if (!reply) return json(res, 502, { error: 'CORE_ENGINE_EMPTY_RESPONSE', provider: 'core-engine' });
 
     let parsed: Record<string, unknown> = {};
     try {
-      const candidate = JSON.parse(reply);
-      parsed = safeRecord(candidate);
+      parsed = safeRecord(JSON.parse(reply));
     } catch {}
 
     const status = body.decision.status;
