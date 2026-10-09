@@ -342,7 +342,7 @@ function sgoLeagueKey(sportID: string | undefined, leagueID: string | undefined)
 function sgoMarket(odd: SgoOdd, oddID: string): MarketKey | null {
   const type = String(odd.betTypeID ?? oddID.split('-').slice(-2, -1)[0] ?? '').toLowerCase();
   const stat = String(odd.statID ?? oddID.split('-')[0] ?? '').toLowerCase();
-  if (type === 'ml' && stat === 'points') return 'match-winner';
+  if ((type === 'ml' || type === 'ml3way') && stat === 'points') return 'match-winner';
   if (type === 'sp' && stat === 'points') return 'spread';
   if (type === 'ou' && stat === 'points' && String(odd.statEntityID ?? '').toLowerCase() === 'all') return 'totals';
   if ((type === 'yn' || type === 'btts') && /btts|both.?teams.?to.?score/i.test([stat, odd.marketName ?? '', oddID].join(' '))) return 'both-teams-to-score';
