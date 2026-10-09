@@ -66,7 +66,7 @@ const TRY_SPORTS: Record<string,string> = {
   baseball: 'baseball_mlb',
 };
 
-async function fetchParlayTryFallback(requestedSport: string, issues: DatasetResponse['issues']) {
+async function fetchParlayTryFallback(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
   const sportKeys = requestedSport === 'all'
     ? ['icehockey_nhl','baseball_mlb','americanfootball_nfl','basketball_nba','soccer_epl','mma_mixed_martial_arts']
     : [TRY_SPORTS[requestedSport] ?? requestedSport];
