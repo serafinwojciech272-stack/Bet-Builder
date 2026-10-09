@@ -1,4 +1,4 @@
-import type { DecisionPacket } from './decisionPacket';
+import type { DecisionPacket } from './decisionPacket.js';
 
 export type SettlementStatus = 'PENDING' | 'WON' | 'LOST' | 'VOID' | 'CANCELLED';
 
