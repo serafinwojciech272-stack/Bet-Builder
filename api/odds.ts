@@ -398,7 +398,7 @@ async function fetchTheSportsDbFallback(requestedDate: string, requestedSport: s
       const url = new URL(`https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(key)}/eventsday.php`);
       url.searchParams.set('d', requestedDate); url.searchParams.set('s', entry.query);
       try {
-        const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 8000);
+        const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 2200);
         if (response.status === 429) return { entry, error: 'thesportsdb-rate-limited', message: `TheSportsDB rate limit reached for ${entry.query}.` };
         if (!response.ok) return { entry, error: 'thesportsdb-error', message: `TheSportsDB HTTP ${response.status} for ${entry.query}.` };
         let payload: { events?: TheSportsDbEvent[] | null };
