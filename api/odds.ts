@@ -398,13 +398,13 @@ async function fetchTheSportsDbFallback(requestedDate: string, requestedSport: s
       const url = new URL(`https://www.thesportsdb.com/api/v1/json/${encodeURIComponent(key)}/eventsday.php`);
       url.searchParams.set('d', requestedDate); url.searchParams.set('s', entry.query);
       try {
-        const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 2200);
+        const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 1800);
         if (response.status === 429) return { entry, error: 'thesportsdb-rate-limited', message: `TheSportsDB rate limit reached for ${entry.query}.` };
         if (!response.ok) return { entry, error: 'thesportsdb-error', message: `TheSportsDB HTTP ${response.status} for ${entry.query}.` };
         let payload: { events?: TheSportsDbEvent[] | null };
         try { payload = JSON.parse(await response.text()) as { events?: TheSportsDbEvent[] | null }; } catch { return { entry, error: 'thesportsdb-payload-error', message: `TheSportsDB returned malformed JSON for ${entry.query}.` }; }
         return { entry, raw: Array.isArray(payload.events) ? payload.events : [] };
-      } catch (error) { const message = error instanceof Error ? (error.name === 'AbortError' ? 'request timeout after 8s' : error.message) : 'request failed'; return { entry, error: 'thesportsdb-error', message: `TheSportsDB ${message} for ${entry.query}.` }; }
+      } catch (error) { const message = error instanceof Error ? (error.name === 'AbortError' ? 'request timeout after 1.8s' : error.message) : 'request failed'; return { entry, error: 'thesportsdb-error', message: `TheSportsDB ${message} for ${entry.query}.` }; }
     }));
     for (const result of results) {
       if ('error' in result) { failedSports += 1; issues.push({ code: result.error, severity: 'warning', message: result.message, reference: result.entry.query }); continue; }
