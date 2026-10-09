@@ -1,4 +1,4 @@
-import type { RiskLevel, Selection } from '../domain/types';
+import type { RiskLevel, Selection } from '../domain/types.js';
 
 export function impliedProbability(odds: number): number {
   if (!Number.isFinite(odds) || odds <= 1) return 1;
