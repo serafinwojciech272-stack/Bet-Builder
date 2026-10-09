@@ -1,11 +1,8 @@
 # These handlers are served by the existing Render API service (server.ts).
 # Excluding them keeps the Vercel Hobby deployment under its 12-function limit.
-api/odds.ts
 api/daily-coupon.ts
 api/sportscore-smoke.ts
 api/research.ts
 api/core-engine-persistence-e2e.ts
 api/health.ts
 api/core-engine.ts
-api/decision-reasoning.ts
-api/vercelTypes.ts
