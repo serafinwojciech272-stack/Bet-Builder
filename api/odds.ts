@@ -357,6 +357,17 @@ function sgoDecimalOdds(value: string | number | undefined): number | null {
 export async function fetchSportsGameOdds(requestedDate: string, requestedSport: string, issues: DatasetResponse['issues']) {
   const apiKey = process.env.SPORTSODDS_API_KEY?.trim() || process.env.SPORTSGAMEODDS_API_KEY?.trim();
   if (!apiKey) return null;
+  const cacheKey = requestedDate + ':' + requestedSport.toLowerCase();
+  const cached = sgoResultCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    const ageSeconds = Math.max(0, Math.floor((Date.now() - cached.cachedAt) / 1000));
+    return {
+      ...cached.result,
+      issues: [...cached.result.issues, { code: 'sportsgameodds-cache-hit', severity: 'info', message: 'Served cached SportsGameOdds data (' + ageSeconds + 's old) to protect provider quota.' }],
+      providerHealth: { ...cached.result.providerHealth, fetchedAt: cached.result.normalizedAt, ageSeconds, state: ageSeconds > 60 ? 'STALE' : 'HEALTHY' },
+    };
+  }
+  if (cached) sgoResultCache.delete(cacheKey);
   const bounds = dateBoundsUtc(requestedDate);
   const filter = sgoSportFilter(requestedSport);
   if (filter.leagueID) {
@@ -470,7 +481,7 @@ export async function fetchSportsGameOdds(requestedDate: string, requestedSport:
       return [key, { key: sgoLeagueKey(event.sportID, event.leagueID), title: key.replace(/_/g, ' '), group: String(event.sportID ?? 'Sports') }];
     })).values()];
     issues.push({ code: 'sportsgameodds-primary', severity: 'info', message: 'Odds and events supplied by SportsGameOdds.' });
-    return {
+    const result = {
       events: eventList, snapshots: snapshotList, issues, droppedRecords: 0,
       normalizedAt: new Date().toISOString(), provider: 'sportsgameodds' as const,
       mode: snapshotList.length ? 'LIVE' as const : 'LIVE_DATA_NO_ODDS' as const,
@@ -483,11 +494,16 @@ export async function fetchSportsGameOdds(requestedDate: string, requestedSport:
         warnings: snapshotList.length ? [] : ['REAL EVENTS AVAILABLE', 'NO BOOKMAKER ODDS'],
       }),
     };
+    sgoResultCache.set(cacheKey, { expiresAt: Date.now() + 30_000, cachedAt: Date.now(), result });
+    return result;
   } catch (error) {
     issues.push({ code: 'sportsgameodds-error', severity: 'warning', message: 'SportsGameOdds request failed (' + (error instanceof Error ? error.message : 'unknown error') + '); falling back to the existing provider.' });
     return null;
   }
 }
+
+type SgoNormalizedResult = NonNullable<Awaited<ReturnType<typeof fetchSportsGameOdds>>>;
+const sgoResultCache = new Map<string, { expiresAt: number; cachedAt: number; result: SgoNormalizedResult }>();
 
 async function oddsHandler(req: QueryRequest, res: JsonResponse) {
   const origin = req.headers?.origin; const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? 'https://bet-builder-preview.vercel.app,https://bet-builder-live.onrender.com').split(',').map((value) => value.trim()).filter(Boolean));
