@@ -196,7 +196,7 @@ async function fetchOddsApiFallback(requestedDate: string, requestedSport: strin
   const requested = requestedSport === 'all' ? ['soccer_epl','soccer_italy_serie_a','soccer_spain_la_liga','soccer_germany_bundesliga','soccer_poland_ekstraklasa','basketball_nba','icehockey_nhl','tennis_atp','baseball_mlb','americanfootball_nfl'] : [requestedSport];
   const sports: string[] = []; const availableSports: Array<{ key: string; title: string; group: string }> = [];
   try {
-    const catalogResponse = await fetchWithTimeout(`https://api.the-odds-api.com/v4/sports?apiKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' } }, 7000);
+    const catalogResponse = await fetchWithTimeout(`https://api.the-odds-api.com/v4/sports?apiKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' } }, 2200);
     if (!catalogResponse.ok) throw new Error(`The Odds API sports ${catalogResponse.status}`);
     const catalog = await catalogResponse.json() as ApiSport[];
     for (const s of catalog.filter((x) => x.active)) availableSports.push({ key: s.key, title: s.title, group: s.group });
@@ -206,7 +206,7 @@ async function fetchOddsApiFallback(requestedDate: string, requestedSport: strin
   const results = await Promise.all(sports.slice(0, 10).map(async (sportKey) => {
     try {
       const url = new URL(`https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sportKey)}/odds`); url.searchParams.set('apiKey', apiKey); url.searchParams.set('regions', 'eu'); url.searchParams.set('markets', 'h2h'); url.searchParams.set('oddsFormat', 'decimal'); url.searchParams.set('dateFormat', 'iso'); url.searchParams.set('commenceTimeFrom', from); url.searchParams.set('commenceTimeTo', to);
-      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 7000); const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last')); const q = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
+      const response = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } }, 2200); const remaining = Number(response.headers.get('x-requests-remaining')); const used = Number(response.headers.get('x-requests-used')); const lastCost = Number(response.headers.get('x-requests-last')); const q = { remaining: Number.isFinite(remaining) ? remaining : null, used: Number.isFinite(used) ? used : null, lastCost: Number.isFinite(lastCost) ? lastCost : null };
       if (!response.ok) return { sportKey, error: `The Odds API ${response.status}: ${(await response.text()).slice(0, 180)}`, quota: q }; return { sportKey, rawEvents: await response.json() as ApiEvent[], quota: q };
     } catch (error) { return { sportKey, error: error instanceof Error ? error.message : 'request failed', quota: null }; }
   }));
