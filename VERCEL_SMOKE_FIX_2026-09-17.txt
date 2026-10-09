@@ -1,1 +1,0 @@
-SPA route fallback + Vercel ESM import fix applied for smoke-test redeploy.

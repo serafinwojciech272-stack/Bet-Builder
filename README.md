@@ -1,11 +1,27 @@
-# React + TypeScript + Vite
+# Bet Builder
 
-Bet Builder preview application with Core Engine decision analysis.
+Sports odds intelligence and coupon-building workspace (React 19 + Vite, Node API on Render, preview on Vercel).
+AI reasoning is routed exclusively through Core Engine; a human approval gate is the execution boundary.
 
-## Build validation
+## Run locally
 
-Decision Center target-odds optimization is type-safe and ready for Vercel production build validation.
+```bash
+cp .env.example .env      # fill provider keys you have; app degrades to free sources without them
+npm ci
+npm run dev               # frontend
+npm start                 # full-stack server (API + built frontend) on :10000
+```
 
-<!-- Vercel deployment trigger: 2026-09-18T07:05:00Z -->
-<!-- CI retry: 2026-10-02 free-source hardening -->
-<!-- M45-M100 production hardening: 2026-10-06 -->
+## Quality gate (same as CI)
+
+```bash
+npm run lint && npm test && npm run test:health && npm run test:api-contract && npm run build
+```
+
+## Layout
+
+- `src/` — frontend, domain services, decision core
+- `api/` — HTTP handlers (served by `server.ts` on Render; a subset also as Vercel functions, see `.vercelignore`)
+- `scripts/` — smoke and E2E scripts used by CI
+
+See `docs/AUDIT-2026-10.md` for the current audit, architecture blueprint and roadmap.
