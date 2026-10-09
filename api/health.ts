@@ -12,13 +12,26 @@ export default async function handler(_req: HealthRequest, res: HealthResponse) 
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
 
-  const providerConfigured = Boolean(process.env.PARLAY_API_KEY?.trim());
+  const providers = {
+    sportsgameodds: Boolean(process.env.SPORTSODDS_API_KEY?.trim() || process.env.SPORTSGAMEODDS_API_KEY?.trim()),
+    parlayApi: Boolean(process.env.PARLAY_API_KEY?.trim()),
+    theOddsApi: Boolean(process.env.ODDS_API_KEY?.trim()),
+  };
+  const provider = providers.sportsgameodds
+    ? 'sportsgameodds'
+    : providers.parlayApi
+      ? 'parlay-api'
+      : providers.theOddsApi
+        ? 'the-odds-api'
+        : 'parlay-api-preview';
+  const providerConfigured = providers.sportsgameodds || providers.parlayApi || providers.theOddsApi;
 
   res.status(200).end(JSON.stringify({
     ok: true,
     service: 'bet-builder-api',
-    provider: 'parlay-api',
+    provider,
     providerConfigured,
+    providers,
     research: true,
     now: new Date().toISOString(),
   }));
