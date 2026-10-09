@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from './vercelTypes.js';
+import type { VercelRequest, VercelResponse } from '../src/server/vercelTypes.js';
 
 type ReasoningRequest = {
   decision: {
