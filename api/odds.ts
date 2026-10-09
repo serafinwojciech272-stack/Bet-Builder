@@ -456,7 +456,7 @@ async function oddsHandler(req: QueryRequest, res: JsonResponse) {
     }
     const [sportScore,sportsDb]=await Promise.all([fetchSportScoreFallback(requestedDate,requestedSport,issues),fetchTheSportsDbFallback(requestedDate,requestedSport,issues)]);
     if(sportScore.events.length) return json(res,200,{events:sportScore.events,snapshots:[],issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'sportscore',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportScore.sports,bookmakers:[],availableSports:sportScore.availableSports,providerHealth:eventProviderHealth('sportscore',{eventCount:sportScore.events.length,queriedSports:sportScore.sports.length,successfulSports:sportScore.sports.length,failedSports:0,catalogCount:sportScore.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});
-    const sportsDb=await fetchTheSportsDbFallback(requestedDate,requestedSport,issues);
+    
     if(sportsDb.events.length) return json(res,200,{events:sportsDb.events,snapshots:[],issues,droppedRecords:0,normalizedAt:new Date().toISOString(),provider:'thesportsdb',mode:'LIVE_DATA_NO_ODDS',requestedDate,sportsQueried:sportsDb.sports,bookmakers:[],availableSports:sportsDb.availableSports,providerHealth:eventProviderHealth('thesportsdb',{eventCount:sportsDb.events.length,queriedSports:sportsDb.queriedSports,successfulSports:sportsDb.successfulSports,failedSports:sportsDb.failedSports,catalogCount:sportsDb.availableSports.length,warnings:['REAL EVENTS AVAILABLE','NO BOOKMAKER ODDS']})});
     return json(res,503,{error:'NO_SPORTS_PROVIDER_AVAILABLE',issues});
   }
