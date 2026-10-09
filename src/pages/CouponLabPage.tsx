@@ -286,6 +286,17 @@ export default function CouponLabPage() {
             </div>
           </div>
 
+          <div className="date-range-row" role="group" aria-label="Zakres wydarzeń">
+            <span className="date-range-label">WYDARZENIA</span>
+            {([
+              ['TODAY', 'Dziś'],
+              ['TOMORROW', 'Jutro'],
+              ['TODAY_AND_TOMORROW', 'Dziś + jutro'],
+            ] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={requestDateRange === value} onClick={() => setRequestDateRange(value)} className="date-range-chip">{label}</button>
+            ))}
+          </div>
+
           <div className="builder-actions">
             <div className="data-refresh">
               <span><ShieldCheck size={13} /> Dane źródłowe są weryfikowane przed generowaniem</span>
