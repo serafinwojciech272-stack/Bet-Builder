@@ -4,26 +4,12 @@ import { ChevronDown, ChevronRight, Radio, Search, Sparkles } from 'lucide-react
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { useSlip, type SlipPick } from '../state/SlipProvider';
 import { liveEvents } from '../services/liveAdapter';
-import type { EventWithMarkets } from '../domain/types';
+import { matchOfTheDay, toMatchRow, type MatchRow, type OutcomeCell } from '../lib/matchBoard';
+import { VersusHero } from '../components/VersusHero';
+import { Crest } from '../components/Crest';
+import { rivalIdentities } from '../lib/teamIdentity';
 
 type Filter = 'all' | 'live' | 'value' | 'mine';
-
-interface OutcomeCell {
-  key: '1' | 'X' | '2';
-  selectionId: string;
-  label: string;
-  odds: number;
-  bookmaker: string;
-  probability: number;
-  ev: number;
-  books: number;
-}
-
-interface MatchRow {
-  event: EventWithMarkets;
-  outcomes: OutcomeCell[];
-  bestEv: number;
-}
 
 const SPORT_LABEL: Record<string, string> = {
   soccer: 'Piłka nożna', basketball: 'Koszykówka', tennis: 'Tenis', icehockey: 'Hokej', baseball: 'Baseball',
@@ -41,31 +27,8 @@ function dayLabel(offset: number, iso: string): string {
 }
 const time = (iso: string) => new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 
-/** Best price per 1/X/2 outcome across bookmakers (match-winner market only). */
-function toRow(event: EventWithMarkets): MatchRow | null {
-  const markets = event.markets.filter((m) => m.type === 'match-winner');
-  if (!markets.length) return null;
-  const books = new Set(markets.map((m) => m.category)).size;
-  const best = new Map<string, OutcomeCell>();
-  for (const m of markets) {
-    for (const s of m.selections) {
-      if (!(s.odds > 1)) continue;
-      const name = s.name.trim().toLowerCase();
-      const key: OutcomeCell['key'] = name === event.homeTeam.trim().toLowerCase() ? '1'
-        : name === event.awayTeam.trim().toLowerCase() ? '2' : 'X';
-      const cur = best.get(key);
-      if (!cur || s.odds > cur.odds) {
-        best.set(key, { key, selectionId: s.id, label: s.name, odds: s.odds, bookmaker: m.category, probability: s.probability, ev: s.probability * s.odds - 1, books });
-      }
-    }
-  }
-  const outcomes = (['1', 'X', '2'] as const).map((k) => best.get(k)).filter((x): x is OutcomeCell => Boolean(x));
-  if (outcomes.length < 2) return null;
-  return { event, outcomes, bestEv: Math.max(...outcomes.map((o) => o.ev)) };
-}
-
 export function TodayPage() {
-  const { dataset, selectedDate, refresh, phase } = useIntelligence();
+  const { dataset, selectedDate, refresh, phase, nowTick } = useIntelligence();
   const slip = useSlip();
   const [filter, setFilter] = useState<Filter>('all');
   const [sport, setSport] = useState<string>('all');
@@ -73,7 +36,7 @@ export function TodayPage() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState<string | null>(null);
 
-  const rows = useMemo(() => (dataset ? liveEvents(dataset).map(toRow).filter((r): r is MatchRow => Boolean(r)) : []), [dataset]);
+  const rows = useMemo(() => (dataset ? liveEvents(dataset).map(toMatchRow).filter((r): r is MatchRow => Boolean(r)) : []), [dataset]);
   const sports = useMemo(() => [...new Set(rows.map((r) => r.event.sport))], [rows]);
   const picked = useMemo(() => new Set(slip.picks.map((p) => p.eventId)), [slip.picks]);
 
@@ -94,6 +57,7 @@ export function TodayPage() {
     return [...map.entries()];
   }, [visible]);
 
+  const hit = useMemo(() => matchOfTheDay(rows, nowTick), [rows, nowTick]);
   const liveCount = rows.filter((r) => r.event.status === 'LIVE').length;
   const valueCount = rows.filter((r) => r.bestEv > 0.005).length;
 
@@ -150,6 +114,12 @@ export function TodayPage() {
         </div>
       </section>
 
+      {hit && filter === 'all' && !query && (
+        <div className="mt-5">
+          <VersusHero row={hit} badge="Mecz dnia" compact isPicked={slip.has} onPick={(o) => pick(hit, o)} href={`/match/${encodeURIComponent(hit.event.id)}`} />
+        </div>
+      )}
+
       {phase === 'loading' && !dataset && <div className="mt-6 text-sm text-slate-400" role="status">Ładowanie meczów…</div>}
       {dataset && !visible.length && (
         <div className="mt-6 rounded-2xl border border-white/[.07] bg-white/[.02] p-6 text-sm text-slate-300">
@@ -177,12 +147,15 @@ export function TodayPage() {
                           ? <span className="inline-flex items-center gap-1 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-black text-red-300"><Radio size={10} className="animate-pulse" />LIVE</span>
                           : <span className="fl-num text-sm font-bold text-slate-300">{time(row.event.startTime)}</span>}
                       </div>
-                      <Link to={`/analysis/${encodeURIComponent(row.event.id)}`} className="group min-w-0">
+                      <Link to={`/match/${encodeURIComponent(row.event.id)}`} className="group flex min-w-0 items-center gap-3">
+                        <MiniCrests home={row.event.homeTeam} away={row.event.awayTeam} />
+                        <div className="min-w-0">
                         <div className="truncate text-sm font-bold text-white">{row.event.homeTeam}</div>
                         <div className="truncate text-sm font-bold text-white">{row.event.awayTeam}</div>
                         <div className="mt-0.5 flex items-center gap-1 text-[10px] text-slate-500">
                           {row.bestEv > 0.005 && <><Sparkles size={10} className="text-emerald-300" /><span className="text-emerald-300">kurs powyżej rynku</span> · </>}
                           {row.outcomes[0].books} bukm. <ChevronRight size={11} className="opacity-0 transition-opacity group-hover:opacity-100" />
+                        </div>
                         </div>
                       </Link>
                       <div className="col-span-2 grid grid-cols-3 gap-2 sm:col-span-1 sm:w-[264px]" role="group" aria-label={`Kursy: ${row.event.homeTeam} – ${row.event.awayTeam}`}>
@@ -212,6 +185,16 @@ export function TodayPage() {
         })}
       </div>
     </main>
+  );
+}
+
+function MiniCrests({ home, away }: { home: string; away: string }) {
+  const [h, a] = rivalIdentities(home, away);
+  return (
+    <span className="relative hidden h-10 w-12 shrink-0 sm:block" aria-hidden="true">
+      <span className="absolute left-0 top-0"><Crest id={h} size={28} /></span>
+      <span className="absolute bottom-0 right-0"><Crest id={a} size={28} /></span>
+    </span>
   );
 }
 

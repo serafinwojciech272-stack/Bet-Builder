@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownUp, BookmarkPlus, ChevronDown, Hand, RefreshCw, Shuffle, Sparkles, Trash2, Repeat2, LineChart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSlip } from '../state/SlipProvider';
+import { celebrate } from '../lib/celebrate';
+import { Crest } from '../components/Crest';
+import { rivalIdentities } from '../lib/teamIdentity';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { liveEvents } from '../services/liveAdapter';
 import {
@@ -142,8 +145,9 @@ export default function CouponLabPage() {
     setResult(removeCouponLeg(request, result, eventId)); setFlipKey((k) => k + 1);
   };
 
-  const saveCoupon = () => {
+  const saveCoupon = (e?: { clientX: number; clientY: number }) => {
     if (!result || !result.legs.length) return;
+    celebrate(e && e.clientX ? { x: e.clientX, y: e.clientY } : undefined);
     const entry = slip.save({
       stake: result.stake, combinedOdds: result.combinedOdds, targetOdds: result.targetOdds,
       probability: result.estimatedProbability, ev: result.estimatedEv,
@@ -255,7 +259,8 @@ export default function CouponLabPage() {
       {/* TICKET */}
       {result && result.legs.length > 0 && (
         <section className="mt-6 grid gap-5 lg:grid-cols-[1.6fr_.9fr]" aria-label="Wygenerowany kupon">
-          <div className="fl-ticket min-w-0 p-4 md:p-6">
+          <div className="fl-ticket relative min-w-0 p-4 md:p-6">
+            {savedId && <span className="fl-stamp" aria-hidden="true">ZAGRANE</span>}
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[.22em] text-slate-500">Twój kupon · {result.legs.length} {result.legs.length === 1 ? 'mecz' : 'mecze/ów'}</div>
@@ -312,7 +317,7 @@ export default function CouponLabPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={saveCoupon} disabled={Boolean(savedId)} className="fl-btn fl-cta inline-flex flex-1 items-center justify-center gap-2 px-4 text-xs font-black uppercase tracking-[.1em] disabled:opacity-60">
+              <button type="button" onClick={(e) => saveCoupon(e)} disabled={Boolean(savedId)} className="fl-btn fl-cta inline-flex flex-1 items-center justify-center gap-2 px-4 text-xs font-black uppercase tracking-[.1em] disabled:opacity-60">
                 <BookmarkPlus size={15} /> {savedId ? 'Zapisano' : 'Zapisz kupon'}
               </button>
               {savedId && <Link to="/my" className="fl-btn inline-flex items-center px-3 text-xs font-bold text-amber-200 underline">Moje kupony</Link>}
@@ -349,9 +354,12 @@ function LegRow({ leg, index, open, onToggle, onSwap, onRemove, aiState, mine }:
     <>
       <tr className="fl-row fl-in" style={{ ['--i' as string]: index }} data-open={open}>
         <td>
-          <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={detailsId} className="text-left">
+          <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={detailsId} className="flex items-center gap-3 text-left">
+            <LegCrests label={leg.eventLabel} />
+            <span className="min-w-0">
             <div className="text-sm font-bold text-white">{leg.eventLabel}</div>
             <div className="mt-0.5 text-[11px] text-slate-400">{mine && <span className="mr-1 rounded bg-amber-300/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-200">Twój typ</span>}{leg.league} · {kickoff(leg.startTime)}</div>
+            </span>
           </button>
         </td>
         <td className="text-sm text-slate-200">{leg.label}<div className="text-[10px] text-slate-500">{leg.bookmaker}</div></td>
@@ -377,5 +385,16 @@ function LegRow({ leg, index, open, onToggle, onSwap, onRemove, aiState, mine }:
         </tr>
       )}
     </>
+  );
+}
+
+function LegCrests({ label }: { label: string }) {
+  const [home = label, away = ''] = label.split(' vs ');
+  const [h, a] = rivalIdentities(home, away || home + '·');
+  return (
+    <span className="relative hidden h-9 w-11 shrink-0 sm:block" aria-hidden="true">
+      <span className="absolute left-0 top-0"><Crest id={h} size={24} /></span>
+      <span className="absolute bottom-0 right-0"><Crest id={a} size={24} /></span>
+    </span>
   );
 }
