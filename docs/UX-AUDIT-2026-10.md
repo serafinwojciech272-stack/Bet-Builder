@@ -77,7 +77,7 @@ Zasady:
 | Krok | Zakres | Status |
 |---|---|---|
 | UX-1 | Cel kursu steruje kuponem, przeliczanie na zmianę celu, tryby, „Losuj inny”, polskie komunikaty | ✅ zrobione (ten commit) |
-| UX-2 | „Dlaczego ten typ” + Podmień/Usuń per typ | następny |
+| UX-2 | „Dlaczego ten typ” + Podmień/Usuń/Analiza per typ | ✅ zrobione |
 | UX-3 | Jeden silnik: Builder klasyczny używa `couponEngine`, `dailyCoupon` tylko jako adapter API | |
 | UX-4 | Nawigacja 4-pozycyjna, usunięcie duplikatów tras, martwy Dashboard out | |
 | UX-5 | Słownik + polonizacja ścieżki głównej | |

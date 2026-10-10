@@ -26,7 +26,17 @@ export interface CouponRequest {
   excludeEventIds?: string[];
 }
 
-export interface CouponLeg extends Prediction { eventLabel: string; league: string; startTime: string; }
+export interface CouponLeg extends Prediction {
+  eventLabel: string;
+  league: string;
+  startTime: string;
+  /** Bookmaker offering this price. */
+  bookmaker: string;
+  /** How many bookmakers price this market (consensus depth). */
+  bookmakerCount: number;
+  /** One plain-language sentence: why this leg is on the coupon. */
+  reason: string;
+}
 
 export interface CouponResult {
   status: CouponStatus;
@@ -52,7 +62,7 @@ export interface CouponResult {
 const finite = (n: number) => Number.isFinite(n);
 const BEAM_WIDTH = 60;
 
-interface Candidate { p: Prediction; e: EventWithMarkets; logOdds: number; logProb: number; }
+interface Candidate { p: Prediction; e: EventWithMarkets; bookmaker: string; books: number; logOdds: number; logProb: number; }
 interface State { legs: Candidate[]; logOdds: number; logProb: number; events: Set<string>; }
 
 /**
@@ -103,10 +113,6 @@ export function generateCoupon(input: CouponRequest): CouponResult {
   const stake = finite(input.stake) && input.stake >= 0 ? input.stake : 0;
   const tolerance = Math.max(0.01, Math.min(0.5, input.tolerance ?? 0.2));
   const maxLegs = Math.min(12, Math.max(1, Math.floor(input.maxLegs ?? 8)));
-  const minLeg = input.minLegOdds ?? 1.2;
-  const maxLeg = input.maxLegOdds ?? 10;
-  const minEv = mode === 'VALUE_ONLY' ? 1e-9 : (input.minEv ?? -0.08);
-  const excluded = new Set(input.excludeEventIds ?? []);
 
   const empty = (blockers: string[], poolSize = 0, valuePoolSize = 0): CouponResult => ({
     status: 'BLOCKED', mode, targetOdds: target, combinedOdds: 0, targetReached: false, stake,
@@ -115,31 +121,20 @@ export function generateCoupon(input: CouponRequest): CouponResult {
   });
   if (!target) return empty(['TARGET_ODDS_INVALID']);
 
-  const all = input.events.flatMap((e) =>
-    e.markets.flatMap((m) => m.selections.map((s) => ({ p: predictSelection(s), e }))));
-  const valuePoolSize = all.filter((c) => c.p.ev > 0 && c.p.risk !== 'CRITICAL').length;
-
-  // one candidate per event: the selection with the highest EV (best price vs consensus)
-  const perEvent = new Map<string, { p: Prediction; e: EventWithMarkets }>();
-  for (const c of all) {
-    const { p } = c;
-    if (excluded.has(p.eventId) || !finite(p.marketOdds) || p.marketOdds < minLeg || p.marketOdds > maxLeg) continue;
-    if (p.risk === 'CRITICAL' || p.confidence < (input.minConfidence ?? 0.5) || p.ev < minEv || !(p.probability > 0)) continue;
-    const cur = perEvent.get(p.eventId);
-    // prefer more likely outcomes at equal EV so coupons are not longshot-heavy
-    if (!cur || p.ev > cur.p.ev + 1e-9 || (Math.abs(p.ev - cur.p.ev) <= 1e-9 && p.probability > cur.p.probability)) perEvent.set(p.eventId, c);
-  }
-  const cands: Candidate[] = [...perEvent.values()].map((c) => ({
-    ...c, logOdds: Math.log(c.p.marketOdds), logProb: Math.log(c.p.probability),
-  }));
+  const { cands, valuePoolSize } = buildCandidates(input, mode);
   if (!cands.length) {
     return empty([mode === 'VALUE_ONLY' ? 'NO_VALUE_SELECTIONS' : 'NO_QUALIFIED_SELECTIONS'], 0, valuePoolSize);
   }
 
   const picked = search(cands, target, tolerance, maxLegs);
-  const legs: CouponLeg[] = (picked?.legs ?? [])
-    .map(({ p, e }) => ({ ...p, eventLabel: e.homeTeam + ' vs ' + e.awayTeam, league: e.league, startTime: e.startTime }))
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  return finalize(input, mode, (picked?.legs ?? []).map(toLeg), cands.length, valuePoolSize);
+}
+
+function finalize(input: CouponRequest, mode: CouponMode, rawLegs: CouponLeg[], poolSize: number, valuePoolSize: number): CouponResult {
+  const target = input.targetOdds;
+  const stake = finite(input.stake) && input.stake >= 0 ? input.stake : 0;
+  const tolerance = Math.max(0.01, Math.min(0.5, input.tolerance ?? 0.2));
+  const legs = [...rawLegs].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const combined = legs.reduce((o, l) => o * l.marketOdds, 1);
   const probability = legs.reduce((p, l) => p * l.probability, 1);
@@ -159,11 +154,96 @@ export function generateCoupon(input: CouponRequest): CouponResult {
     potentialReturn: stake * (legs.length ? combined : 0),
     potentialProfit: Math.max(0, stake * combined - stake) * (legs.length ? 1 : 0),
     estimatedProbability: legs.length ? probability : 0, estimatedEv: ev, legs,
-    poolSize: cands.length, valuePoolSize, blockers, warnings,
+    poolSize, valuePoolSize, blockers, warnings,
     rationale: [
-      `Pula: ${cands.length} wydarzeń po filtrach (${valuePoolSize} typów z EV > 0 w całym feedzie).`,
+      `Pula: ${poolSize} wydarzeń po filtrach (${valuePoolSize} typów z EV > 0 w całym feedzie).`,
       `Cel ${target.toFixed(2)} ±${Math.round(tolerance * 100)}% · wynik ${legs.length ? combined.toFixed(2) : '—'}.`,
       `Szansa wg konsensusu rynku ${(probability * 100).toFixed(1)}% · EV ${(ev * 100).toFixed(1)}%.`,
     ],
   };
+}
+
+function buildCandidates(input: CouponRequest, mode: CouponMode): { cands: Candidate[]; valuePoolSize: number } {
+  const minLeg = input.minLegOdds ?? 1.2;
+  const maxLeg = input.maxLegOdds ?? 10;
+  const minEv = mode === 'VALUE_ONLY' ? 1e-9 : (input.minEv ?? -0.08);
+  const excluded = new Set(input.excludeEventIds ?? []);
+  const all = input.events.flatMap((e) => e.markets.flatMap((m) => {
+    const books = new Set(e.markets.filter((x) => x.type === m.type).map((x) => x.category)).size;
+    return m.selections.map((s) => ({ p: predictSelection(s), e, bookmaker: m.category, books }));
+  }));
+  const valuePoolSize = all.filter((c) => c.p.ev > 0 && c.p.risk !== 'CRITICAL').length;
+
+  // one candidate per event: the selection with the highest EV (best price vs consensus)
+  const perEvent = new Map<string, (typeof all)[number]>();
+  for (const c of all) {
+    const { p } = c;
+    if (excluded.has(p.eventId) || !finite(p.marketOdds) || p.marketOdds < minLeg || p.marketOdds > maxLeg) continue;
+    if (p.risk === 'CRITICAL' || p.confidence < (input.minConfidence ?? 0.5) || p.ev < minEv || !(p.probability > 0)) continue;
+    const cur = perEvent.get(p.eventId);
+    // prefer more likely outcomes at equal EV so coupons are not longshot-heavy
+    if (!cur || p.ev > cur.p.ev + 1e-9 || (Math.abs(p.ev - cur.p.ev) <= 1e-9 && p.probability > cur.p.probability)) perEvent.set(p.eventId, c);
+  }
+  const cands = [...perEvent.values()].map((c) => ({ ...c, logOdds: Math.log(c.p.marketOdds), logProb: Math.log(c.p.probability) }));
+  return { cands, valuePoolSize };
+}
+
+const pct = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)}%`;
+
+/** Plain-language rationale for a single leg (Polish, player-facing). */
+export function explainLeg(c: { p: Prediction; bookmaker: string; books: number }): string {
+  const { p } = c;
+  const fair = p.probability > 0 ? 1 / p.probability : 0;
+  const chance = `szansa wg rynku ${(p.probability * 100).toFixed(0)}%`;
+  if (c.books < 2) {
+    return `Kurs ${p.marketOdds.toFixed(2)} tylko u ${c.bookmaker} — brak porównania z innymi bukmacherami; ${chance}.`;
+  }
+  if (p.ev > 0.005) {
+    return `${c.bookmaker} płaci ${p.marketOdds.toFixed(2)}, a uczciwy kurs wg ${c.books} bukmacherów to ${fair.toFixed(2)} → przewaga ${pct(p.ev)}; ${chance}.`;
+  }
+  return `Najlepszy dostępny kurs (${c.bookmaker} ${p.marketOdds.toFixed(2)} vs uczciwy ${fair.toFixed(2)}), bez przewagi (${pct(p.ev)}); wybrany, bo pasuje do celu przy najwyższej szansie (${chance}).`;
+}
+
+function toLeg(c: Candidate): CouponLeg {
+  return {
+    ...c.p,
+    eventLabel: c.e.homeTeam + ' vs ' + c.e.awayTeam,
+    league: c.e.league,
+    startTime: c.e.startTime,
+    bookmaker: c.bookmaker,
+    bookmakerCount: c.books,
+    reason: explainLeg(c),
+  };
+}
+
+/**
+ * Replace one leg with the best alternative from events not on the coupon:
+ * keeps the combined odds as close to the target as possible, then prefers the
+ * most likely outcome. Events in `excludeEventIds` and current legs are skipped.
+ */
+export function swapCouponLeg(input: CouponRequest, current: CouponResult, eventId: string): CouponResult {
+  const mode = current.mode;
+  const { cands, valuePoolSize } = buildCandidates(input, mode);
+  const keep = current.legs.filter((l) => l.eventId !== eventId);
+  if (keep.length === current.legs.length) return current;
+  const used = new Set(current.legs.map((l) => l.eventId));
+  const rest = keep.reduce((o, l) => o * l.marketOdds, 1);
+  const wanted = Math.log(current.targetOdds / rest);
+  const tolerance = Math.max(0.01, Math.min(0.5, input.tolerance ?? 0.2));
+  const options = cands.filter((c) => !used.has(c.e.id));
+  if (!options.length) {
+    return { ...current, warnings: [...new Set([...current.warnings, 'NO_SWAP_AVAILABLE'])] };
+  }
+  const within = (c: Candidate) => Math.abs(c.logOdds - wanted) <= Math.log(1 + tolerance);
+  const best = [...options].sort((a, b) =>
+    Number(within(b)) - Number(within(a)) ||
+    (within(a) && within(b) ? b.logProb + b.logOdds - (a.logProb + a.logOdds) : Math.abs(a.logOdds - wanted) - Math.abs(b.logOdds - wanted)),
+  )[0];
+  return finalize(input, mode, [...keep, toLeg(best)], cands.length, valuePoolSize);
+}
+
+/** Drop one leg and recompute totals (the user accepts drifting from the target). */
+export function removeCouponLeg(input: CouponRequest, current: CouponResult, eventId: string): CouponResult {
+  const legs = current.legs.filter((l) => l.eventId !== eventId);
+  return finalize(input, current.mode, legs, current.poolSize, current.valuePoolSize);
 }

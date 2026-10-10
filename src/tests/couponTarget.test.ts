@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { generateCoupon } from '../core/couponEngine';
+import { explainLeg, generateCoupon, removeCouponLeg, swapCouponLeg } from '../core/couponEngine';
+import { predictSelection } from '../core/predictionEngine';
 import type { EventWithMarkets, Selection } from '../domain/types';
 
 const sel = (id: string, eventId: string, odds: number, probability: number): Selection => ({
@@ -48,5 +49,47 @@ describe('coupon engine honours the target odds', () => {
     const second = generateCoupon({ events, targetOdds: 10, stake: 20, excludeEventIds: first.legs.map((l) => l.eventId) });
     expect(second.legs.length).toBeGreaterThan(0);
     expect(second.legs.some((l) => first.legs.some((f) => f.eventId === l.eventId))).toBe(false);
+  });
+
+  it('every leg carries a plain-language reason and its bookmaker', () => {
+    const r = generateCoupon({ events, targetOdds: 10, stake: 20 });
+    for (const l of r.legs) {
+      expect(l.reason.length).toBeGreaterThan(20);
+      expect(l.bookmaker).toBe('x');
+    }
+  });
+});
+
+describe('per-leg actions', () => {
+  const req = { events, targetOdds: 10, stake: 20, maxLegs: 10 };
+
+  it('swap replaces exactly one event and keeps the coupon near the target', () => {
+    const base = generateCoupon(req);
+    const out = base.legs[0].eventId;
+    const next = swapCouponLeg(req, base, out);
+    expect(next.legs).toHaveLength(base.legs.length);
+    expect(next.legs.some((l) => l.eventId === out)).toBe(false);
+    const kept = base.legs.filter((l) => l.eventId !== out).map((l) => l.eventId);
+    expect(next.legs.filter((l) => kept.includes(l.eventId))).toHaveLength(kept.length);
+    expect(next.combinedOdds).toBeGreaterThan(10 * 0.7);
+    expect(next.combinedOdds).toBeLessThan(10 * 1.3);
+  });
+
+  it('remove drops the leg and recomputes payout', () => {
+    const base = generateCoupon(req);
+    const next = removeCouponLeg(req, base, base.legs[0].eventId);
+    expect(next.legs).toHaveLength(base.legs.length - 1);
+    expect(next.combinedOdds).toBeCloseTo(base.combinedOdds / base.legs[0].marketOdds, 6);
+    expect(next.potentialReturn).toBeCloseTo(20 * next.combinedOdds, 6);
+  });
+
+  it('explains value, no-value and single-bookmaker cases differently', () => {
+    const s = events[0].markets[0].selections[0];
+    const value = explainLeg({ p: { ...predictSelection(s), ev: 0.06, probability: 0.5, marketOdds: 2.12 }, bookmaker: 'STS', books: 3 });
+    const none = explainLeg({ p: { ...predictSelection(s), ev: -0.03 }, bookmaker: 'STS', books: 3 });
+    const single = explainLeg({ p: predictSelection(s), bookmaker: 'STS', books: 1 });
+    expect(value).toMatch(/przewaga \+6\.0%/);
+    expect(none).toMatch(/bez przewagi/);
+    expect(single).toMatch(/tylko u STS/);
   });
 });
