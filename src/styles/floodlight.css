@@ -115,3 +115,29 @@
   .fl-row td:nth-child(5) { grid-column: 1 / -1; grid-row: 3; text-align: left !important; border-top: 1px solid rgba(255,255,255,.06) !important; padding-top: 4px !important; }
   .fl-row td[colspan] { grid-column: 1 / -1; grid-row: auto; }
 }
+
+/* odds buttons (Dziś) */
+.fl-odd { position: relative; display: flex; min-height: 52px; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 12px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.03); color: #fff; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.fl-odd:hover { border-color: rgba(240,203,122,.45); transform: translateY(-1px); }
+.fl-odd:focus-visible { outline: 2px solid var(--bb-cyan); outline-offset: 2px; }
+.fl-odd--on { border-color: rgba(240,203,122,.9); background: linear-gradient(180deg, rgba(240,203,122,.28), rgba(240,203,122,.08)); color: #fff3d1; box-shadow: 0 10px 26px -14px rgba(240,203,122,.8); }
+.fl-odd__dot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #5ee6a5; box-shadow: 0 0 8px #5ee6a5; }
+.fl-pop { animation: fl-pop .45s cubic-bezier(.2,.8,.2,1); }
+@keyframes fl-pop { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* floating slip dock */
+.fl-dock { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 60; width: min(560px, calc(100% - 24px)); transform: translateX(-50%); border-radius: 20px; border: 1px solid rgba(240,203,122,.35); background: rgba(10,14,24,.88); backdrop-filter: blur(14px); box-shadow: 0 24px 60px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.03) inset; view-transition-name: slip-dock; }
+.fl-dock__count { display: grid; place-items: center; min-width: 40px; height: 40px; border-radius: 12px; background: #f0cb7a; color: #1a1306; font-weight: 900; }
+.fl-bump { animation: fl-pop .45s cubic-bezier(.2,.8,.2,1); }
+.fl-dock-enter { animation: fl-dock-in .35s cubic-bezier(.2,.8,.2,1); }
+@keyframes fl-dock-in { from { opacity: 0; transform: translate(-50%, 24px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* saved coupons: stacked tickets */
+.fl-stack > * + * { margin-top: 14px; }
+
+::view-transition-group(slip-dock) { animation-duration: .35s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fl-pop, .fl-bump, .fl-dock-enter { animation: none !important; }
+  .fl-odd { transition: none; }
+}

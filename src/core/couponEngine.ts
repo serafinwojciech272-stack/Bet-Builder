@@ -24,6 +24,8 @@ export interface CouponRequest {
   minEv?: number;
   /** Event ids that must not be used (\"Losuj inny kupon\"). */
   excludeEventIds?: string[];
+  /** Selections the user picked by hand; always kept, the engine fills the rest to the target. */
+  lockedSelectionIds?: string[];
 }
 
 export interface CouponLeg extends Prediction {
@@ -131,18 +133,30 @@ export function generateCoupon(input: CouponRequest): CouponResult {
   });
   if (!target) return empty(['TARGET_ODDS_INVALID']);
 
-  const { cands, valuePoolSize, eventCount } = buildCandidates(input, mode);
+  const locked = resolveSelections(input.events, input.lockedSelectionIds ?? []);
+  const lockedOdds = locked.reduce((o, c) => o * c.p.marketOdds, 1);
+  const lockedLegs = locked.map(toLeg);
+  const lockedEvents = locked.map((c) => c.e.id);
+  const { cands, valuePoolSize, eventCount } = buildCandidates(
+    { ...input, excludeEventIds: [...(input.excludeEventIds ?? []), ...lockedEvents] }, mode);
+
+  // the hand-picked legs already reach the target (or there is no room left): keep them as they are
+  const remainingTarget = target / lockedOdds;
+  const room = maxLegs - locked.length;
+  if (locked.length && (remainingTarget <= 1 + tolerance || room <= 0 || !cands.length)) {
+    return finalize(input, mode, lockedLegs, eventCount, valuePoolSize);
+  }
   if (!cands.length) {
     return empty([mode === 'VALUE_ONLY' ? 'NO_VALUE_SELECTIONS' : 'NO_QUALIFIED_SELECTIONS'], 0, valuePoolSize);
   }
 
   let picked: State | null = null;
   for (const tier of [...TOLERANCE_TIERS.filter((t) => t < tolerance), tolerance]) {
-    const attempt = search(cands, target, tier, maxLegs);
-    if (attempt && within(attempt.logOdds, target, tier)) { picked = attempt; break; }
-    if (attempt && (!picked || Math.abs(attempt.logOdds - Math.log(target)) < Math.abs(picked.logOdds - Math.log(target)))) picked = attempt;
+    const attempt = search(cands, remainingTarget, tier, room);
+    if (attempt && within(attempt.logOdds, remainingTarget, tier)) { picked = attempt; break; }
+    if (attempt && (!picked || Math.abs(attempt.logOdds - Math.log(remainingTarget)) < Math.abs(picked.logOdds - Math.log(remainingTarget)))) picked = attempt;
   }
-  return finalize(input, mode, (picked?.legs ?? []).map(toLeg), eventCount, valuePoolSize);
+  return finalize(input, mode, [...lockedLegs, ...(picked?.legs ?? []).map(toLeg)], eventCount, valuePoolSize);
 }
 
 function finalize(input: CouponRequest, mode: CouponMode, rawLegs: CouponLeg[], poolSize: number, valuePoolSize: number): CouponResult {
@@ -266,4 +280,34 @@ export function swapCouponLeg(input: CouponRequest, current: CouponResult, event
 export function removeCouponLeg(input: CouponRequest, current: CouponResult, eventId: string): CouponResult {
   const legs = current.legs.filter((l) => l.eventId !== eventId);
   return finalize(input, current.mode, legs, current.poolSize, current.valuePoolSize);
+}
+
+/**
+ * Resolve user-picked selection ids to concrete legs at the best available
+ * price (the same outcome is quoted by several bookmakers under one id).
+ * One leg per event; unknown ids are ignored.
+ */
+function resolveSelections(events: EventWithMarkets[], selectionIds: string[]): Candidate[] {
+  if (!selectionIds.length) return [];
+  const wanted = new Set(selectionIds);
+  const best = new Map<string, Candidate>();
+  for (const e of events) {
+    for (const m of e.markets) {
+      const books = new Set(e.markets.filter((x) => x.type === m.type).map((x) => x.category)).size;
+      for (const s of m.selections) {
+        if (!wanted.has(s.id) || !finite(s.odds) || s.odds <= 1) continue;
+        const p = predictSelection(s);
+        const cur = best.get(e.id);
+        if (!cur || p.marketOdds > cur.p.marketOdds) {
+          best.set(e.id, { p, e, bookmaker: m.category, books, logOdds: Math.log(p.marketOdds), logProb: Math.log(Math.max(1e-9, p.probability)) });
+        }
+      }
+    }
+  }
+  return [...best.values()];
+}
+
+/** Public helper for the slip: picked selections as coupon legs (best price, with reasons). */
+export function legsForSelections(events: EventWithMarkets[], selectionIds: string[]): CouponLeg[] {
+  return resolveSelections(events, selectionIds).map(toLeg);
 }

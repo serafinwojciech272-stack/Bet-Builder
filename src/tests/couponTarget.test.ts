@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainLeg, generateCoupon, removeCouponLeg, swapCouponLeg } from '../core/couponEngine';
+import { explainLeg, generateCoupon, legsForSelections, removeCouponLeg, swapCouponLeg } from '../core/couponEngine';
 import { predictSelection } from '../core/predictionEngine';
 import type { EventWithMarkets, Selection } from '../domain/types';
 
@@ -101,5 +101,23 @@ describe('per-leg actions', () => {
     expect(value).toMatch(/przewaga \+6\.0%/);
     expect(none).toMatch(/bez przewagi/);
     expect(single).toMatch(/tylko u STS/);
+  });
+});
+
+describe('hand-picked legs', () => {
+  it('keeps the picked legs and fills the rest to the target', () => {
+    const picks = [events[3].markets[0].selections[1].id, events[7].markets[0].selections[0].id];
+    const r = generateCoupon({ events, targetOdds: 20, stake: 10, lockedSelectionIds: picks });
+    for (const id of picks) expect(r.legs.some((l) => l.selectionId === id)).toBe(true);
+    expect(r.legs.length).toBeGreaterThan(2);
+    expect(Math.abs(r.targetDeviation)).toBeLessThan(0.12);
+    expect(new Set(r.legs.map((l) => l.eventId)).size).toBe(r.legs.length);
+  });
+
+  it('returns only the picks when they already reach the target', () => {
+    const picks = events.slice(0, 4).map((e) => e.markets[0].selections[1].id);
+    const product = legsForSelections(events, picks).reduce((o, l) => o * l.marketOdds, 1);
+    const r = generateCoupon({ events, targetOdds: product * 0.95, stake: 10, lockedSelectionIds: picks });
+    expect(r.legs.map((l) => l.selectionId).sort()).toEqual([...picks].sort());
   });
 });

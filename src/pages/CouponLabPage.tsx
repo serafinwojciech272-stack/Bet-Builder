@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownUp, ChevronDown, RefreshCw, Shuffle, Sparkles, Trash2, Repeat2, LineChart } from 'lucide-react';
+import { ArrowDownUp, BookmarkPlus, ChevronDown, Hand, RefreshCw, Shuffle, Sparkles, Trash2, Repeat2, LineChart } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useSlip } from '../state/SlipProvider';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { liveEvents } from '../services/liveAdapter';
 import {
@@ -97,16 +99,21 @@ export default function CouponLabPage() {
   const [sort, setSort] = useState<SortKey>('time');
   const [flipKey, setFlipKey] = useState(0);
   const events = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]);
+  const slip = useSlip();
+  const [useMine, setUseMine] = useState(true);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const mine = useMine ? slip.picks.map((p) => p.selectionId) : [];
+  const mineEvents = new Set(slip.picks.map((p) => p.eventId));
 
-  const generate = async (opts: { target?: string; stake?: string; mode?: CouponMode; exclude?: string[] } = {}) => {
+  const generate = async (opts: { target?: string; stake?: string; mode?: CouponMode; exclude?: string[]; locked?: string[] } = {}) => {
     if (!dataset) { setMessage('Brak danych. Odśwież źródło.'); return; }
     const req: CouponRequest = {
       events, targetOdds: Number(opts.target ?? target), stake: Number(opts.stake ?? stake),
       tolerance: 0.2, maxLegs: 10, minLegOdds: 1.2, maxLegOdds: 6, minConfidence: 0.5,
-      mode: opts.mode ?? mode, excludeEventIds: opts.exclude ?? [],
+      mode: opts.mode ?? mode, excludeEventIds: opts.exclude ?? [], lockedSelectionIds: opts.locked ?? mine,
     };
     const coupon = generateCoupon(req);
-    setRequest(req); setExcluded(opts.exclude ?? []); setResult(coupon); setOpen(null); setFlipKey((k) => k + 1);
+    setRequest(req); setExcluded(opts.exclude ?? []); setResult(coupon); setOpen(null); setFlipKey((k) => k + 1); setSavedId(null);
     if (coupon.status === 'BLOCKED') { setMessage(couponMessage(coupon)); return; }
     setMessage('');
     const next: Record<string, 'loading' | 'ok' | 'failed'> = {};
@@ -131,7 +138,18 @@ export default function CouponLabPage() {
   };
   const removeLeg = (eventId: string) => {
     if (!request || !result) return;
+    if (mineEvents.has(eventId)) slip.remove(eventId);
     setResult(removeCouponLeg(request, result, eventId)); setFlipKey((k) => k + 1);
+  };
+
+  const saveCoupon = () => {
+    if (!result || !result.legs.length) return;
+    const entry = slip.save({
+      stake: result.stake, combinedOdds: result.combinedOdds, targetOdds: result.targetOdds,
+      probability: result.estimatedProbability, ev: result.estimatedEv,
+      legs: result.legs.map((l) => ({ eventId: l.eventId, selectionId: l.selectionId, eventLabel: l.eventLabel, league: l.league, startTime: l.startTime, label: l.label, odds: l.marketOdds, bookmaker: l.bookmaker, probability: l.probability })),
+    });
+    setSavedId(entry.id);
   };
 
   const legs = useMemo(() => {
@@ -220,6 +238,17 @@ export default function CouponLabPage() {
             {dataset ? `${events.length} meczów · ${dataset.providerHealth?.bookmakerCount ?? '?'} bukmacherów${ageMin !== null ? ` · kursy sprzed ${ageMin} min` : ''}` : 'Brak danych'}
           </span>
         </div>
+        {slip.picks.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-300/25 bg-black/40 px-4 py-3 backdrop-blur">
+            <Hand size={16} className="text-amber-200" />
+            <div className="min-w-0 flex-1 text-sm text-slate-200">
+              <b className="text-white">{slip.picks.length} {slip.picks.length === 1 ? 'Twój typ' : 'Twoje typy'}</b> z listy meczów · kurs {slip.combinedOdds.toFixed(2)}
+              <div className="truncate text-[11px] text-slate-400">{slip.picks.map((p) => `${p.label} @ ${p.odds.toFixed(2)}`).join(' · ')}</div>
+            </div>
+            <button type="button" aria-pressed={useMine} onClick={() => { const next = !useMine; setUseMine(next); if (result) void generate({ locked: next ? slip.picks.map((p) => p.selectionId) : [] }); }} className="fl-chip px-3 text-xs font-bold text-slate-200">{useMine ? 'Uwzględniam — dobiorę resztę' : 'Pomijam moje typy'}</button>
+            <Link to="/" className="fl-btn inline-flex items-center px-3 text-xs font-bold text-amber-200 underline">Zmień typy</Link>
+          </div>
+        )}
         {message && <div role="status" className="mt-4 rounded-xl border border-amber-300/20 bg-black/40 px-4 py-3 text-sm text-amber-100 backdrop-blur">{message}</div>}
       </section>
 
@@ -249,7 +278,7 @@ export default function CouponLabPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {legs.map((leg, i) => <LegRow key={leg.selectionId + flipKey} leg={leg} index={i} open={open === leg.eventId} onToggle={() => setOpen(open === leg.eventId ? null : leg.eventId)} onSwap={() => swapLeg(leg.eventId)} onRemove={() => removeLeg(leg.eventId)} aiState={ai[leg.eventId]} />)}
+                  {legs.map((leg, i) => <LegRow key={leg.selectionId + flipKey} leg={leg} index={i} open={open === leg.eventId} onToggle={() => setOpen(open === leg.eventId ? null : leg.eventId)} onSwap={() => swapLeg(leg.eventId)} onRemove={() => removeLeg(leg.eventId)} aiState={ai[leg.eventId]} mine={mineEvents.has(leg.eventId)} />)}
                 </tbody>
               </table>
             </div>
@@ -282,6 +311,13 @@ export default function CouponLabPage() {
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={saveCoupon} disabled={Boolean(savedId)} className="fl-btn fl-cta inline-flex flex-1 items-center justify-center gap-2 px-4 text-xs font-black uppercase tracking-[.1em] disabled:opacity-60">
+                <BookmarkPlus size={15} /> {savedId ? 'Zapisano' : 'Zapisz kupon'}
+              </button>
+              {savedId && <Link to="/my" className="fl-btn inline-flex items-center px-3 text-xs font-bold text-amber-200 underline">Moje kupony</Link>}
+            </div>
+
             {result.warnings.filter((w) => w !== 'NEGATIVE_EV').length > 0 && (
               <div className="rounded-2xl border border-amber-300/20 bg-amber-400/[.05] p-4 text-xs leading-5 text-amber-100">
                 {result.warnings.filter((w) => w !== 'NEGATIVE_EV').map((w) => WARNING_COPY[w] ?? w).join(' ')}
@@ -304,8 +340,8 @@ export default function CouponLabPage() {
   );
 }
 
-function LegRow({ leg, index, open, onToggle, onSwap, onRemove, aiState }: {
-  leg: CouponLeg; index: number; open: boolean; aiState?: 'loading' | 'ok' | 'failed';
+function LegRow({ leg, index, open, onToggle, onSwap, onRemove, aiState, mine }: {
+  leg: CouponLeg; index: number; open: boolean; aiState?: 'loading' | 'ok' | 'failed'; mine?: boolean;
   onToggle: () => void; onSwap: () => void; onRemove: () => void;
 }) {
   const detailsId = `leg-${index}-details`;
@@ -315,7 +351,7 @@ function LegRow({ leg, index, open, onToggle, onSwap, onRemove, aiState }: {
         <td>
           <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={detailsId} className="text-left">
             <div className="text-sm font-bold text-white">{leg.eventLabel}</div>
-            <div className="mt-0.5 text-[11px] text-slate-400">{leg.league} · {kickoff(leg.startTime)}</div>
+            <div className="mt-0.5 text-[11px] text-slate-400">{mine && <span className="mr-1 rounded bg-amber-300/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-200">Twój typ</span>}{leg.league} · {kickoff(leg.startTime)}</div>
           </button>
         </td>
         <td className="text-sm text-slate-200">{leg.label}<div className="text-[10px] text-slate-500">{leg.bookmaker}</div></td>

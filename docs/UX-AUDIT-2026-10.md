@@ -78,10 +78,10 @@ Zasady:
 |---|---|---|
 | UX-1 | Cel kursu steruje kuponem, przeliczanie na zmianę celu, tryby, „Losuj inny”, polskie komunikaty | ✅ zrobione (ten commit) |
 | UX-2 | „Dlaczego ten typ” + Podmień/Usuń/Analiza per typ | ✅ zrobione |
-| UX-3 | Jeden silnik: Builder klasyczny używa `couponEngine`, `dailyCoupon` tylko jako adapter API | |
-| UX-4 | Nawigacja 4-pozycyjna, usunięcie duplikatów tras, martwy Dashboard out | |
+| UX-3 | Jeden przepływ kuponu: typy wybrane w „Dziś” trafiają do Kuponu, silnik dobiera resztę do celu (`lockedSelectionIds`) | 🟡 przepływ gotowy; klasyczny Builder do wygaszenia |
+| UX-4 | Nawigacja: Dziś · Kupon · Moje kupony · Analiza · AI Cockpit · Misje (z 8 pozycji); Live/Sports scalone w „Dziś” | ✅ zrobione |
 | UX-5 | Słownik + polonizacja ścieżki głównej | |
-| UX-6 | „Moje kupony” zamiast Misji dla gracza: zapis 1 klik, status, wynik | |
+| UX-6 | „Moje kupony”: zapis 1 klik, bilety, status (przed/w grze/zakończone) | ✅ zrobione (wynik po F3) |
 | UX-7 | Wyniki: trafność, ROI, CLV | wymaga F3 (snapshoty zamknięcia) |
 | UX-8 | Odpowiedzialna gra: 18+, limity | wymóg przed monetyzacją |
 
