@@ -4,6 +4,7 @@ import './index.css'
 import './deep-enhance.css'
 import './visual-polish.css'
 import './styles/core-ux.css'
+import './styles/floodlight.css'
 import { detectBrowserLang, installLanguageObserver } from './i18n'
 import App from './App.tsx'
 

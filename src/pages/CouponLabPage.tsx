@@ -1,53 +1,345 @@
-import {useMemo,useState} from 'react';
-import {Sparkles,RefreshCw,ShieldCheck,Target,WalletCards,BrainCircuit} from 'lucide-react';
-import {useIntelligence} from '../state/IntelligenceProvider';
-import {liveEvents} from '../services/liveAdapter';
-import {generateCoupon,removeCouponLeg,swapCouponLeg,type CouponMode,type CouponRequest,type CouponResult} from '../core/couponEngine';
-import {evaluateRiskPolicy} from '../core/riskPolicy';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownUp, ChevronDown, RefreshCw, Shuffle, Sparkles, Trash2, Repeat2, LineChart } from 'lucide-react';
+import { useIntelligence } from '../state/IntelligenceProvider';
+import { liveEvents } from '../services/liveAdapter';
+import {
+  generateCoupon, removeCouponLeg, swapCouponLeg,
+  type CouponLeg, type CouponMode, type CouponRequest, type CouponResult,
+} from '../core/couponEngine';
+import { evaluateRiskPolicy } from '../core/riskPolicy';
 
-const WARNING_COPY:Record<string,string>={
- NEGATIVE_EV:'Brak przewagi: kursy są poniżej uczciwej wyceny rynku (marża bukmachera). Długoterminowo taki kupon traci.',
- TARGET_NOT_REACHED:'Nie udało się trafić w docelowy kurs z dostępnych wydarzeń — pokazano najbliższy możliwy.',
- ZERO_STAKE:'Stawka wynosi 0 PLN.',
- NO_SWAP_AVAILABLE:'Brak innego wydarzenia do podmiany przy obecnych filtrach.',
+const TARGETS = ['2', '5', '10', '25', '50', '100'] as const;
+const STAKES = ['10', '20', '50', '100'] as const;
+
+const WARNING_COPY: Record<string, string> = {
+  NEGATIVE_EV: 'Brak przewagi: kursy są poniżej uczciwej wyceny rynku (marża bukmachera). Na dłuższą metę taki kupon traci.',
+  TARGET_NOT_REACHED: 'Z dostępnych meczów nie da się trafić dokładnie w cel — pokazano najbliższy możliwy kupon.',
+  ZERO_STAKE: 'Stawka wynosi 0 PLN.',
+  NO_SWAP_AVAILABLE: 'Brak innego meczu do podmiany przy obecnych filtrach.',
 };
-function couponMessage(c:CouponResult){
- if(c.blockers.includes('NO_VALUE_SELECTIONS'))return `Brak typów z przewagą (EV > 0) w aktualnym feedzie. Przełącz na „Najlepsze dostępne kursy” albo odśwież dane później.`;
- if(c.blockers.includes('NO_QUALIFIED_SELECTIONS'))return `Żadne wydarzenie nie spełnia filtrów (kurs 1.20–6.00, pewność danych). Pula: ${c.poolSize}.`;
- if(c.blockers.includes('TARGET_ODDS_INVALID'))return 'Podaj docelowy kurs większy niż 1.';
- return 'Kupon zablokowany: '+c.blockers.join(', ');
+
+function couponMessage(c: CouponResult): string {
+  if (c.blockers.includes('NO_VALUE_SELECTIONS')) return 'Brak typów z przewagą nad rynkiem w aktualnym feedzie. Przełącz na „Najlepsze kursy” albo wróć później.';
+  if (c.blockers.includes('NO_QUALIFIED_SELECTIONS')) return `Żaden mecz nie spełnia filtrów (kurs 1.20–6.00). W puli: ${c.poolSize} meczów.`;
+  if (c.blockers.includes('TARGET_ODDS_INVALID')) return 'Podaj docelowy kurs większy niż 1.';
+  return 'Nie udało się zbudować kuponu.';
 }
 
-export default function CouponLabPage(){
- const {dataset,selectedDate,refresh,runAnalysis,phase}=useIntelligence();
- const [target,setTarget]=useState('50'); const [stake,setStake]=useState('20'); const [result,setResult]=useState<CouponResult|null>(null); const [ai,setAi]=useState<Record<string,'loading'|'ok'|'failed'>>({}); const [message,setMessage]=useState(''); const [mode,setMode]=useState<CouponMode>('BEST_AVAILABLE'); const [excluded,setExcluded]=useState<string[]>([]); const [request,setRequest]=useState<CouponRequest|null>(null);
- const events=useMemo(()=>dataset?liveEvents(dataset):[],[dataset]);
- const generate=async(opts:{target?:string;mode?:CouponMode;exclude?:string[]}={})=>{if(!dataset){setMessage('Brak datasetu danych. Odśwież źródło.');return;} const numericTarget=Number(opts.target??target),numericStake=Number(stake); const req:CouponRequest={events,targetOdds:numericTarget,stake:numericStake,tolerance:.2,maxLegs:10,minLegOdds:1.2,maxLegOdds:6,minConfidence:.5,mode:opts.mode??mode,excludeEventIds:opts.exclude??[]}; const coupon=generateCoupon(req); setRequest(req); setExcluded(opts.exclude??[]); setResult(coupon); if(coupon.status==='BLOCKED'){setMessage(couponMessage(coupon));return;} const next:Record<string,'loading'|'ok'|'failed'>={}; coupon.legs.forEach(l=>next[l.eventId]='loading');setAi(next); setMessage('Core Engine AI analizuje '+coupon.legs.length+' wybranych wydarzeń…'); await Promise.all(coupon.legs.map(async leg=>{try{const analysis=await runAnalysis(leg.eventId,{depth:'deep'});setAi(p=>({...p,[leg.eventId]:analysis?'ok':'failed'}));}catch{setAi(p=>({...p,[leg.eventId]:'failed'}));}})); setMessage('Analiza zakończona. Wynik kuponu pozostaje oznaczony jako modelowy i wymaga weryfikacji wyniku.');};
- const swapLeg=(eventId:string)=>{if(!request||!result)return;const label=result.legs.find(l=>l.eventId===eventId)?.eventLabel;const next=swapCouponLeg({...request,excludeEventIds:[...(request.excludeEventIds??[]),eventId]},result,eventId);setRequest(r=>r&&{...r,excludeEventIds:[...(r.excludeEventIds??[]),eventId]});setResult(next);setMessage(next.warnings.includes('NO_SWAP_AVAILABLE')?'Brak innego wydarzenia do podmiany przy obecnych filtrach.':`Podmieniono: ${label} → ${next.legs.find(l=>!result.legs.some(o=>o.eventId===l.eventId))?.eventLabel??'—'}.`);};
- const removeLeg=(eventId:string)=>{if(!request||!result)return;const label=result.legs.find(l=>l.eventId===eventId)?.eventLabel;setResult(removeCouponLeg(request,result,eventId));setMessage(`Usunięto z kuponu: ${label}.`);};
- const policy=result&&evaluateRiskPolicy({selections:result.legs.map(l=>({id:l.selectionId,marketId:l.marketId,eventId:l.eventId,name:l.label,shortName:l.label,odds:l.marketOdds,probability:l.probability,impliedProbability:1/l.marketOdds,value:l.edge,ev:l.ev,confidence:l.confidence,risk:l.risk,correlationGroup:l.marketId})),dataFreshness:dataset?.providerHealth?Math.max(0,1-dataset.providerHealth.ageSeconds/Math.max(1,dataset.providerHealth.staleAfterSeconds)):0,evidenceQuality:dataset?.providerHealth?.state==='HEALTHY'?.8:.5,providerState:dataset?.providerHealth?.state??'OFFLINE'});
- if(phase==='loading'&&!dataset)return <div className="mx-auto max-w-[1200px] px-5 py-12 text-slate-400">Ładowanie danych sportowych…</div>;
- return <main className="mx-auto w-full max-w-[1380px] px-4 py-6 md:px-6 md:py-8">
-  <section className="glass-strong overflow-hidden rounded-3xl border border-violet-400/20 p-5 md:p-8">
-   <div className="flex flex-wrap items-end justify-between gap-5"><div><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.24em] text-violet-300"><Sparkles size={13}/> Core Engine · Coupon Lab</div><h1 className="mt-2 text-3xl font-black text-white md:text-5xl">Generator kuponu</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Pobierz aktualne wydarzenia i kursy, zastosuj ranking predykcyjny, wybierz rozdzielone zdarzenia pod zadany kurs i przelicz potencjalny zwrot.</p></div><button type="button" onClick={()=>void refresh(selectedDate,true)} className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs font-bold text-white"><RefreshCw size={14} className="mr-2 inline"/>Odśwież dane</button></div>
-   <div className="mt-7 grid gap-3 md:grid-cols-4">
-    <label className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-500">Docelowy kurs<div className="mt-1.5 flex items-center rounded-xl border border-violet-400/25 bg-black/20 px-3"><Target size={14} className="text-violet-300"/><input value={target} onChange={e=>setTarget(e.target.value)} type="number" min="1.01" step="0.01" className="w-full bg-transparent px-2 py-3 text-lg font-black text-white outline-none"/></div></label>
-    <label className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-500">Stawka<div className="mt-1.5 flex items-center rounded-xl border border-amber-400/20 bg-black/20 px-3"><WalletCards size={14} className="text-amber-300"/><input value={stake} onChange={e=>setStake(e.target.value)} type="number" min="0" step="0.01" className="w-full bg-transparent px-2 py-3 text-lg font-black text-white outline-none"/><span className="text-xs text-slate-600">PLN</span></div></label>
-    <div className="md:col-span-2"><div className="text-[9px] font-bold uppercase tracking-[.16em] text-slate-500">Szybki cel</div><div className="mt-1.5 grid grid-cols-5 gap-2">{['5','10','50','100','150'].map(v=><button key={v} type="button" onClick={()=>{setTarget(v);if(result)void generate({target:v});}} className={target===v?'rounded-xl border border-violet-300/50 bg-violet-400/15 py-3 text-sm font-black text-violet-100':'rounded-xl border border-white/10 bg-white/[.03] py-3 text-sm font-bold text-slate-300 hover:bg-white/[.06]'}>x{v}</button>)}</div></div>
-   </div>
-   <button type="button" onClick={()=>void generate()} disabled={!dataset} className="mt-5 w-full rounded-2xl border border-violet-300/30 bg-violet-500/15 px-5 py-4 text-sm font-black text-white shadow-[0_0_40px_rgba(120,80,255,.12)]"><BrainCircuit size={17} className="mr-2 inline"/>ANALIZUJ I GENERUJ KUPON</button>
-   <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Tryb doboru typów">{([['BEST_AVAILABLE','Najlepsze dostępne kursy'],['VALUE_ONLY','Tylko z przewagą (EV > 0)']] as const).map(([m,l])=><button key={m} type="button" aria-pressed={mode===m} onClick={()=>{setMode(m);if(result)void generate({mode:m});}} className={mode===m?'min-h-[44px] rounded-xl border border-cyan-300/40 bg-cyan-400/10 px-3 text-xs font-bold text-cyan-100':'min-h-[44px] rounded-xl border border-white/10 bg-white/[.03] px-3 text-xs font-bold text-slate-400'}>{l}</button>)}{result&&result.legs.length>0&&<button type="button" onClick={()=>void generate({exclude:[...excluded,...result.legs.map(l=>l.eventId)]})} className="min-h-[44px] rounded-xl border border-white/10 bg-white/[.03] px-3 text-xs font-bold text-slate-300">Losuj inny zestaw</button>}{excluded.length>0&&<button type="button" onClick={()=>void generate({exclude:[]})} className="min-h-[44px] rounded-xl px-3 text-xs font-bold text-slate-500 underline">Wróć do najlepszego</button>}</div>
-   {message&&<div role="status" className="mt-3 rounded-xl border border-white/[.08] bg-white/[.025] px-4 py-3 text-xs text-slate-300">{message}</div>}
-  </section>
-  {result&&<section className="mt-5 grid gap-4 lg:grid-cols-[1.5fr_.7fr]">
-   <div className="glass rounded-2xl border border-white/[.08] p-4 md:p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[9px] font-black uppercase tracking-[.2em] text-violet-300">Wygenerowany kupon · {selectedDate}</div><h2 className="mt-1 text-2xl font-black text-white">Kurs {result.combinedOdds.toFixed(2)} <span className="text-sm font-bold text-slate-500">/ cel {result.targetOdds.toFixed(2)}</span></h2><div className="mt-1 text-[11px] text-slate-500">Pula: {result.poolSize} wydarzeń · {result.valuePoolSize} typów z przewagą nad rynkiem</div></div><span className={result.status==='READY'?'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-[9px] font-black text-emerald-300':result.status==='REVIEW'?'rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-[9px] font-black text-amber-300':'rounded-full border border-red-400/20 bg-red-400/10 px-3 py-1.5 text-[9px] font-black text-red-300'}>{result.status}</span></div>
-    <div className="mt-4 space-y-2">{result.legs.map((leg,i)=><article key={leg.selectionId} className="rounded-xl border border-white/[.07] bg-white/[.025] p-3"><div className="flex items-start gap-3"><span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-violet-400/10 text-[10px] font-black text-violet-300">{i+1}</span><div className="min-w-0 flex-1"><div className="text-sm font-bold text-white">{leg.eventLabel}</div><div className="mt-1 text-xs text-slate-400">{leg.label} · {leg.league} · {new Date(leg.startTime).toLocaleString('pl-PL',{weekday:'short',hour:'2-digit',minute:'2-digit'})}</div><p className="mt-2 text-xs leading-5 text-slate-300"><span className="font-bold text-slate-200">Dlaczego: </span>{leg.reason}</p><div className="mt-2 flex flex-wrap gap-2 text-[9px] font-bold"><span className="rounded-full bg-white/[.04] px-2 py-1 text-amber-200">kurs {leg.marketOdds.toFixed(2)}</span><span className={leg.ev>0?'rounded-full bg-white/[.04] px-2 py-1 text-emerald-300':'rounded-full bg-white/[.04] px-2 py-1 text-slate-400'}>{leg.ev>0?'przewaga':'bez przewagi'} {(leg.ev*100).toFixed(1)}%</span><span className="rounded-full bg-white/[.04] px-2 py-1 text-slate-300">{leg.bookmaker}</span><span className="rounded-full bg-white/[.04] px-2 py-1 text-slate-400">{ai[leg.eventId]==='loading'?'AI analizuje…':ai[leg.eventId]==='ok'?'AI: sprawdzone':'AI: do weryfikacji'}</span></div><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>swapLeg(leg.eventId)} aria-label={`Podmień ${leg.eventLabel}`} className="min-h-[44px] rounded-lg border border-white/10 bg-white/[.03] px-3 text-xs font-bold text-slate-200 hover:bg-white/[.06]">Podmień</button><button type="button" onClick={()=>removeLeg(leg.eventId)} aria-label={`Usuń ${leg.eventLabel} z kuponu`} className="min-h-[44px] rounded-lg border border-white/10 px-3 text-xs font-bold text-slate-400 hover:text-red-300">Usuń</button><a href={`#/analysis/${encodeURIComponent(leg.eventId)}`} className="inline-flex min-h-[44px] items-center rounded-lg px-3 text-xs font-bold text-violet-300 underline-offset-2 hover:underline">Analiza meczu</a></div></div></div></article>)}</div>
-   </div>
-   <aside className="space-y-3"><div className="ai-surface rounded-2xl p-5"><div className="text-[9px] font-black uppercase tracking-[.18em] text-violet-300">Potencjalna wypłata</div><div className="mt-2 text-4xl font-black text-white">{result.potentialReturn.toFixed(2)} PLN</div><div className="mt-1 text-xs text-emerald-300">zysk brutto {result.potentialProfit.toFixed(2)} PLN</div><div className="mt-4 grid grid-cols-2 gap-3"><div><div className="text-[8px] uppercase text-slate-600">Prawdopodobieństwo</div><div className="mt-1 text-lg font-black text-white">{(result.estimatedProbability*100).toFixed(1)}%</div></div><div><div className="text-[8px] uppercase text-slate-600">Model EV</div><div className="mt-1 text-lg font-black text-white">{(result.estimatedEv*100).toFixed(1)}%</div></div></div></div>
-    <div className="glass rounded-2xl p-4"><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.18em] text-emerald-300"><ShieldCheck size={13}/> Risk / Policy</div><div className="mt-2 text-sm font-bold text-white">{policy?.decision??'WAIT'}</div><div className="mt-2 text-[10px] leading-5 text-slate-500">{policy?.trace.join(' ')??'Brak oceny.'}</div></div>
-    {result.warnings.length>0&&<div className="rounded-2xl border border-amber-400/20 bg-amber-400/[.05] p-4 text-xs leading-5 text-amber-200">{result.warnings.map(w=>WARNING_COPY[w]??w).join(' ')}</div>}
-   </aside>
-  </section>}
-  <div className="mt-5 grid gap-3 md:grid-cols-3"><div className="glass rounded-xl p-4"><div className="text-[8px] font-black uppercase tracking-[.16em] text-slate-600">Źródło danych</div><div className="mt-1 text-sm font-bold text-white">{dataset?.provider??'—'}</div><div className="mt-1 text-[10px] text-slate-500">{dataset?.mode??'—'} · {dataset?.events.length??0} events · {dataset?.snapshots.length??0} snapshots</div></div><div className="glass rounded-xl p-4"><div className="text-[8px] font-black uppercase tracking-[.16em] text-slate-600">Core Engine</div><div className="mt-1 text-sm font-bold text-white">CONTEXT → INTELLIGENCE → DECISION</div><div className="mt-1 text-[10px] text-slate-500">Predykcja nie jest gwarancją wyniku.</div></div><div className="glass rounded-xl p-4"><div className="text-[8px] font-black uppercase tracking-[.16em] text-slate-600">Weryfikacja</div><div className="mt-1 text-sm font-bold text-white">OUTCOME → LEARNING</div><div className="mt-1 text-[10px] text-slate-500">Kupony muszą być śledzone po zakończeniu wydarzeń.</div></div></div>
- </main>;
+const pln = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const oneIn = (p: number) => (p > 0 ? Math.max(1, Math.round(1 / p)) : 0);
+const kickoff = (iso: string) => new Date(iso).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!mq) return;
+    const on = () => setReduced(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return reduced;
+}
+
+/** Animated number that eases from the previous value to the new one. */
+function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const reduced = usePrefersReducedMotion();
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    if (reduced) { setShown(value); from.current = value; return; }
+    const start = performance.now();
+    const a = from.current;
+    let raf = 0;
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - start) / 700);
+      const eased = 1 - Math.pow(1 - k, 3);
+      setShown(a + (value - a) * eased);
+      if (k < 1) raf = requestAnimationFrame(tick); else from.current = value;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, reduced]);
+  return <span className="fl-num">{format(shown)}</span>;
+}
+
+function StadiumBackdrop() {
+  return (
+    <div aria-hidden="true">
+      <div className="fl-beams">
+        <span className="fl-lamp fl-lamp--l" /><span className="fl-lamp fl-lamp--r" />
+        <span className="fl-beam fl-beam--l" /><span className="fl-beam fl-beam--r" />
+      </div>
+      <svg className="fl-pitch" viewBox="0 0 1050 680" fill="none" strokeWidth="3">
+        <rect x="5" y="5" width="1040" height="670" />
+        <line x1="525" y1="5" x2="525" y2="675" />
+        <circle cx="525" cy="340" r="92" />
+        <rect x="5" y="138" width="165" height="404" /><rect x="880" y="138" width="165" height="404" />
+        <rect x="5" y="248" width="55" height="184" /><rect x="990" y="248" width="55" height="184" />
+      </svg>
+    </div>
+  );
+}
+
+type SortKey = 'time' | 'odds' | 'chance';
+
+export default function CouponLabPage() {
+  const { dataset, selectedDate, refresh, runAnalysis, phase } = useIntelligence();
+  const [target, setTarget] = useState('10');
+  const [stake, setStake] = useState('20');
+  const [mode, setMode] = useState<CouponMode>('BEST_AVAILABLE');
+  const [result, setResult] = useState<CouponResult | null>(null);
+  const [request, setRequest] = useState<CouponRequest | null>(null);
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [ai, setAi] = useState<Record<string, 'loading' | 'ok' | 'failed'>>({});
+  const [message, setMessage] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>('time');
+  const [flipKey, setFlipKey] = useState(0);
+  const events = useMemo(() => (dataset ? liveEvents(dataset) : []), [dataset]);
+
+  const generate = async (opts: { target?: string; stake?: string; mode?: CouponMode; exclude?: string[] } = {}) => {
+    if (!dataset) { setMessage('Brak danych. Odśwież źródło.'); return; }
+    const req: CouponRequest = {
+      events, targetOdds: Number(opts.target ?? target), stake: Number(opts.stake ?? stake),
+      tolerance: 0.2, maxLegs: 10, minLegOdds: 1.2, maxLegOdds: 6, minConfidence: 0.5,
+      mode: opts.mode ?? mode, excludeEventIds: opts.exclude ?? [],
+    };
+    const coupon = generateCoupon(req);
+    setRequest(req); setExcluded(opts.exclude ?? []); setResult(coupon); setOpen(null); setFlipKey((k) => k + 1);
+    if (coupon.status === 'BLOCKED') { setMessage(couponMessage(coupon)); return; }
+    setMessage('');
+    const next: Record<string, 'loading' | 'ok' | 'failed'> = {};
+    coupon.legs.forEach((l) => { next[l.eventId] = 'loading'; });
+    setAi(next);
+    await Promise.all(coupon.legs.map(async (leg) => {
+      try {
+        const analysis = await runAnalysis(leg.eventId, { depth: 'deep' });
+        setAi((p) => ({ ...p, [leg.eventId]: analysis ? 'ok' : 'failed' }));
+      } catch {
+        setAi((p) => ({ ...p, [leg.eventId]: 'failed' }));
+      }
+    }));
+  };
+
+  const swapLeg = (eventId: string) => {
+    if (!request || !result) return;
+    const nextReq = { ...request, excludeEventIds: [...(request.excludeEventIds ?? []), eventId] };
+    const next = swapCouponLeg(nextReq, result, eventId);
+    setRequest(nextReq); setResult(next); setFlipKey((k) => k + 1);
+    setMessage(next.warnings.includes('NO_SWAP_AVAILABLE') ? WARNING_COPY.NO_SWAP_AVAILABLE : '');
+  };
+  const removeLeg = (eventId: string) => {
+    if (!request || !result) return;
+    setResult(removeCouponLeg(request, result, eventId)); setFlipKey((k) => k + 1);
+  };
+
+  const legs = useMemo(() => {
+    const list = [...(result?.legs ?? [])];
+    if (sort === 'odds') list.sort((a, b) => b.marketOdds - a.marketOdds);
+    else if (sort === 'chance') list.sort((a, b) => b.probability - a.probability);
+    else list.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    return list;
+  }, [result, sort]);
+
+  const policy = result && result.legs.length ? evaluateRiskPolicy({
+    selections: result.legs.map((l) => ({
+      id: l.selectionId, marketId: l.marketId, eventId: l.eventId, name: l.label, shortName: l.label, odds: l.marketOdds,
+      probability: l.probability, impliedProbability: 1 / l.marketOdds, value: l.edge, ev: l.ev, confidence: l.confidence,
+      risk: l.risk, correlationGroup: l.marketId,
+    })),
+    dataFreshness: dataset?.providerHealth ? Math.max(0, 1 - dataset.providerHealth.ageSeconds / Math.max(1, dataset.providerHealth.staleAfterSeconds)) : 0,
+    evidenceQuality: dataset?.providerHealth?.state === 'HEALTHY' ? 0.8 : 0.5,
+    providerState: dataset?.providerHealth?.state ?? 'OFFLINE',
+  }) : null;
+
+  const pickTarget = (v: string) => { setTarget(v); if (result) void generate({ target: v }); };
+  const pickStake = (v: string) => { setStake(v); if (result) void generate({ stake: v }); };
+  const pickMode = (m: CouponMode) => { setMode(m); if (result) void generate({ mode: m }); };
+
+  if (phase === 'loading' && !dataset) {
+    return <div className="mx-auto max-w-[1200px] px-5 py-12 text-slate-400" role="status">Ładowanie meczów i kursów…</div>;
+  }
+
+  const deviation = result?.targetDeviation ?? 0;
+  const ageMin = dataset?.providerHealth ? Math.round(dataset.providerHealth.ageSeconds / 60) : null;
+
+  return (
+    <main className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-4 md:px-6">
+      {/* HERO */}
+      <section className="fl-stage rounded-[28px] border border-white/[.07] px-5 pb-8 pt-8 md:px-10 md:pb-12 md:pt-12">
+        <StadiumBackdrop />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.28em] text-amber-200/80"><Sparkles size={13} /> Kupon dnia · {selectedDate}</div>
+            <h1 className="fl-display mt-3 text-5xl text-white md:text-7xl">ZŁÓŻ KUPON<br /><span className="text-amber-200">POD SWÓJ KURS</span></h1>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">Wybierz, ile chcesz wygrać. Silnik dobierze mecze tak, by kurs łączny trafił w cel przy najwyższej możliwej szansie — i powie, czy kupon ma przewagę nad rynkiem.</p>
+          </div>
+          <button type="button" onClick={() => void refresh(selectedDate, true)} className="fl-btn inline-flex items-center gap-2 border border-white/10 bg-black/30 px-4 text-xs font-bold text-white backdrop-blur">
+            <RefreshCw size={14} /> Odśwież kursy
+          </button>
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <div className="min-w-0">
+            <div id="target-label" className="text-[10px] font-black uppercase tracking-[.2em] text-slate-400">Docelowy kurs</div>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-labelledby="target-label">
+              {TARGETS.map((v) => (
+                <button key={v} type="button" aria-pressed={target === v} onClick={() => pickTarget(v)} className="fl-chip fl-display text-2xl text-white">x{v}</button>
+              ))}
+            </div>
+            <label className="mt-3 flex max-w-xs items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 text-xs text-slate-400 backdrop-blur">
+              Własny
+              <input value={target} onChange={(e) => setTarget(e.target.value)} onBlur={() => result && void generate()} inputMode="decimal" type="number" min="1.01" step="0.01" className="w-full bg-transparent py-3 text-base font-bold text-white outline-none" aria-label="Własny docelowy kurs" />
+            </label>
+          </div>
+          <div>
+            <div id="stake-label" className="text-[10px] font-black uppercase tracking-[.2em] text-slate-400">Stawka (PLN)</div>
+            <div className="mt-2 grid grid-cols-4 gap-2" role="group" aria-labelledby="stake-label">
+              {STAKES.map((v) => (
+                <button key={v} type="button" aria-pressed={stake === v} onClick={() => pickStake(v)} className="fl-chip text-sm font-black text-white">{v}</button>
+              ))}
+            </div>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 px-4 py-3 backdrop-blur">
+              <div className="text-[10px] uppercase tracking-[.16em] text-slate-500">Cel wygranej</div>
+              <div className="fl-display mt-1 text-3xl text-white"><CountUp value={Number(stake) * Number(target) || 0} format={pln} /> <span className="text-base text-slate-400">PLN</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => void generate()} disabled={!dataset} className="fl-btn fl-cta px-7 py-4 text-sm font-black uppercase tracking-[.12em] disabled:opacity-40">
+            Generuj kupon
+          </button>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Tryb doboru typów">
+            {([['BEST_AVAILABLE', 'Najlepsze kursy'], ['VALUE_ONLY', 'Tylko z przewagą']] as const).map(([m, l]) => (
+              <button key={m} type="button" aria-pressed={mode === m} onClick={() => pickMode(m)} className="fl-chip px-4 text-xs font-bold text-slate-200">{l}</button>
+            ))}
+          </div>
+          <span className="text-[11px] text-slate-400">
+            {dataset ? `${events.length} meczów · ${dataset.providerHealth?.bookmakerCount ?? '?'} bukmacherów${ageMin !== null ? ` · kursy sprzed ${ageMin} min` : ''}` : 'Brak danych'}
+          </span>
+        </div>
+        {message && <div role="status" className="mt-4 rounded-xl border border-amber-300/20 bg-black/40 px-4 py-3 text-sm text-amber-100 backdrop-blur">{message}</div>}
+      </section>
+
+      {/* TICKET */}
+      {result && result.legs.length > 0 && (
+        <section className="mt-6 grid gap-5 lg:grid-cols-[1.6fr_.9fr]" aria-label="Wygenerowany kupon">
+          <div className="fl-ticket min-w-0 p-4 md:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[.22em] text-slate-500">Twój kupon · {result.legs.length} {result.legs.length === 1 ? 'mecz' : 'mecze/ów'}</div>
+                <div className="fl-display mt-1 text-4xl text-white md:text-5xl">KURS <span key={flipKey} className="fl-flip inline-block text-amber-200">{result.combinedOdds.toFixed(2)}</span></div>
+              </div>
+              <span className={Math.abs(deviation) <= 0.03 ? 'rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-200' : 'rounded-full border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-100'}>
+                cel x{Number(result.targetOdds).toFixed(2)} · {deviation >= 0 ? '+' : '−'}{Math.abs(deviation * 100).toFixed(1)}%
+              </span>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="fl-table sm:min-w-[560px]">
+                <thead>
+                  <tr>
+                    <th scope="col"><button type="button" className="fl-th" onClick={() => setSort('time')} aria-pressed={sort === 'time'}>Mecz {sort === 'time' && <ArrowDownUp size={10} className="inline" />}</button></th>
+                    <th scope="col"><span className="fl-th">Typ</span></th>
+                    <th scope="col"><button type="button" className="fl-th" onClick={() => setSort('odds')} aria-pressed={sort === 'odds'}>Kurs {sort === 'odds' && <ArrowDownUp size={10} className="inline" />}</button></th>
+                    <th scope="col"><button type="button" className="fl-th" onClick={() => setSort('chance')} aria-pressed={sort === 'chance'}>Szansa {sort === 'chance' && <ArrowDownUp size={10} className="inline" />}</button></th>
+                    <th scope="col"><span className="sr-only">Akcje</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legs.map((leg, i) => <LegRow key={leg.selectionId + flipKey} leg={leg} index={i} open={open === leg.eventId} onToggle={() => setOpen(open === leg.eventId ? null : leg.eventId)} onSwap={() => swapLeg(leg.eventId)} onRemove={() => removeLeg(leg.eventId)} aiState={ai[leg.eventId]} />)}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" onClick={() => void generate({ exclude: [...excluded, ...result.legs.map((l) => l.eventId)] })} className="fl-btn inline-flex items-center gap-2 border border-white/10 bg-white/[.03] px-4 text-xs font-bold text-slate-200"><Shuffle size={14} /> Losuj inny zestaw</button>
+              {excluded.length > 0 && <button type="button" onClick={() => void generate({ exclude: [] })} className="fl-btn px-3 text-xs font-bold text-slate-400 underline">Wróć do najlepszego</button>}
+            </div>
+          </div>
+
+          {/* PAYOUT */}
+          <aside className="min-w-0 space-y-4">
+            <div className="fl-ticket overflow-hidden">
+              <div className="p-5">
+                <div className="text-[10px] font-black uppercase tracking-[.2em] text-slate-500">Wypłata przy wygranej</div>
+                <div className="fl-display mt-2 text-5xl text-white"><CountUp value={result.potentialReturn} format={pln} /><span className="ml-2 text-lg text-slate-400">PLN</span></div>
+                <div className="mt-1 text-xs text-slate-400">stawka {pln(result.stake)} PLN × kurs {result.combinedOdds.toFixed(2)}</div>
+              </div>
+              <div className="fl-ticket__tear" />
+              <div className="p-5">
+                <div className="flex items-baseline justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-[.2em] text-slate-500">Szansa wg rynku</div>
+                  <div className="text-sm font-bold text-white">{(result.estimatedProbability * 100).toFixed(1)}%</div>
+                </div>
+                <div className="fl-meter mt-2"><i key={flipKey} style={{ width: `${Math.max(2, Math.min(100, result.estimatedProbability * 100))}%` }} /></div>
+                <p className="mt-2 text-xs text-slate-300">Taki kupon wchodzi średnio <b className="text-white">1 raz na {oneIn(result.estimatedProbability)}</b>.</p>
+                <p className={result.estimatedEv > 0 ? 'mt-3 text-xs font-bold text-emerald-300' : 'mt-3 text-xs text-slate-400'}>
+                  {result.estimatedEv > 0 ? `Przewaga nad rynkiem: +${(result.estimatedEv * 100).toFixed(1)}%` : `Bez przewagi (${(result.estimatedEv * 100).toFixed(1)}%) — to zakład rozrywkowy, nie inwestycja.`}
+                </p>
+              </div>
+            </div>
+
+            {result.warnings.filter((w) => w !== 'NEGATIVE_EV').length > 0 && (
+              <div className="rounded-2xl border border-amber-300/20 bg-amber-400/[.05] p-4 text-xs leading-5 text-amber-100">
+                {result.warnings.filter((w) => w !== 'NEGATIVE_EV').map((w) => WARNING_COPY[w] ?? w).join(' ')}
+              </div>
+            )}
+
+            <details className="group rounded-2xl border border-white/[.07] bg-white/[.02] p-4 text-xs text-slate-400">
+              <summary className="flex cursor-pointer list-none items-center justify-between font-bold text-slate-200">Szczegóły dla analityka <ChevronDown size={14} className="transition-transform group-open:rotate-180" /></summary>
+              <ul className="mt-3 space-y-1.5">
+                {result.rationale.map((r) => <li key={r}>{r}</li>)}
+                <li>Polityka ryzyka: {policy?.decision ?? '—'} {policy?.reasons.length ? `(${policy.reasons.join(', ')})` : ''}</li>
+                <li>Źródło: {dataset?.provider ?? '—'} · {dataset?.providerHealth?.state ?? '—'}</li>
+              </ul>
+            </details>
+            <p className="px-1 text-[11px] leading-5 text-slate-500">18+. Zakłady wiążą się z ryzykiem utraty pieniędzy. Graj odpowiedzialnie.</p>
+          </aside>
+        </section>
+      )}
+    </main>
+  );
+}
+
+function LegRow({ leg, index, open, onToggle, onSwap, onRemove, aiState }: {
+  leg: CouponLeg; index: number; open: boolean; aiState?: 'loading' | 'ok' | 'failed';
+  onToggle: () => void; onSwap: () => void; onRemove: () => void;
+}) {
+  const detailsId = `leg-${index}-details`;
+  return (
+    <>
+      <tr className="fl-row fl-in" style={{ ['--i' as string]: index }} data-open={open}>
+        <td>
+          <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={detailsId} className="text-left">
+            <div className="text-sm font-bold text-white">{leg.eventLabel}</div>
+            <div className="mt-0.5 text-[11px] text-slate-400">{leg.league} · {kickoff(leg.startTime)}</div>
+          </button>
+        </td>
+        <td className="text-sm text-slate-200">{leg.label}<div className="text-[10px] text-slate-500">{leg.bookmaker}</div></td>
+        <td><span className="fl-odds fl-num fl-flip">{leg.marketOdds.toFixed(2)}</span></td>
+        <td>
+          <div className="text-sm font-bold text-white">{(leg.probability * 100).toFixed(0)}%</div>
+          <div className={leg.ev > 0 ? 'text-[10px] font-bold text-emerald-300' : 'text-[10px] text-slate-500'}>{leg.ev > 0 ? `+${(leg.ev * 100).toFixed(1)}%` : 'bez przewagi'}</div>
+        </td>
+        <td className="whitespace-nowrap text-right">
+          <button type="button" onClick={onSwap} aria-label={`Podmień ${leg.eventLabel}`} title="Podmień" className="fl-btn inline-grid w-11 place-items-center text-slate-300 hover:bg-white/[.06]"><Repeat2 size={16} /></button>
+          <button type="button" onClick={onRemove} aria-label={`Usuń ${leg.eventLabel} z kuponu`} title="Usuń" className="fl-btn inline-grid w-11 place-items-center text-slate-500 hover:text-red-300"><Trash2 size={16} /></button>
+        </td>
+      </tr>
+      {open && (
+        <tr id={detailsId} className="fl-row">
+          <td colSpan={5}>
+            <p className="text-xs leading-5 text-slate-200"><b>Dlaczego ten typ: </b>{leg.reason}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+              <span>{aiState === 'loading' ? 'AI analizuje mecz…' : aiState === 'ok' ? 'AI: analiza gotowa' : aiState === 'failed' ? 'AI: analiza niedostępna' : ''}</span>
+              <a href={`#/analysis/${encodeURIComponent(leg.eventId)}`} className="inline-flex min-h-[44px] items-center gap-1 font-bold text-cyan-200 hover:underline"><LineChart size={13} /> Pełna analiza meczu</a>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
 }

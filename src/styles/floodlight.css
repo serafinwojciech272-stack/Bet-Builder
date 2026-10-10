@@ -1,0 +1,117 @@
+/* Floodlight — night-stadium visual layer for Bet Builder.
+   Pure CSS/SVG, no imagery. All motion is transform/opacity and is disabled
+   under prefers-reduced-motion. */
+
+
+:root {
+  --fl-pitch: #0b2a1f;
+  --fl-pitch-2: #0f3a2a;
+  --fl-line: rgba(220, 255, 235, 0.05);
+  --fl-beam: rgba(210, 235, 255, 0.10);
+  --fl-ticket: #0d1320;
+  --fl-ticket-edge: rgba(255, 255, 255, 0.09);
+  --fl-display: 'Anton', 'Oswald', Impact, sans-serif;
+}
+
+.fl-stage { position: relative; isolation: isolate; overflow: hidden; }
+
+/* stadium bowl: pitch glow at the bottom, ink at the top */
+.fl-stage::before {
+  content: ''; position: absolute; inset: 0; z-index: -2;
+  background:
+    radial-gradient(120% 70% at 50% 115%, var(--fl-pitch-2) 0%, var(--fl-pitch) 35%, transparent 70%),
+    radial-gradient(60% 50% at 50% -10%, rgba(155, 140, 255, 0.18), transparent 70%),
+    linear-gradient(180deg, #05070d 0%, #06100d 100%);
+}
+
+/* floodlight beams from the two upper corners */
+.fl-beams { position: absolute; inset: -20% -10% 0; z-index: -1; pointer-events: none; }
+.fl-beam {
+  position: absolute; top: 0; width: 55%; height: 140%;
+  background: conic-gradient(from 180deg at 50% 0%, transparent 0deg, var(--fl-beam) 14deg, transparent 28deg);
+  filter: blur(6px); opacity: 0.9; transform-origin: 50% 0%;
+}
+.fl-beam--l { left: -8%; transform: rotate(-24deg); animation: fl-sweep-l 14s ease-in-out infinite alternate; }
+.fl-beam--r { right: -8%; transform: rotate(24deg); animation: fl-sweep-r 16s ease-in-out infinite alternate; }
+.fl-lamp {
+  position: absolute; top: 2%; width: 140px; height: 40px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.85), rgba(200, 230, 255, 0.25) 45%, transparent 75%);
+  filter: blur(2px);
+}
+.fl-lamp--l { left: 6%; } .fl-lamp--r { right: 6%; }
+@keyframes fl-sweep-l { from { transform: rotate(-30deg); } to { transform: rotate(-16deg); } }
+@keyframes fl-sweep-r { from { transform: rotate(30deg); } to { transform: rotate(16deg); } }
+
+/* pitch markings drawn in SVG behind the hero */
+.fl-pitch { position: absolute; left: 50%; bottom: -30%; width: 1400px; max-width: 160%; transform: translateX(-50%) perspective(900px) rotateX(62deg); z-index: -1; opacity: 0.9; }
+.fl-pitch * { stroke: var(--fl-line); }
+
+.fl-display { font-family: var(--fl-display); letter-spacing: 0.01em; font-weight: 400; line-height: 0.95; }
+.fl-num { font-variant-numeric: tabular-nums; }
+
+/* target chips */
+.fl-chip { position: relative; min-height: 52px; border-radius: 14px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+.fl-chip:hover { transform: translateY(-2px); border-color: rgba(240, 203, 122, .45); }
+.fl-chip[aria-pressed='true'] { border-color: rgba(240, 203, 122, .8); background: linear-gradient(180deg, rgba(240,203,122,.18), rgba(240,203,122,.04)); box-shadow: 0 10px 30px -12px rgba(240,203,122,.55); }
+.fl-chip:focus-visible, .fl-btn:focus-visible, .fl-th:focus-visible { outline: 2px solid var(--bb-cyan); outline-offset: 2px; }
+
+.fl-btn { min-height: 44px; border-radius: 12px; transition: transform .15s ease, background .15s ease; }
+.fl-btn:active { transform: scale(.97); }
+.fl-cta { background: linear-gradient(90deg, #f0cb7a, #ffd98f 50%, #f0cb7a); background-size: 200% 100%; color: #1a1306; box-shadow: 0 16px 40px -16px rgba(240,203,122,.7); animation: fl-shine 6s linear infinite; }
+@keyframes fl-shine { from { background-position: 0% 0; } to { background-position: 200% 0; } }
+
+/* ticket: perforated coupon */
+.fl-ticket { position: relative; background: linear-gradient(180deg, #101827, var(--fl-ticket)); border: 1px solid var(--fl-ticket-edge); border-radius: 22px; }
+.fl-ticket__tear { position: relative; height: 0; border-top: 2px dashed rgba(255,255,255,.12); margin: 0 18px; }
+.fl-ticket__tear::before, .fl-ticket__tear::after { content: ''; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--bb-bg); border: 1px solid var(--fl-ticket-edge); }
+.fl-ticket__tear::before { left: -31px; } .fl-ticket__tear::after { right: -31px; }
+
+/* interactive legs table */
+.fl-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+.fl-th { font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: #64748b; font-weight: 800; text-align: left; padding: 4px 10px; cursor: pointer; user-select: none; background: none; border: 0; }
+.fl-row td { background: rgba(255,255,255,.025); padding: 12px 10px; border-top: 1px solid rgba(255,255,255,.05); border-bottom: 1px solid rgba(255,255,255,.05); }
+.fl-row td:first-child { border-left: 1px solid rgba(255,255,255,.05); border-radius: 12px 0 0 12px; }
+.fl-row td:last-child { border-right: 1px solid rgba(255,255,255,.05); border-radius: 0 12px 12px 0; }
+.fl-row:hover td { background: rgba(255,255,255,.045); }
+.fl-row[data-open='true'] td { background: rgba(120,228,255,.05); }
+.fl-odds { display: inline-block; min-width: 3.6em; text-align: center; border-radius: 10px; padding: 6px 8px; background: rgba(240,203,122,.1); color: #ffe3a3; font-weight: 800; }
+.fl-flip { animation: fl-flip .5s cubic-bezier(.2,.8,.2,1); }
+@keyframes fl-flip { from { transform: rotateX(90deg); opacity: 0; } to { transform: rotateX(0); opacity: 1; } }
+
+/* probability meter: one bar, ten seats */
+.fl-meter { height: 8px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+.fl-meter > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5ee6a5, #78e4ff); transform-origin: left; animation: fl-grow .9s cubic-bezier(.2,.8,.2,1); }
+@keyframes fl-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* staggered entrance */
+.fl-in { animation: fl-in .55s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@keyframes fl-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* scroll-driven reveal where supported */
+@supports (animation-timeline: view()) {
+  .fl-reveal { animation: fl-in linear both; animation-timeline: view(); animation-range: entry 0% entry 40%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fl-beam, .fl-cta, .fl-flip, .fl-meter > i, .fl-in, .fl-reveal { animation: none !important; }
+  .fl-chip, .fl-btn { transition: none; }
+}
+@media (max-width: 640px) {
+  .fl-pitch { bottom: -18%; }
+  .fl-lamp { width: 90px; }
+}
+
+/* mobile: legs table collapses into cards */
+@media (max-width: 640px) {
+  .fl-table, .fl-table tbody { display: block; }
+  .fl-table thead { display: none; }
+  .fl-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; margin-bottom: 8px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); }
+  .fl-row[data-open='true'] { background: rgba(120,228,255,.05); }
+  .fl-row td { display: block; padding: 0 !important; background: none !important; border: 0 !important; border-radius: 0 !important; }
+  .fl-row td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .fl-row td:nth-child(2) { grid-column: 1; grid-row: 2; }
+  .fl-row td:nth-child(3) { grid-column: 2; grid-row: 1; text-align: right; }
+  .fl-row td:nth-child(4) { grid-column: 2; grid-row: 2; text-align: right; }
+  .fl-row td:nth-child(5) { grid-column: 1 / -1; grid-row: 3; text-align: left !important; border-top: 1px solid rgba(255,255,255,.06) !important; padding-top: 4px !important; }
+  .fl-row td[colspan] { grid-column: 1 / -1; grid-row: auto; }
+}

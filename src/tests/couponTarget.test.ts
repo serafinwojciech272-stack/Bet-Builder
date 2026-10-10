@@ -60,6 +60,16 @@ describe('coupon engine honours the target odds', () => {
   });
 });
 
+describe('target precision', () => {
+  it('lands within a few percent of the target so payout ≈ stake × target', () => {
+    for (const t of [3, 5, 10, 25, 50, 100]) {
+      const r = generateCoupon({ events, targetOdds: t, stake: 20, maxLegs: 10 });
+      expect(Math.abs(r.targetDeviation)).toBeLessThan(0.07);
+      expect(r.potentialReturn).toBeCloseTo(20 * r.combinedOdds, 6);
+    }
+  });
+});
+
 describe('per-leg actions', () => {
   const req = { events, targetOdds: 10, stake: 20, maxLegs: 10 };
 
