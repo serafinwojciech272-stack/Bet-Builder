@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Radio, Search, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronRight, Crown, Search, Sparkles } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { useSlip, type SlipPick } from '../state/SlipProvider';
 import { liveEvents } from '../services/liveAdapter';
-import { matchOfTheDay, toMatchRow, type MatchRow, type OutcomeCell } from '../lib/matchBoard';
+import { matchOfTheDay, shares, toMatchRow, type MatchRow, type OutcomeCell } from '../lib/matchBoard';
 import { VersusHero } from '../components/VersusHero';
 import { Crest } from '../components/Crest';
 import { rivalIdentities } from '../lib/teamIdentity';
@@ -135,17 +135,17 @@ export function TodayPage() {
             <section key={league} className="fl-ticket fl-in overflow-hidden" style={{ ['--i' as string]: Math.min(gi, 8) }}>
               <button type="button" onClick={() => setCollapsed((c) => ({ ...c, [league]: !c[league] }))} aria-expanded={!isCollapsed}
                 className="flex min-h-[48px] w-full items-center justify-between px-4 text-left">
-                <span className="text-xs font-black uppercase tracking-[.16em] text-slate-300">{league} <span className="ml-1 text-slate-500">{list.length}</span></span>
+                <span className="ar-league">{league}<b>{list.length}</b></span>
                 <ChevronDown size={16} className={isCollapsed ? '-rotate-90 text-slate-500 transition-transform' : 'text-slate-500 transition-transform'} />
               </button>
               {!isCollapsed && (
                 <ul className="divide-y divide-white/[.05] border-t border-white/[.06]">
                   {list.map((row) => (
-                    <li key={row.event.id} className="grid grid-cols-[52px_1fr] items-center gap-3 px-4 py-3 sm:grid-cols-[60px_1fr_auto]">
+                    <li key={row.event.id} className="ar-board-row grid grid-cols-[52px_1fr] items-center gap-3 px-4 py-3 sm:grid-cols-[60px_1fr_auto]">
                       <div className="text-center">
                         {row.event.status === 'LIVE'
-                          ? <span className="inline-flex items-center gap-1 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-black text-red-300"><Radio size={10} className="animate-pulse" />LIVE</span>
-                          : <span className="fl-num text-sm font-bold text-slate-300">{time(row.event.startTime)}</span>}
+                          ? <span className="ar-live">LIVE</span>
+                          : <span className="ar-board-time">{time(row.event.startTime)}</span>}
                       </div>
                       <Link to={`/match/${encodeURIComponent(row.event.id)}`} className="group flex min-w-0 items-center gap-3">
                         <MiniCrests home={row.event.homeTeam} away={row.event.awayTeam} />
@@ -156,6 +156,7 @@ export function TodayPage() {
                           {row.bestEv > 0.005 && <><Sparkles size={10} className="text-emerald-300" /><span className="text-emerald-300">kurs powyżej rynku</span> · </>}
                           {row.outcomes[0].books} bukm. <ChevronRight size={11} className="opacity-0 transition-opacity group-hover:opacity-100" />
                         </div>
+                        <MarketBar row={row} />
                         </div>
                       </Link>
                       <div className="col-span-2 grid grid-cols-3 gap-2 sm:col-span-1 sm:w-[264px]" role="group" aria-label={`Kursy: ${row.event.homeTeam} – ${row.event.awayTeam}`}>
@@ -163,15 +164,17 @@ export function TodayPage() {
                           const o = row.outcomes.find((x) => x.key === k);
                           if (!o) return <span key={k} className="grid min-h-[52px] place-items-center rounded-xl border border-white/[.05] text-xs text-slate-600">—</span>;
                           const on = slip.has(o.selectionId);
+                          const isValue = o.ev > 0.005 && o.ev === row.bestEv;
                           return (
                             <button key={k} type="button" aria-pressed={on} onClick={() => pick(row, o)}
                               title={`${o.label} · ${o.bookmaker} · szansa wg rynku ${(o.probability * 100).toFixed(0)}%`}
                               aria-label={`${o.label}, kurs ${o.odds.toFixed(2)} w ${o.bookmaker}${on ? ', na kuponie' : ''}`}
-                              className={`fl-odd ${on ? 'fl-odd--on' : ''} ${pulse === o.selectionId ? 'fl-pop' : ''}`}
+                              data-side={k === '1' ? 'home' : k === '2' ? 'away' : 'draw'}
+                              className={`fl-odd ${on ? 'fl-odd--on' : ''} ${isValue ? 'fl-odd--value' : ''} ${pulse === o.selectionId ? 'fl-pop' : ''}`}
                               style={on ? { viewTransitionName: `pick-${o.selectionId.replace(/[^a-zA-Z0-9_-]/g, '')}` } : undefined}>
                               <span className="text-[10px] font-bold text-slate-400">{k}</span>
                               <span className="fl-num text-base font-black">{o.odds.toFixed(2)}</span>
-                              {o.ev > 0.005 && <span className="fl-odd__dot" aria-hidden="true" />}
+                              {isValue && <Crown size={11} strokeWidth={2.4} className="fl-odd__crown" aria-hidden="true" />}
                             </button>
                           );
                         })}
@@ -185,6 +188,17 @@ export function TodayPage() {
         })}
       </div>
     </main>
+  );
+}
+
+function MarketBar({ row }: { row: MatchRow }) {
+  const s = shares(row);
+  return (
+    <div className="ar-mini" role="img" aria-label={`Szansa wg rynku: 1 ${(s['1'] * 100).toFixed(0)}%, X ${(s.X * 100).toFixed(0)}%, 2 ${(s['2'] * 100).toFixed(0)}%`}>
+      <i style={{ width: `${s['1'] * 100}%` }} />
+      {s.X > 0.01 && <i style={{ width: `${s.X * 100}%` }} />}
+      <i style={{ width: `${s['2'] * 100}%` }} />
+    </div>
   );
 }
 
