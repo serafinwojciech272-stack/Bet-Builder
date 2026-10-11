@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Crown, LineChart, Target } from 'lucide-react';
+import { ArrowLeft, Crown, Gem, Landmark, LineChart, Scale, Target } from 'lucide-react';
 import { useIntelligence } from '../state/IntelligenceProvider';
 import { useSlip } from '../state/SlipProvider';
 import { liveEvents } from '../services/liveAdapter';
@@ -64,67 +64,73 @@ export function MatchArenaPage() {
   const story = marketStory(row);
   const label = (k: OutcomeKey) => (k === '1' ? event.homeTeam : k === '2' ? event.awayTeam : 'Remis');
 
+  const ICONS = [Scale, Gem, Landmark];
   return (
-    <main className="mx-auto w-full max-w-[1000px] px-4 pb-32 pt-2 md:px-6">
-      <Link to="/" className="mb-3 inline-flex min-h-[44px] items-center gap-2 text-xs font-bold text-slate-400 hover:text-white"><ArrowLeft size={14} /> Mecze</Link>
+    <main className="mx-auto w-full max-w-[1180px] px-4 pb-32 pt-4 md:px-6">
+      <Link to="/" className="ar-back mb-3"><ArrowLeft size={15} /> Mecze</Link>
 
       <VersusHero row={row} badge="Arena" isPicked={slip.has} onPick={(o) => slip.toggle(pickFor(row, o))} />
 
-      <section className="mt-6 grid gap-5 md:grid-cols-[1.2fr_1fr]">
-        <div className="fl-ticket p-5">
-          <h2 className="fl-label">Wyścig bukmacherów</h2>
-          <p className="mt-1 text-xs text-slate-500">Kto płaci najwięcej za każdy wynik. Korona = najlepszy kurs.</p>
-          <div className="mt-4 space-y-5">
-            {(['1', 'X', '2'] as const).filter((k) => row.quotes[k].length).map((k) => {
+      <section className="mt-6 grid gap-6 lg:grid-cols-[1.15fr_1fr]">
+        <div className="ar-glass ar-lift p-6 md:p-7">
+          <h2 className="ar-label">Wyścig bukmacherów</h2>
+          <p className="ar-sub">Kto płaci najwięcej za każdy wynik. Korona = najlepszy kurs.</p>
+          <div className="mt-6">
+            {(['1', 'X', '2'] as const).filter((k) => row.quotes[k].length).map((k, gi) => {
               const q = row.quotes[k];
               const max = q[0].odds;
               const min = q[q.length - 1].odds;
               return (
-                <div key={k}>
-                  <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-sm font-bold text-white">{label(k)}</span>
-                    {q.length > 1 && <span className="text-[11px] text-slate-500">rozrzut {((max / min - 1) * 100).toFixed(1)}%</span>}
+                <div key={k} className="ar-race__group">
+                  <div className="ar-race__head">
+                    <span className="ar-race__title">{label(k)}</span>
+                    {q.length > 1 && <span className="ar-race__spread">rozrzut {((max / min - 1) * 100).toFixed(1)}%</span>}
                   </div>
-                  <div className="space-y-1.5">
-                    {q.map((b, i) => {
-                      const w = max === min ? 100 : 35 + ((b.odds - min) / (max - min)) * 65;
-                      return (
-                        <div key={b.bookmaker} className={`race-row ${i === 0 ? 'race-row--best' : ''}`}>
-                          <span className="truncate text-xs text-slate-300">{b.bookmaker}</span>
-                          <span className="race-bar"><i style={{ width: `${w}%`, ['--i' as string]: i }} /></span>
-                          <span className="fl-num inline-flex items-center justify-end gap-1 text-sm font-black text-white">{i === 0 && <Crown size={12} className="text-amber-300" />}{b.odds.toFixed(2)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {q.map((b, i) => {
+                    const w = max === min ? 100 : 40 + ((b.odds - min) / (max - min)) * 60;
+                    return (
+                      <div key={b.bookmaker} className={`ar-race__row ${i === 0 ? 'ar-race__row--best' : ''}`}>
+                        <span className="ar-race__book">{b.bookmaker}</span>
+                        <span className="ar-race__track"><i className="ar-race__fill" style={{ width: `${w}%`, ['--i' as string]: gi * 3 + i }} /></span>
+                        <span className="ar-race__odds ar-num">{i === 0 && <Crown size={13} className="text-amber-300" aria-label="najlepszy kurs" />}{b.odds.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="space-y-5">
-          <div className="fl-ticket p-5">
-            <h2 className="fl-label">Co mówi rynek</h2>
-            <ol className="mt-3 space-y-3">
-              {story.map((line, i) => (
-                <li key={i} className="fl-in flex gap-3 text-sm leading-6 text-slate-200" style={{ ['--i' as string]: i }}>
-                  <span className="fl-display mt-0.5 text-xl text-amber-200">{i + 1}</span>{line}
-                </li>
-              ))}
+        <div className="flex flex-col gap-6">
+          <div className="ar-glass ar-lift p-6 md:p-7">
+            <h2 className="ar-label">Co mówi rynek</h2>
+            <ol className="mt-3">
+              {story.map((line, i) => {
+                const Icon = ICONS[i] ?? Scale;
+                return (
+                  <li key={i} className="ar-insight fl-in" style={{ ['--i' as string]: i }}>
+                    <span className="ar-insight__icon" aria-hidden="true"><Icon size={16} /></span>
+                    <div>
+                      <div className="ar-insight__n">{String(i + 1).padStart(2, '0')}</div>
+                      <p className="ar-insight__t">{line}</p>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </div>
-          <div className="fl-ticket p-5">
-            <h2 className="fl-label">Zagraj to</h2>
-            <p className="mt-2 text-sm text-slate-300">Dodaj typ powyżej, a potem pozwól silnikowi dobrać resztę kuponu pod Twój kurs.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/builder" className="fl-btn fl-cta inline-flex items-center gap-2 px-4 text-xs font-black uppercase tracking-[.1em]"><Target size={14} /> Zbuduj kupon</Link>
-              <Link to={`/analysis/${encodeURIComponent(event.id)}`} className="fl-btn inline-flex items-center gap-2 border border-white/10 px-4 text-xs font-bold text-slate-200"><LineChart size={14} /> Pełna analiza</Link>
+          <div className="ar-glass ar-lift p-6 md:p-7">
+            <h2 className="ar-label">Zagraj to</h2>
+            <p className="ar-cta-copy mt-3">Dodaj typ powyżej, a potem pozwól silnikowi dobrać resztę kuponu pod Twój kurs.</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link to="/builder" className="ar-btn ar-btn--primary flex-1 sm:flex-none"><Target size={17} /> Zbuduj kupon</Link>
+              <Link to={`/analysis/${encodeURIComponent(event.id)}`} className="ar-btn ar-btn--ghost flex-1 sm:flex-none"><LineChart size={17} /> Pełna analiza</Link>
             </div>
           </div>
         </div>
       </section>
-      <p className="mt-6 text-[11px] text-slate-500">18+. Kursy i szanse pochodzą od bukmacherów i mogą się zmienić. Graj odpowiedzialnie.</p>
+      <p className="ar-foot mt-6">18+. Kursy i szanse pochodzą od bukmacherów i mogą się zmienić. Graj odpowiedzialnie.</p>
     </main>
   );
 }
